@@ -10,6 +10,7 @@ const SUITES:PackedStringArray = [
 	"res://addons/package_exporter/export_ignore/test/dep_resolver_test.gd",
 	"res://addons/package_exporter/export_ignore/test/require_update_test.gd",
 	"res://addons/package_exporter/export_ignore/test/require_check_test.gd",
+	"res://addons/package_exporter/export_ignore/test/require_consumers_test.gd",
 	"res://addons/package_exporter/export_ignore/test/repo_cache_test.gd",
 	"res://addons/package_exporter/export_ignore/test/toolchain_test.gd",
 	"res://addons/package_exporter/export_ignore/test/package_layout_test.gd",
