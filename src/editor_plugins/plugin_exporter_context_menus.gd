@@ -1,4 +1,4 @@
-extends EditorContextMenuPlugin
+extends "res://addons/_lib/popup_wrapper/src/context_menu.gd" #! ext PopupWrapper.ContextMenu
 
 const SLOT = EditorContextMenuPlugin.CONTEXT_SLOT_SCRIPT_EDITOR_CODE
 
@@ -21,14 +21,15 @@ const STD_META = {
 }
 
 
-func _popup_menu(paths: PackedStringArray) -> void:
-	var script_editor:CodeEdit = Engine.get_main_loop().root.get_node(paths[0]);
+func _get_menu_options(data) -> void:
+	var script_editor:CodeEdit = PopupWrapper.Slots.code_edit(data)
 	
 	var valid_items = get_valid_items(script_editor)
-	PopupWrapper.ContextPlugin.create_items(self, script_editor, valid_items, _on_popup_pressed)
+	PopupWrapper.ContextPlugin.create_items(self, data, valid_items, _on_popup_pressed)
 
 
-func _on_popup_pressed(script_editor, item_name):
+func _on_popup_pressed(data, item_name):
+	var script_editor:CodeEdit = PopupWrapper.Slots.code_edit(data)
 	if item_name == SINGLETON_MODULE:
 		add_singleton_module(script_editor)
 	elif item_name == DEPENDENCY:
