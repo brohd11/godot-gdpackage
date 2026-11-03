@@ -2,8 +2,8 @@
 extends RefCounted
 ## Package snapshots are rebuilt on demand after editor filesystem changes.
 
-const ExportIgnore = preload("res://addons/package_exporter/src/class/export/export_ignore.gd")
-const PackageCfg = preload("res://addons/package_exporter/src/class/export/package_cfg.gd")
+const ExportIgnore = preload("uid://c4pt5djyuf8c") #! resolve GDPackageSpec.ExportIgnore
+const PackageCfg = preload("uid://ddo8w07hts45v") #! resolve GDPackageSpec.Cfg
 
 enum Filter { ALL, VALID, NOT_VALID }
 
@@ -73,6 +73,10 @@ static func _scan(root:String, relative:String, paths:Array[String]) -> void:
 		return
 	if relative != "" and PackageCfg.NAMES.any(access.file_exists):
 		paths.append(relative)
+		var cfgs = PackageCfg.find_all(dir)
+		if cfgs.size() > 1: # only the first is read; gdaddon does the same
+			push_warning("Package Exporter: %s has several package cfgs, only %s is read: %s" % [
+				dir, cfgs[0].get_file(), ", ".join(cfgs.map(func(c): return c.get_file()))])
 	for child in access.get_directories():
 		if child.begins_with(".") or ExportIgnore.is_name(child) or access.is_link(child):
 			continue

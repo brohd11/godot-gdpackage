@@ -3,6 +3,7 @@ extends GDSh.CommandBase
 const RequireReport = preload("res://addons/package_exporter/src/class/release/require_report.gd")
 const RequireUpdate = preload("res://addons/package_exporter/src/class/release/require_update.gd")
 const PECommandUtils = preload("res://addons/package_exporter/src/editor_plugins/console_command/command_utils.gd")
+const PackageCfg = preload("uid://ddo8w07hts45v") #! resolve GDPackageSpec.Cfg
 
 const _HELP = \
 "Write the packages the export crawl found into the target's own require list: its cfg require= by
@@ -49,7 +50,7 @@ func _execute(ctx:Context):
 	for w in result.warnings:
 		lines.append("warning: " + w)
 	for dir in report.loose:
-		lines.append("warning: %s is in no plugin.cfg/addon.cfg/version.cfg package, so it can't be required" % dir)
+		lines.append("warning: %s is in no %s package, so it can't be required" % [dir, "/".join(PackageCfg.NAMES)])
 	if not result.errors.is_empty():
 		ctx.append_output("\n".join(lines))
 		for e in result.errors:

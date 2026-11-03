@@ -14,9 +14,9 @@ const DependencyTags = UtilsLocal.DependencyTags
 const Reporter = UtilsLocal.Reporter
 
 const Confirmation = UtilsRemote.Confirmation
-const ExportIgnore = preload("res://addons/package_exporter/src/class/export/export_ignore.gd")
+const ExportIgnore = preload("uid://c4pt5djyuf8c") #! resolve GDPackageSpec.ExportIgnore
 const ExportPaths = preload("res://addons/package_exporter/src/class/export/export_paths.gd")
-const PackageCfg = preload("res://addons/package_exporter/src/class/export/package_cfg.gd")
+const PackageCfg = preload("uid://ddo8w07hts45v") #! resolve GDPackageSpec.Cfg
 
 const VALID_FILE_NAMES = ExportIgnore.CONFIG_NAMES
 

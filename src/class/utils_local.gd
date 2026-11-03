@@ -16,7 +16,7 @@ const ParseTSCN = preload("res://addons/package_exporter/src/class/export/parse/
 const ParseCS = preload("res://addons/package_exporter/src/class/export/parse/parse_cs.gd")
 const ParseTres = preload("res://addons/package_exporter/src/class/export/parse/parse_tres.gd")
 
-const ExportIgnore = preload("res://addons/package_exporter/src/class/export/export_ignore.gd")
+const ExportIgnore = preload("uid://c4pt5djyuf8c") #! resolve GDPackageSpec.ExportIgnore
 
 const Backport = preload("res://addons/package_exporter/src/class/export/parse/gd/backport.gd")
 const CompatData = preload("res://addons/package_exporter/src/class/export/backport/compat_data.gd")

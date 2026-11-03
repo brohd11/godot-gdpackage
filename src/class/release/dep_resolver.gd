@@ -10,8 +10,8 @@ extends RefCounted
 ## install path come from PackageLayout.
 
 const PackageLayout = preload("res://addons/package_exporter/src/class/release/package_layout.gd")
-const ExportIgnore = preload("res://addons/package_exporter/src/class/export/export_ignore.gd")
-const PackageCfg = preload("res://addons/package_exporter/src/class/export/package_cfg.gd")
+const ExportIgnore = preload("uid://c4pt5djyuf8c") #! resolve GDPackageSpec.ExportIgnore
+const PackageCfg = preload("uid://ddo8w07hts45v") #! resolve GDPackageSpec.Cfg
 
 const DEFAULT_HOST = "github.com"
 const CFG_NAMES = PackageCfg.NAMES

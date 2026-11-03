@@ -12,7 +12,7 @@ const UtilsRemote = preload("res://addons/package_exporter/src/class/utils_remot
 
 const UFile = UtilsRemote.UFile
 
-const ExportIgnore = preload("res://addons/package_exporter/src/class/export/export_ignore.gd")
+const ExportIgnore = preload("uid://c4pt5djyuf8c") #! resolve GDPackageSpec.ExportIgnore
 
 const OUTPUT_PATH := "res://addons/package_exporter/src/editor_plugins/console_command/min_version/extension_api/api_min_version.json"
 

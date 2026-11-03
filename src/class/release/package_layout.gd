@@ -6,7 +6,8 @@ extends RefCounted
 ## Differs from gdaddon in two deliberate ways: a root cfg without path= fails instead of defaulting
 ## to addons/<name>, and a bundle yields only the folder whose url= names the repo.
 
-const CFG_NAMES = preload("res://addons/package_exporter/src/class/export/package_cfg.gd").NAMES
+const PackageCfg = preload("uid://ddo8w07hts45v") #! resolve GDPackageSpec.Cfg
+const CFG_NAMES = PackageCfg.NAMES
 const JUNK_FILES = [".DS_Store", "Thumbs.db", "desktop.ini", "ehthumbs.db"]
 
 

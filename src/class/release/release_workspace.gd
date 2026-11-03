@@ -6,7 +6,7 @@ extends RefCounted
 
 const DepResolver = preload("res://addons/package_exporter/src/class/release/dep_resolver.gd")
 const ReleaseRunner = preload("res://addons/package_exporter/src/class/release/release_runner.gd")
-const ExportIgnore = preload("res://addons/package_exporter/src/class/export/export_ignore.gd")
+const ExportIgnore = preload("uid://c4pt5djyuf8c") #! resolve GDPackageSpec.ExportIgnore
 const ExportPaths = preload("res://addons/package_exporter/src/class/export/export_paths.gd")
 
 const READY_MARKER = ".pe_release_ready"
