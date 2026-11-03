@@ -1,6 +1,6 @@
-# Reusable test CI for a PackageExporter package (callers come from add_test_workflow). Runs the
+# Reusable test CI for a GDPackage package (callers come from add_test_workflow). Runs the
 # package's suites as checked out against its requires at their tags, on each Godot listed, with
-# a released package_exporter as toolchain.
+# a released gdpackage as toolchain.
 name: package-test
 
 on:
@@ -11,7 +11,7 @@ on:
         type: string
         default: '["4.6.3-stable"]'
       toolchain-version:
-        description: package_exporter release to test with; empty means its latest release.
+        description: gdpackage release to test with; empty means its latest release.
         type: string
         default: ""
       install-path:
@@ -41,7 +41,7 @@ jobs:
           fetch-depth: 0
 
       # Pinned with the workflow: callers use @main, so both move together.
-      - uses: brohd11/godot-package-exporter/.github/actions/setup@main
+      - uses: brohd11/godot-gdpackage/.github/actions/setup@main
         id: pkg
         with:
           godot-version: ${{ matrix.godot }}
@@ -49,7 +49,7 @@ jobs:
           install-path: ${{ inputs.install-path }}
           package-dir: ${{ inputs.package-dir }}
 
-      # The checkout stays outside $WS (--tree): package_exporter's own install path holds the
+      # The checkout stays outside $WS (--tree): gdpackage's own install path holds the
       # toolchain, and a whole-project repo's package is only a folder of it.
       - name: Test
         shell: bash
@@ -58,7 +58,7 @@ jobs:
           PKG_DIR: ${{ steps.pkg.outputs.dir }}
         run: |
           set -euo pipefail
-          godot --headless --path "$WS" --script res://addons/package_exporter/src/class/release/test_cli.gd -- "$PKG_PATH" --tree "$PKG_DIR" \
+          godot --headless --path "$WS" --script "res://$TOOLCHAIN_DIR/src/class/release/test_cli.gd" -- "$PKG_PATH" --tree "$PKG_DIR" \
             2>&1 | tee "$RUNNER_TEMP/test.log"
 
       - name: Upload test log

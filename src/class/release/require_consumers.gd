@@ -5,10 +5,10 @@ extends RefCounted
 ## build/compile/test_require with @require expanded). Matched by repo_id, so any spelling of the
 ## repo - host, /release, clone:, a tag - finds the same consumers.
 
-const DepResolver = preload("res://addons/package_exporter/src/class/release/dep_resolver.gd")
-const RequireCheck = preload("res://addons/package_exporter/src/class/release/require_check.gd")
-const RequireUpdate = preload("res://addons/package_exporter/src/class/release/require_update.gd")
-const PackageDiscovery = preload("res://addons/package_exporter/src/class/export/package_discovery.gd")
+const DepResolver = preload("res://addons/gdpackage/src/class/release/dep_resolver.gd")
+const RequireCheck = preload("res://addons/gdpackage/src/class/release/require_check.gd")
+const RequireUpdate = preload("res://addons/gdpackage/src/class/release/require_update.gd")
+const PackageDiscovery = preload("res://addons/gdpackage/src/class/export/package_discovery.gd")
 
 const KEYS = ["build", "compile", "test"] # display order
 

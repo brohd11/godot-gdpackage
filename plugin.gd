@@ -3,14 +3,14 @@ extends EditorPlugin
 
 const PLUGIN_EXPORTED = false
 
-const GUI = preload("res://addons/package_exporter/src/gui/gui.gd")
+const GUI = preload("res://addons/gdpackage/src/gui/gui.gd")
 const COMMENT_TAGS = ["#! remote", "#! ignore-remote", "#! dependency", "#! singleton-module", "#! strip-cast"]
-const SHOW_TOOL_MENU_ITEM = &"plugin/package_exporter/show_tool_menu_item"
+const SHOW_TOOL_MENU_ITEM = &"plugin/gdpackage/show_tool_menu_item"
 
-const UtilsRemote = preload("res://addons/package_exporter/src/class/utils_remote.gd")
+const UtilsRemote = preload("res://addons/gdpackage/src/class/utils_remote.gd")
 
-const ConsoleCommand = preload("res://addons/package_exporter/src/editor_plugins/console_command/console_command.gd")
-const ContextMenuPlugin = preload("res://addons/package_exporter/src/editor_plugins/plugin_exporter_context_menus.gd")
+const ConsoleCommand = preload("res://addons/gdpackage/src/editor_plugins/console_command/console_command.gd")
+const ContextMenuPlugin = preload("res://addons/gdpackage/src/editor_plugins/plugin_exporter_context_menus.gd")
 
 static var instance
 
@@ -19,7 +19,7 @@ var context_plugin_inst:ContextMenuPlugin
 var dm_instance_manager:DockManager.InstanceManager
 
 func _get_plugin_name() -> String:
-	return "Package Exporter"
+	return "GDPackage"
 
 func _get_plugin_icon() -> Texture2D:
 	return EditorInterface.get_base_control().get_theme_icon("ActionCopy", &"EditorIcons")
@@ -45,14 +45,14 @@ func _enter_tree() -> void:
 		ed_settings.set_setting(SHOW_TOOL_MENU_ITEM, true)
 	
 	if ed_settings.get_setting(SHOW_TOOL_MENU_ITEM):
-		add_tool_menu_item("Package Exporter", _on_tool_menu_pressed)
+		add_tool_menu_item("GDPackage", _on_tool_menu_pressed)
 	
 	_register_singletons.call_deferred()
 
 func _exit_tree() -> void:
 	remove_context_menu_plugin(context_plugin_inst)
 	
-	remove_tool_menu_item("Package Exporter")
+	remove_tool_menu_item("GDPackage")
 	
 	FileSystemSingleton.unregister_node(self)
 	
@@ -67,7 +67,7 @@ func _on_tool_menu_pressed():
 
 func new_gui_instance():
 	var gui = GUI.new()
-	#gui.name = "PackageExporter"
+	#gui.name = "GDPackage"
 	#gui.name = "PE"
 	var ins = dm_instance_manager.new_freeable_dock_manager(gui, DockManager.Slot.MAIN_SCREEN)
 	ins.allow_scene_reload = true
@@ -84,7 +84,7 @@ func _register_editor_console():
 	if not Singletons.CheckInstance.check_valid(sing_name):
 		return
 	var singleton = Singletons.CheckInstance.get_instance(sing_name)
-	singleton.register_temp_scope("package_exporter", ConsoleCommand)
+	singleton.register_temp_scope("gdpackage", ConsoleCommand)
 
 func _register_code_completions():
 	var sing_name = "EditorCodeCompletionSingleton"

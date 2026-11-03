@@ -1,4 +1,4 @@
-extends "res://addons/package_exporter/src/class/export/parse/parse_base.gd"
+extends "res://addons/gdpackage/src/class/export/parse/parse_base.gd"
 
 
 var tscn_sub_resource_dpi_textures = {}

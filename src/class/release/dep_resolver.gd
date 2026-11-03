@@ -9,7 +9,7 @@ extends RefCounted
 ## goes through `fetcher` (PackageFetcher, or a fake in tests); each package's addon folder and
 ## install path come from PackageLayout.
 
-const PackageLayout = preload("res://addons/package_exporter/src/class/release/package_layout.gd")
+const PackageLayout = preload("res://addons/gdpackage/src/class/release/package_layout.gd")
 const ExportIgnore = preload("uid://c4pt5djyuf8c") #! resolve GDPackageSpec.ExportIgnore
 const PackageCfg = preload("uid://ddo8w07hts45v") #! resolve GDPackageSpec.Cfg
 

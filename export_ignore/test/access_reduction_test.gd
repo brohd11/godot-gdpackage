@@ -9,7 +9,7 @@ extends EditorScript
 ## project: full chains through generated namespace hubs, chains ending in an inner class, and
 ## chains whose head is already the deepest file they name.
 ##
-##     load("res://addons/package_exporter/export_ignore/test/access_reduction_test.gd").run_tests()
+##     load("res://addons/gdpackage/export_ignore/test/access_reduction_test.gd").run_tests()
 
 const DepScanner = preload("uid://dbn0kmkxa7caq") #! resolve DepMap.Scanner
 const DepEdge = DepScanner.DepEdge

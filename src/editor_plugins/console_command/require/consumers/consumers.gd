@@ -1,13 +1,13 @@
 extends GDSh.CommandBase
 
-const RequireConsumers = preload("res://addons/package_exporter/src/class/release/require_consumers.gd")
-const PECommandUtils = preload("res://addons/package_exporter/src/editor_plugins/console_command/command_utils.gd")
+const RequireConsumers = preload("res://addons/gdpackage/src/class/release/require_consumers.gd")
+const PECommandUtils = preload("res://addons/gdpackage/src/editor_plugins/console_command/command_utils.gd")
 
 const _HELP = \
 "List every package under res://addons that declares a repo among its requires: the cfg's require=,
 or its export config's build/compile/test_require. One line per package: its path, the spec as it
 pins the repo, and the keys it is under. Any spelling of the repo matches (host, /release, a tag).
-Usage: package_exporter require consumers <owner/repo>"
+Usage: gdpackage require consumers <owner/repo>"
 
 static func get_command_name() -> String:
 	return "consumers"

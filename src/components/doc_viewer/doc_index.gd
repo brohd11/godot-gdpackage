@@ -4,7 +4,7 @@
 ## contents without needing a tree structure - one flat Array drives both the contents page and
 ## prev/next. Engine-only, no dependencies.
 
-const Parser = preload("res://addons/package_exporter/src/components/doc_viewer/markdown_parser.gd")
+const Parser = preload("res://addons/gdpackage/src/components/doc_viewer/markdown_parser.gd")
 
 ## Packaged docs. Dot-prefixed by the exporter so Godot never imports them.
 const DOC_DIR_NAME = ".doc"

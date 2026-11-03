@@ -3,8 +3,8 @@ extends EditorScript
 ## require check --tags: declared requires (cfg, compile_require, test_require) looked up the way a
 ## build fetches them, with the reason when one can't be, and a note when a checkout is past its tag.
 
-const RequireCheck = preload("res://addons/package_exporter/src/class/release/require_check.gd")
-const DepResolverTest = preload("res://addons/package_exporter/export_ignore/test/dep_resolver_test.gd")
+const RequireCheck = preload("res://addons/gdpackage/src/class/release/require_check.gd")
+const DepResolverTest = preload("res://addons/gdpackage/export_ignore/test/dep_resolver_test.gd")
 const ROOT = "user://pe_require_check_tests"
 
 static var _failures:Array[String] = []

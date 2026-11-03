@@ -4,9 +4,9 @@ extends EditorScript
 ## Tests for the doc viewer's markdown parser — block segmentation and the inline-to-BBCode pass.
 ## The parser is static and pure, so the whole suite runs headless with no scene and no fixtures.
 ##
-##     load("res://addons/package_exporter/export_ignore/test/doc_viewer/markdown_parser_test.gd").run_tests()
+##     load("res://addons/gdpackage/export_ignore/test/doc_viewer/markdown_parser_test.gd").run_tests()
 
-const Parser = preload("res://addons/package_exporter/src/components/doc_viewer/markdown_parser.gd")
+const Parser = preload("res://addons/gdpackage/src/components/doc_viewer/markdown_parser.gd")
 
 ## Base size the bbcode assertions are written against; heading sizes are ratios of it.
 const BASE = 16

@@ -2,8 +2,8 @@
 extends EditorScript
 ## Release exports refuse an engine older than the sources need, before the import can drop classes.
 
-const ReleaseExport = preload("res://addons/package_exporter/src/class/release/release_export.gd")
-const TestCI = preload("res://addons/package_exporter/src/class/release/test_ci.gd")
+const ReleaseExport = preload("res://addons/gdpackage/src/class/release/release_export.gd")
+const TestCI = preload("res://addons/gdpackage/src/class/release/test_ci.gd")
 const Reporter = ReleaseExport.Reporter
 const MISSING = "res://addons/__pe_missing_package"
 

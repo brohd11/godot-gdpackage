@@ -1,6 +1,6 @@
 extends Node
 
-const _ContextBackport = preload("res://addons/package_exporter/src/class/export/backport/context/context_backport.gd")
+const _ContextBackport = preload("res://addons/gdpackage/src/class/export/backport/context/context_backport.gd")
 
 
 func _popup_menu(paths: PackedStringArray) -> void: # give node path to desired node from root

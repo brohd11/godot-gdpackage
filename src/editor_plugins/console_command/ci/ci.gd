@@ -5,7 +5,7 @@ const _HELP = \
   release_workflow  write .github/workflows/release.yml, building a release on version tags
   test_workflow     write .github/workflows/test.yml, running its suites on every push
   run_test          run its tests against its requires at their tags, as test CI does
-Usage: package_exporter ci <release_workflow|test_workflow|run_test> ..."
+Usage: gdpackage ci <release_workflow|test_workflow|run_test> ..."
 
 static func get_command_name() -> String:
 	return "ci"

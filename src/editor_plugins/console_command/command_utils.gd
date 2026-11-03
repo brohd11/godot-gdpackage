@@ -2,8 +2,8 @@
 const CommandBase = GDSh.CommandBase
 const Completion = CommandBase.Completion
 
-const PluginExporter = preload("res://addons/package_exporter/src/class/plugin_exporter.gd")
-const Reporter = preload("res://addons/package_exporter/src/class/export/reporter.gd")
+const PluginExporter = preload("res://addons/gdpackage/src/class/plugin_exporter.gd")
+const Reporter = preload("res://addons/gdpackage/src/class/export/reporter.gd")
 const TargetAddons = PluginExporter.TargetAddons
 const TARGET_HELP = "\nTargets are relative to res://addons/ (e.g. _lib/util_r), or absolute res:// / filesystem paths inside this project."
 

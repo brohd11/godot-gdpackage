@@ -1,4 +1,4 @@
-const CompatData = preload("res://addons/package_exporter/src/class/export/backport/compat_data.gd")
+const CompatData = preload("res://addons/gdpackage/src/class/export/backport/compat_data.gd")
 
 const BACKPORTED = 100
 

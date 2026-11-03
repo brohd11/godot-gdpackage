@@ -6,15 +6,15 @@ extends RefCounted
 ## the reference, since that one's export_ignore/plugin_export.* is where `build_require` belongs.
 ## Its own graph keeps every dependent, so cross-package references cannot overwrite each other.
 
-const UtilsLocal = preload("res://addons/package_exporter/src/class/utils_local.gd")
-const UtilsRemote = preload("res://addons/package_exporter/src/class/utils_remote.gd")
+const UtilsLocal = preload("res://addons/gdpackage/src/class/utils_local.gd")
+const UtilsRemote = preload("res://addons/gdpackage/src/class/utils_remote.gd")
 const ExportFileUtils = UtilsLocal.ExportFileUtils
 const ExportData = UtilsLocal.ExportData
 const DependencyTags = UtilsLocal.DependencyTags
 const DepScanner = UtilsRemote.DepScanner
 const DepEdge = DepScanner.DepEdge
-const DepResolver = preload("res://addons/package_exporter/src/class/release/dep_resolver.gd")
-const RequireUpdate = preload("res://addons/package_exporter/src/class/release/require_update.gd")
+const DepResolver = preload("res://addons/gdpackage/src/class/release/dep_resolver.gd")
+const RequireUpdate = preload("res://addons/gdpackage/src/class/release/require_update.gd")
 
 const CFG_NAMES = DepResolver.CFG_NAMES
 

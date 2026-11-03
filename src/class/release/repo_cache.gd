@@ -5,8 +5,8 @@ extends RefCounted
 ## cache); `refresh` compares every cached tag against the remote first and fails if one moved.
 ## This is DepResolver's fetcher: tag_sha / read_file / extract.
 
-const DepResolver = preload("res://addons/package_exporter/src/class/release/dep_resolver.gd")
-const ReleaseRunner = preload("res://addons/package_exporter/src/class/release/release_runner.gd")
+const DepResolver = preload("res://addons/gdpackage/src/class/release/dep_resolver.gd")
+const ReleaseRunner = preload("res://addons/gdpackage/src/class/release/release_runner.gd")
 
 var root:String
 var refresh:bool
@@ -24,7 +24,7 @@ func _init(cache_root:String = "", refresh_tags:bool = false) -> void:
 
 
 static func default_root() -> String:
-	return OS.get_cache_dir().path_join("package_exporter")
+	return OS.get_cache_dir().path_join("gdpackage")
 
 
 ## A file:// url is keyed by its full path's hash: its repo id only keeps the last two segments,

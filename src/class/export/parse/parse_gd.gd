@@ -1,4 +1,4 @@
-extends "res://addons/package_exporter/src/class/export/parse/parse_base.gd"
+extends "res://addons/gdpackage/src/class/export/parse/parse_base.gd"
 
 const PLUGIN_EXPORTED_STRING = "const PLUGIN_EXPORTED = false"
 const PLUGIN_EXPORTED_REPLACE = "const PLUGIN_EXPORTED = true"
@@ -209,9 +209,9 @@ func post_export_edit_file(file_path:String, file_lines:Variant=null):
 	if not rename_lines.is_empty():
 		adjusted_file_lines.append("")
 		adjusted_file_lines.append("")
-		adjusted_file_lines.append("### Package Exporter Global Classes")
+		adjusted_file_lines.append("### GDPackage Global Classes")
 		adjusted_file_lines.append_array(rename_lines)
-		#adjusted_file_lines.append("### Package Exporter Global Classes")
+		#adjusted_file_lines.append("### GDPackage Global Classes")
 		adjusted_file_lines.append("")
 
 

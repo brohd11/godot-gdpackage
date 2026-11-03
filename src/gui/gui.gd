@@ -1,7 +1,7 @@
 extends Control
 
-const PluginExporter = preload("res://addons/package_exporter/src/class/plugin_exporter.gd")
-const UtilsRemote = preload("res://addons/package_exporter/src/class/utils_remote.gd")
+const PluginExporter = preload("res://addons/gdpackage/src/class/plugin_exporter.gd")
+const UtilsRemote = preload("res://addons/gdpackage/src/class/utils_remote.gd")
 
 const TabBarContainer = UtilsRemote.TabBarContainer
 const EditorIcons = UtilsRemote.EditorIcons
@@ -15,10 +15,10 @@ const FSTreeClasses = preload("res://addons/_lib/editor_filesystem/src/component
 
 const YAMLHighlighter = preload("uid://com2gj0t82d8f") #! resolve SyntaxHighlighters.Text.Yaml
 
-const Summary = preload("res://addons/package_exporter/src/gui/panels/summary.gd")
-const DependencyView = preload("res://addons/package_exporter/src/gui/panels/dep_view.gd")
-const ExportEditor = preload("res://addons/package_exporter/src/gui/panels/export_editor.gd")
-const DocViewer = preload("res://addons/package_exporter/src/components/doc_viewer/doc_viewer.gd")
+const Summary = preload("res://addons/gdpackage/src/gui/panels/summary.gd")
+const DependencyView = preload("res://addons/gdpackage/src/gui/panels/dep_view.gd")
+const ExportEditor = preload("res://addons/gdpackage/src/gui/panels/export_editor.gd")
+const DocViewer = preload("res://addons/gdpackage/src/components/doc_viewer/doc_viewer.gd")
 
 
 #const FileSystem = UtilsRemote.FileSystem
@@ -26,7 +26,7 @@ const DocViewer = preload("res://addons/package_exporter/src/components/doc_view
 #const UEditorTheme = UtilsRemote.UEditorTheme
 #const Filter = UtilsRemote.UString.Filter
 
-const UtilsLocal = preload("res://addons/package_exporter/src/class/utils_local.gd")
+const UtilsLocal = preload("res://addons/gdpackage/src/class/utils_local.gd")
 const PluginExporterStatic = UtilsLocal.PluginExporterStatic
 const ExportData = UtilsLocal.ExportData
 const Export = ExportData.Export

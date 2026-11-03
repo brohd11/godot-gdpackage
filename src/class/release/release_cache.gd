@@ -6,8 +6,8 @@ extends RefCounted
 ## ambiguous. Assets are cached per tag and trusted as immutable; `refresh` re-downloads and fails
 ## if an asset changed upstream.
 
-const DepResolver = preload("res://addons/package_exporter/src/class/release/dep_resolver.gd")
-const ReleaseRunner = preload("res://addons/package_exporter/src/class/release/release_runner.gd")
+const DepResolver = preload("res://addons/gdpackage/src/class/release/dep_resolver.gd")
+const ReleaseRunner = preload("res://addons/gdpackage/src/class/release/release_runner.gd")
 
 const API_URL = "https://api.github.com/repos/%s/releases/tags/%s"
 const NO_RELEASE_MARKER = ".no_release"
@@ -20,7 +20,7 @@ var last_error:String = ""
 
 
 func _init(cache_root:String = "", refresh_assets:bool = false) -> void:
-	root = cache_root if cache_root != "" else OS.get_cache_dir().path_join("package_exporter")
+	root = cache_root if cache_root != "" else OS.get_cache_dir().path_join("gdpackage")
 	refresh = refresh_assets
 
 

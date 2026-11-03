@@ -1,17 +1,17 @@
 @tool
 extends RefCounted
-## The released package_exporter a release export runs in its workspace - Go's toolchain, in effect.
+## The released gdpackage a release export runs in its workspace - Go's toolchain, in effect.
 ## Its version is `toolchain` in the export config's options, or the dev exporter's version when
 ## unset. Always the GitHub release zip, downloaded once and cached - never this project's own copy.
 
-const DepResolver = preload("res://addons/package_exporter/src/class/release/dep_resolver.gd")
-const ReleaseRunner = preload("res://addons/package_exporter/src/class/release/release_runner.gd")
+const DepResolver = preload("res://addons/gdpackage/src/class/release/dep_resolver.gd")
+const ReleaseRunner = preload("res://addons/gdpackage/src/class/release/release_runner.gd")
 
-const NAME = "package_exporter"
+const NAME = "gdpackage"
 const CONFIG_KEY = "toolchain"
-const DEV_DIR = "res://addons/package_exporter"
-const FALLBACK_REPO = "https://github.com/brohd11/godot-package-exporter"
-const ASSET = "package-exporter-%s.zip"
+const DEV_DIR = "res://addons/gdpackage"
+const FALLBACK_REPO = "https://github.com/brohd11/godot-gdpackage"
+const ASSET = "gdpackage-%s.zip"
 
 var errors:Array[String] = []
 

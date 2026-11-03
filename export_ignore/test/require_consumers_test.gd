@@ -3,7 +3,7 @@ extends EditorScript
 ## require consumers: every package declaring a repo, through cfg require=, compile_require or
 ## test_require, matched by repo_id whatever spelling the target uses.
 
-const RequireConsumers = preload("res://addons/package_exporter/src/class/release/require_consumers.gd")
+const RequireConsumers = preload("res://addons/gdpackage/src/class/release/require_consumers.gd")
 const ROOT = "user://pe_require_consumers_tests"
 
 static var _failures:Array[String] = []

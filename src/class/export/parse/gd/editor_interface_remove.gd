@@ -1,4 +1,4 @@
-extends "res://addons/package_exporter/src/class/export/parse/parse_base.gd"
+extends "res://addons/gdpackage/src/class/export/parse/parse_base.gd"
 
 const REPLACEMENT_TEXT = 'Engine.get_singleton(&"EditorInterface")'
 

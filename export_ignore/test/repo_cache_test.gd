@@ -5,9 +5,9 @@ extends EditorScript
 ## clone of a tagged addon in this project, so nothing is committed and nothing hits the network.
 ## Skips when that addon or its tag is missing, rather than failing on an unrelated checkout.
 ##
-##     load("res://addons/package_exporter/export_ignore/test/repo_cache_test.gd").run_tests()
+##     load("res://addons/gdpackage/export_ignore/test/repo_cache_test.gd").run_tests()
 
-const RepoCache = preload("res://addons/package_exporter/src/class/release/repo_cache.gd")
+const RepoCache = preload("res://addons/gdpackage/src/class/release/repo_cache.gd")
 
 const SOURCE_REPO = "res://addons/_lib/editor_node_ref"
 const TAG = "v0.3.2"

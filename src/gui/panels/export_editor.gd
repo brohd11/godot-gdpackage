@@ -1,6 +1,6 @@
 extends VBoxContainer
 
-const UtilsRemote = preload("res://addons/package_exporter/src/class/utils_remote.gd")
+const UtilsRemote = preload("res://addons/gdpackage/src/class/utils_remote.gd")
 const Options = UtilsRemote.Options
 const UControl = UtilsRemote.UControl
 const Confirmation = UtilsRemote.Confirmation

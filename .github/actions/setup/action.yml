@@ -1,15 +1,15 @@
-# Shared setup for PackageExporter's reusable workflows: reads the package cfg checked out at pkg/,
+# Shared setup for GDPackage's reusable workflows: reads the package cfg checked out at pkg/,
 # installs Godot, restores the caches, and assembles a project in $WS around a released
-# package_exporter. Callers check out to pkg/ and set WS and GH_TOKEN on the job.
-name: package-exporter-setup
-description: Godot + a released package_exporter in $WS, for a package checked out at pkg/.
+# gdpackage. Callers check out to pkg/ and set WS and GH_TOKEN on the job.
+name: gdpackage-setup
+description: Godot + a released gdpackage in $WS, for a package checked out at pkg/.
 
 inputs:
   godot-version:
     description: A godot-builds release name (4.6.3-stable, 4.8-beta1); a bare 4.7 means 4.7-stable.
     required: true
   toolchain-version:
-    description: package_exporter release to use; empty means its latest release.
+    description: gdpackage release to use; empty means its latest release.
     default: ""
   install-path:
     description: Where the package installs; empty reads path= from its cfg, then export_folder from its export config.
@@ -34,7 +34,7 @@ outputs:
     description: The normalised godot-builds name.
     value: ${{ steps.pkg.outputs.godot }}
   self:
-    description: "true when the package is package_exporter itself: with release, pkg/ stays put and release_cli takes it as --tree."
+    description: "true when the package is gdpackage itself: with release, pkg/ stays put and release_cli takes it as --tree."
     value: ${{ steps.pkg.outputs.self }}
   dir:
     description: The package's checkout, absolute - pkg/ or the folder inside it holding the package cfg.
@@ -55,7 +55,7 @@ runs:
         RELEASE: ${{ inputs.release }}
         PUBLISH: ${{ inputs.publish }}
         GODOT_VERSION: ${{ inputs.godot-version }}
-        # Oldest Godot package_exporter itself runs on.
+        # Oldest Godot gdpackage itself runs on.
         GODOT_FLOOR: "4.6"
       run: |
         set -euo pipefail
@@ -67,7 +67,7 @@ runs:
           echo "::error::godot-version \"$GODOT_VERSION\" isn't a Godot version"; exit 1
         fi
         if (( major * 1000 + minor < fmajor * 1000 + fminor )); then
-          echo "::error::godot-version $godot is too old: package_exporter runs on Godot $GODOT_FLOOR+"; exit 1
+          echo "::error::godot-version $godot is too old: gdpackage runs on Godot $GODOT_FLOOR+"; exit 1
         fi
         echo "godot=$godot" >> "$GITHUB_OUTPUT"
 
@@ -162,9 +162,9 @@ runs:
           ""|*"{{"*) echo "::error::can't tell where the package installs: set path= in $cfg or pass install-path"; exit 1 ;;
         esac
         path="${path%/}"
-        # package_exporter installs where the toolchain lives, so its checkout can't join $WS.
+        # gdpackage installs where the toolchain lives, so its checkout can't join $WS.
         self=false
-        [ "$path" = "addons/package_exporter" ] && self=true
+        [ "$path" = "addons/gdpackage" ] && self=true
         # Only a package that is the whole repo can join $WS with its .git; anything else stays put.
         moved=false
         if [ "$RELEASE" = "true" ] && [ "$self" = "false" ] && [ -z "$dir" ]; then moved=true; fi
@@ -200,14 +200,14 @@ runs:
     # Tag mirrors, release zips, toolchains and workspaces; tags are trusted as immutable.
     - uses: actions/cache@v6
       with:
-        path: ~/.cache/package_exporter
-        key: package-exporter-${{ github.repository }}-${{ steps.pkg.outputs.godot }}-${{ hashFiles(format('{0}/*.cfg', steps.pkg.outputs.rel), format('{0}/_export_ignore/*', steps.pkg.outputs.rel), format('{0}/export_ignore/*.yml', steps.pkg.outputs.rel)) }}
-        restore-keys: package-exporter-${{ github.repository }}-${{ steps.pkg.outputs.godot }}-
+        path: ~/.cache/gdpackage
+        key: gdpackage-${{ github.repository }}-${{ steps.pkg.outputs.godot }}-${{ hashFiles(format('{0}/*.cfg', steps.pkg.outputs.rel), format('{0}/_export_ignore/*', steps.pkg.outputs.rel), format('{0}/export_ignore/*.yml', steps.pkg.outputs.rel)) }}
+        restore-keys: gdpackage-${{ github.repository }}-${{ steps.pkg.outputs.godot }}-
 
     - name: Assemble project
       shell: bash
       env:
-        TOOLCHAIN_REPO: brohd11/godot-package-exporter
+        TOOLCHAIN_REPO: brohd11/godot-gdpackage
         TOOLCHAIN_VERSION: ${{ inputs.toolchain-version }}
         GODOT_VERSION: ${{ steps.pkg.outputs.godot }}
         PKG_PATH: ${{ steps.pkg.outputs.path }}
@@ -217,13 +217,25 @@ runs:
         v="$TOOLCHAIN_VERSION"
         [ -n "$v" ] || v=$(gh release view -R "$TOOLCHAIN_REPO" --json tagName -q .tagName)
         v="${v#v}"
-        gh release download "v$v" -R "$TOOLCHAIN_REPO" -p "package-exporter-$v.zip" -D "$RUNNER_TEMP" \
-          || gh release download "$v" -R "$TOOLCHAIN_REPO" -p "package-exporter-$v.zip" -D "$RUNNER_TEMP"
-        echo "toolchain package_exporter $v"
+        # Releases before 0.11.0 were package_exporter: asset package-exporter-<v>.zip, installed at
+        # addons/package_exporter. Accepting both lets the last of them build the first gdpackage.
+        zip=""
+        for asset in "gdpackage-$v.zip" "package-exporter-$v.zip"; do
+          for tag in "v$v" "$v"; do
+            if gh release download "$tag" -R "$TOOLCHAIN_REPO" -p "$asset" -D "$RUNNER_TEMP" 2>/dev/null; then
+              zip="$RUNNER_TEMP/$asset"; break 2
+            fi
+          done
+        done
+        [ -n "$zip" ] || { echo "::error::no gdpackage-$v.zip or package-exporter-$v.zip on release $v of $TOOLCHAIN_REPO"; exit 1; }
+        echo "toolchain $(basename "$zip")"
 
-        # The toolchain zip carries its install layout (addons/package_exporter).
+        # The toolchain zip carries its install layout.
         mkdir -p "$WS"
-        unzip -q "$RUNNER_TEMP/package-exporter-$v.zip" -d "$WS"
+        unzip -q "$zip" -d "$WS"
+        toolchain_dir=addons/gdpackage
+        [ -d "$WS/$toolchain_dir" ] || toolchain_dir=addons/package_exporter
+        echo "TOOLCHAIN_DIR=$toolchain_dir" >> "$GITHUB_ENV"
         if [ "$MOVED" = "true" ]; then
           # Joins at its install path, .git included - the export fetches it by tag from origin.
           mkdir -p "$WS/$(dirname "$PKG_PATH")"

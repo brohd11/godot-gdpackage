@@ -4,7 +4,7 @@ extends RefCounted
 ## their tags in a throwaway workspace like a release export's. Passing means the declared requires
 ## are enough for its tests, which this project, with every package checked out, can't tell you.
 
-const ReleaseExport = preload("res://addons/package_exporter/src/class/release/release_export.gd")
+const ReleaseExport = preload("res://addons/gdpackage/src/class/release/release_export.gd")
 const DepResolver = ReleaseExport.DepResolver
 const RepoCache = ReleaseExport.RepoCache
 const ReleaseWorkspace = ReleaseExport.ReleaseWorkspace
@@ -28,7 +28,7 @@ static var report:Dictionary = {}
 
 ## `local` fetches deps checked out in this project from those checkouts, still by tag. `tree_dir`
 ## is the checkout to test when it isn't at the package's install path, as when CI tests
-## package_exporter with a released one already installed there.
+## gdpackage with a released one already installed there.
 static func test_package(plugin_name:String, refresh:bool = false, local:bool = false, tree_dir:String = "", _reporter = null) -> bool:
 	reporter = Reporter.or_default(_reporter)
 	report = {}

@@ -1,32 +1,32 @@
-extends "res://addons/package_exporter/src/class/export/parse/parse_base.gd"
+extends "res://addons/gdpackage/src/class/export/parse/parse_base.gd"
 
-const EI_BACKPORT_PATH = "res://addons/package_exporter/src/class/export/backport/ei_backport.gd"
+const EI_BACKPORT_PATH = "res://addons/gdpackage/src/class/export/backport/ei_backport.gd"
 const EI_BACKPORT = "_EIBackport"
 
-const MISC_BACKPORT_PATH = "res://addons/package_exporter/src/class/export/backport/misc_backport_class.gd"
+const MISC_BACKPORT_PATH = "res://addons/gdpackage/src/class/export/backport/misc_backport_class.gd"
 const MISC_BACKPORT = "MiscBackport"
 
 const BACKPORT_FILES = [
-	"res://addons/package_exporter/src/class/export/backport/context/context_backport.gd",
-	"res://addons/package_exporter/src/class/export/backport/context/context_plugin_compat.gd",
-	"res://addons/package_exporter/src/class/export/backport/ei_backport.gd",
-	"res://addons/package_exporter/src/class/export/backport/misc_backport_class.gd",
-	"res://addons/package_exporter/src/class/export/backport/sv_backport.gd"
+	"res://addons/gdpackage/src/class/export/backport/context/context_backport.gd",
+	"res://addons/gdpackage/src/class/export/backport/context/context_plugin_compat.gd",
+	"res://addons/gdpackage/src/class/export/backport/ei_backport.gd",
+	"res://addons/gdpackage/src/class/export/backport/misc_backport_class.gd",
+	"res://addons/gdpackage/src/class/export/backport/sv_backport.gd"
 ]
 
-const Backport4_0 = preload("res://addons/package_exporter/src/class/export/parse/gd/backport/4_0_backports.gd")
+const Backport4_0 = preload("res://addons/gdpackage/src/class/export/parse/gd/backport/4_0_backports.gd")
 var backport4_0:Backport4_0
 
-const BackportContext = preload("res://addons/package_exporter/src/class/export/parse/gd/backport/context_menu.gd")
+const BackportContext = preload("res://addons/gdpackage/src/class/export/parse/gd/backport/context_menu.gd")
 var backport_context:BackportContext
 
-const BackportStaticVar = preload("res://addons/package_exporter/src/class/export/parse/gd/backport/static_var_backport.gd")
+const BackportStaticVar = preload("res://addons/gdpackage/src/class/export/parse/gd/backport/static_var_backport.gd")
 var backport_static_var:BackportStaticVar
 
-const Backport4_4 = preload("res://addons/package_exporter/src/class/export/parse/gd/backport/4_4_backports.gd")
+const Backport4_4 = preload("res://addons/gdpackage/src/class/export/parse/gd/backport/4_4_backports.gd")
 var backport4_4:Backport4_4
 
-const MiscBackportParse = preload("res://addons/package_exporter/src/class/export/parse/gd/backport/misc_backport.gd")
+const MiscBackportParse = preload("res://addons/gdpackage/src/class/export/parse/gd/backport/misc_backport.gd")
 var misc_backport:MiscBackportParse
 
 var backport_target:= -1
@@ -94,10 +94,10 @@ func post_export_edit_file(file_path:String, file_lines:Variant=null) -> Variant
 	
 	if not extends_class:
 		if backport_target < 2:
-			file_lines.append("# PACKAGE EXPORTER EDITORINTERFACE BACKPORT")
+			file_lines.append("# GDPACKAGE EDITORINTERFACE BACKPORT")
 			file_lines.append(get_backport_file_path(self, EI_BACKPORT, EI_BACKPORT_PATH, export_obj))
 			
-			#file_lines.append("### PACKAGE EXPORTER EDITORINTERFACE BACKPORT")
+			#file_lines.append("### GDPACKAGE EDITORINTERFACE BACKPORT")
 			file_lines.append("")
 		
 		var has_backport_preloaded := false
@@ -106,10 +106,10 @@ func post_export_edit_file(file_path:String, file_lines:Variant=null) -> Variant
 				has_backport_preloaded =  true
 		
 		if not has_backport_preloaded:
-			file_lines.append("# PACKAGE EXPORTER MISC BACKPORT")
+			file_lines.append("# GDPACKAGE MISC BACKPORT")
 			file_lines.append(get_backport_file_path(self, MISC_BACKPORT, MISC_BACKPORT_PATH, export_obj))
 			
-			#file_lines.append("### PACKAGE EXPORTER MISC BACKPORT")
+			#file_lines.append("### GDPACKAGE MISC BACKPORT")
 			file_lines.append("")
 	
 	for i in range(file_lines.size()):

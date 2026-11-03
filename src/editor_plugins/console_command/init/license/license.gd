@@ -1,8 +1,8 @@
 extends GDSh.CommandBase
 
-const PluginExporter = preload("res://addons/package_exporter/src/class/plugin_exporter.gd")
-const PECommandUtils = preload("res://addons/package_exporter/src/editor_plugins/console_command/command_utils.gd")
-const LicenseGenerator = preload("res://addons/package_exporter/src/editor_plugins/console_command/init/license/license_generator.gd")
+const PluginExporter = preload("res://addons/gdpackage/src/class/plugin_exporter.gd")
+const PECommandUtils = preload("res://addons/gdpackage/src/editor_plugins/console_command/command_utils.gd")
+const LicenseGenerator = preload("res://addons/gdpackage/src/editor_plugins/console_command/init/license/license_generator.gd")
 
 # flag -> license id. Single source of truth shared by _get_flags/_process_flag and LicenseText.
 const LICENSES = {
@@ -15,7 +15,7 @@ const LICENSES = {
 
 const _HELP = \
 "Generate a LICENSE file for a plugin
-Usage: package_exporter init license <--type> <plugin_name> <name> <year>
+Usage: gdpackage init license <--type> <plugin_name> <name> <year>
   Exactly one license type flag is required:"
 
 var _license_id := ""

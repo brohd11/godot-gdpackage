@@ -1,9 +1,9 @@
 extends ScrollContainer
 
-const UtilsRemote = preload("res://addons/package_exporter/src/class/utils_remote.gd")
+const UtilsRemote = preload("res://addons/gdpackage/src/class/utils_remote.gd")
 const Options = UtilsRemote.Options
 
-const UtilsLocal = preload("res://addons/package_exporter/src/class/utils_local.gd")
+const UtilsLocal = preload("res://addons/gdpackage/src/class/utils_local.gd")
 const PluginExporterStatic = UtilsLocal.PluginExporterStatic
 const ExportData = UtilsLocal.ExportData
 const Export = ExportData.Export

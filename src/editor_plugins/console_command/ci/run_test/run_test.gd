@@ -1,12 +1,12 @@
 extends GDSh.CommandBase
 
-const PluginExporter = preload("res://addons/package_exporter/src/class/plugin_exporter.gd")
-const PECommandUtils = preload("res://addons/package_exporter/src/editor_plugins/console_command/command_utils.gd")
+const PluginExporter = preload("res://addons/gdpackage/src/class/plugin_exporter.gd")
+const PECommandUtils = preload("res://addons/gdpackage/src/editor_plugins/console_command/command_utils.gd")
 
 const _HELP = \
 "Run a package's tests as test CI does: its tree against its requires at their tags, in a
 workspace without the rest of this project - so a pass means its declared requires are enough.
-Usage: package_exporter ci run_test [--verbose] [--local] [--refresh] <plugin_name>"
+Usage: gdpackage ci run_test [--verbose] [--local] [--refresh] <plugin_name>"
 
 var refresh_flag := false
 var local_flag := false

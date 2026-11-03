@@ -1,4 +1,4 @@
-extends "res://addons/package_exporter/src/class/export/parse/parse_base.gd"
+extends "res://addons/gdpackage/src/class/export/parse/parse_base.gd"
 
 ## [RegEx, replace_name] per renamed class. Applied over the whole file, not per line, because a
 ## string literal can span lines and only a full-text StringMap sees where it closes.

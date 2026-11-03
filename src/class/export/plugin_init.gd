@@ -1,6 +1,6 @@
 
-const UtilsRemote = preload("res://addons/package_exporter/src/class/utils_remote.gd")
-const UtilsLocal = preload("res://addons/package_exporter/src/class/utils_local.gd")
+const UtilsRemote = preload("res://addons/gdpackage/src/class/utils_remote.gd")
+const UtilsLocal = preload("res://addons/gdpackage/src/class/utils_local.gd")
 
 const UFile = UtilsRemote.UFile
 const Confirmation = UtilsRemote.Confirmation
@@ -145,11 +145,11 @@ static func package_cfg_text(package_dir:String) -> String:
 
 const RELEASE_WORKFLOW_PATH = ".github/workflows/release.yml"
 const TEST_WORKFLOW_PATH = ".github/workflows/test.yml"
-## Ref of PackageExporter's reusable workflows that callers pin. Not a version tag: the resolver reads
-## every v* tag here as a package_exporter release, so a moving `v1` would outrank them all.
+## Ref of GDPackage's reusable workflows that callers pin. Not a version tag: the resolver reads
+## every v* tag here as a gdpackage release, so a moving `v1` would outrank them all.
 const RELEASE_WORKFLOW_REF = "main"
 
-## Opts a package into CI releases: a workflow at its repo root calling PackageExporter's reusable
+## Opts a package into CI releases: a workflow at its repo root calling GDPackage's reusable
 ## one on version tags. Separate from package_init so publishing stays a choice; never overwrites.
 ## A package below its repo's root (a whole-project repo) is refused unless `allow_project_root`,
 ## which writes at that root with package-dir pointing at it. Returns the path written, or "".
@@ -245,7 +245,7 @@ static func godot_build_name(info:Dictionary = Engine.get_version_info()) -> Str
 
 class _NewPluginText:
 	const RELEASE_WORKFLOW_TEXT = \
-'# Builds and publishes this package on version tags with PackageExporter. The tag must match
+'# Builds and publishes this package on version tags with GDPackage. The tag must match
 # version= in the package cfg; deps are fetched by tag, so they need pushing first.
 # A manual run (Actions tab) builds the tag matching version= without publishing it.
 name: release
@@ -255,7 +255,7 @@ on:
   workflow_dispatch:
 jobs:
   release:
-    uses: brohd11/godot-package-exporter/.github/workflows/package-release.yml@%s
+    uses: brohd11/godot-gdpackage/.github/workflows/package-release.yml@%s
     with:
       # Builds and verifies on this Godot; it must run everything the package and its deps use.
       godot-version: "%s"
@@ -265,7 +265,7 @@ jobs:
 '
 
 	const TEST_WORKFLOW_TEXT = \
-'# Tests this package with PackageExporter: its suites, as pushed, against its requires at their
+'# Tests this package with GDPackage: its suites, as pushed, against its requires at their
 # tags - so a pass means the declared requires are enough. Add Godot builds to test on more.
 name: test
 on:
@@ -275,7 +275,7 @@ on:
   workflow_dispatch:
 jobs:
   test:
-    uses: brohd11/godot-package-exporter/.github/workflows/package-test.yml@%s
+    uses: brohd11/godot-gdpackage/.github/workflows/package-test.yml@%s
     with:
       godot-versions: \'["%s"]\'
 %s'

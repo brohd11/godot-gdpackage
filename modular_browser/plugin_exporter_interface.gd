@@ -5,10 +5,10 @@ class Data:
 	const module = Modules.None
 	const module_icon = null
 	const nest_in_module = false
-	const name = "Plugins/Package Exporter"
+	const name = "Plugins/GDPackage"
 	const use_name_path = true
 	const icons = ["EditorPlugin", "ActionCopy"]
-	const scene_path = "res://addons/package_exporter/src/plugin_export_gui.tscn" # scene that actually instantiates in browser
+	const scene_path = "res://addons/gdpackage/src/plugin_export_gui.tscn" # scene that actually instantiates in browser
 	const ui_scene_path = keys.PanelTabData.NONE # ui scene for add panel window, can be none, used with interface
 	const interface_path = keys.PanelTabData.NONE # path to this file, used with ui scene, if not set, defaults to this path
 	const single_instance = SingleInstance.FALSE # if panel must be limited to 1 instance per 'instance' or global

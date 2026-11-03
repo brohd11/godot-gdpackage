@@ -1,7 +1,7 @@
 extends SceneTree
 
-const ExportData = preload("res://addons/package_exporter/src/class/export/export_data.gd")
-const Fixture = preload("res://addons/package_exporter/export_ignore/test/export_fixture_test.gd")
+const ExportData = preload("res://addons/gdpackage/src/class/export/export_data.gd")
+const Fixture = preload("res://addons/gdpackage/export_ignore/test/export_fixture_test.gd")
 const CONFIG = "res://addons/plugin_exporter_test/export_ignore/plugin_export.yml"
 
 func _init() -> void:

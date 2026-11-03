@@ -4,11 +4,11 @@ extends EditorScript
 ## Routing rules of the export Reporter and the console sink. Only sinkless calls print to Output,
 ## so the run prints one "reporter_test:" line - a fixture, not a failure.
 ##
-##     load("res://addons/package_exporter/export_ignore/test/reporter_test.gd").run_tests()
+##     load("res://addons/gdpackage/export_ignore/test/reporter_test.gd").run_tests()
 
-const Reporter = preload("res://addons/package_exporter/src/class/utils_local.gd").Reporter
+const Reporter = preload("res://addons/gdpackage/src/class/utils_local.gd").Reporter
 const Level = Reporter.Level
-const PECommandUtils = preload("res://addons/package_exporter/src/editor_plugins/console_command/command_utils.gd")
+const PECommandUtils = preload("res://addons/gdpackage/src/editor_plugins/console_command/command_utils.gd")
 
 static var _failures:Array[String] = []
 static var _passed:int = 0

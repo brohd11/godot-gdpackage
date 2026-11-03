@@ -1,4 +1,4 @@
-export_root: "res://addons/package_exporter/export_ignore/exports/"
+export_root: "res://addons/gdpackage/export_ignore/exports/"
 build_require: @require
 # The fixture plugin export_fixture_test exports five ways; test-only, so it never ships.
 test_require:
@@ -8,14 +8,14 @@ exports:
   -
     exclude:
       directories:
-        - "res://addons/package_exporter/export_ignore"
+        - "res://addons/gdpackage/export_ignore"
       file_extensions: []
       files: []
-    remote_dir: "res://addons/package_exporter/src/remote/"
-    export_name: "package-exporter{{version=package_exporter}}"
-    export_folder: "addons/package_exporter"
+    remote_dir: "res://addons/gdpackage/src/remote/"
+    export_name: "gdpackage{{version=gdpackage}}"
+    export_folder: "addons/gdpackage"
     other_transfers: []
-    source: "res://addons/package_exporter/"
+    source: "res://addons/gdpackage/"
     parser_overide_settings:
       parse_cs: {}
       parse_gd: {}
@@ -34,6 +34,6 @@ options:
       backport_string_renames: {}
     parse_tscn: {}
     parse_tres: {}
-plugin_folder: "PackageExporter/PackageExporter{{version=package_exporter}}"
+plugin_folder: "GDPackage/GDPackage{{version=gdpackage}}"
 post_script: ""
 pre_script: ""

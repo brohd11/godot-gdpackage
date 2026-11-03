@@ -1,8 +1,8 @@
-extends "res://addons/package_exporter/src/class/export/parse/parse_base.gd"
+extends "res://addons/gdpackage/src/class/export/parse/parse_base.gd"
 
-const Backport = preload("res://addons/package_exporter/src/class/export/parse/gd/backport.gd")
+const Backport = preload("res://addons/gdpackage/src/class/export/parse/gd/backport.gd")
 
-const BACKPORT_STATIC_PATH = "res://addons/package_exporter/src/class/export/backport/sv_backport.gd"
+const BACKPORT_STATIC_PATH = "res://addons/gdpackage/src/class/export/backport/sv_backport.gd"
 const BACKPORT_STATIC = "_BackportStaticVar"
 
 const STATIC_VAR_MIN_VER = 1
@@ -218,7 +218,7 @@ func post_export_edit_file(file_path:String, file_lines:Variant=null) -> Variant
 		file_lines[i] = processed_line
 	
 	
-	file_lines.append("# PACKAGE EXPORTER STATIC VAR BACKPORT")
+	file_lines.append("# GDPACKAGE STATIC VAR BACKPORT")
 	var adjusted_path = export_obj.adjusted_remote_paths.get(export_obj.file_parser.current_file_path_parsing)
 	if not adjusted_path:
 		adjusted_path = export_obj.file_parser.current_file_path_parsing
@@ -230,7 +230,7 @@ func post_export_edit_file(file_path:String, file_lines:Variant=null) -> Variant
 		file_lines.append_array(_get_static_getter_lines(sv_data))
 		file_lines.append_array(_get_static_setter_lines(sv_data))
 	
-	#file_lines.append("### PACKAGE EXPORTER STATIC VAR BACKPORT")
+	#file_lines.append("### GDPACKAGE STATIC VAR BACKPORT")
 	var extends_class = file_extends_class(file_lines, backport_target)
 	if not extends_class:
 		file_lines.append(Backport.get_backport_file_path(self, BACKPORT_STATIC, BACKPORT_STATIC_PATH, export_obj))

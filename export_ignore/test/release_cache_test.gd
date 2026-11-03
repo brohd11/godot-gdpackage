@@ -5,10 +5,10 @@ extends EditorScript
 ## and staging without the network. The cache is laid out by hand with download urls that could
 ## never resolve, so any accidental fetch fails the test instead of passing quietly.
 ##
-##     load("res://addons/package_exporter/export_ignore/test/release_cache_test.gd").run_tests()
+##     load("res://addons/gdpackage/export_ignore/test/release_cache_test.gd").run_tests()
 
-const ReleaseCache = preload("res://addons/package_exporter/src/class/release/release_cache.gd")
-const ReleaseRunner = preload("res://addons/package_exporter/src/class/release/release_runner.gd")
+const ReleaseCache = preload("res://addons/gdpackage/src/class/release/release_cache.gd")
+const ReleaseRunner = preload("res://addons/gdpackage/src/class/release/release_runner.gd")
 
 const DIR = "user://pe_release_cache_tests"
 const REPO = "https://github.com/me/yaml"

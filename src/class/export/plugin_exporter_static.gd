@@ -1,7 +1,7 @@
 extends RefCounted
 
-const UtilsRemote = preload("res://addons/package_exporter/src/class/utils_remote.gd") #>remote
-const UtilsLocal = preload("res://addons/package_exporter/src/class/utils_local.gd")
+const UtilsRemote = preload("res://addons/gdpackage/src/class/utils_remote.gd") #>remote
+const UtilsLocal = preload("res://addons/gdpackage/src/class/utils_local.gd")
 
 const PluginInit = UtilsLocal.PluginInit
 const ExportFileUtils = UtilsLocal.ExportFileUtils

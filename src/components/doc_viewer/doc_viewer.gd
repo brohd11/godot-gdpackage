@@ -6,9 +6,9 @@ extends VBoxContainer
 ## resort. Point it at a single file instead and that file is the whole viewer, no folder scan.
 ## Engine-only and plugin agnostic, so it can be lifted out of here as is.
 
-const Parser = preload("res://addons/package_exporter/src/components/doc_viewer/markdown_parser.gd")
-const DocIndex = preload("res://addons/package_exporter/src/components/doc_viewer/doc_index.gd")
-const MarkdownView = preload("res://addons/package_exporter/src/components/doc_viewer/markdown_view.gd")
+const Parser = preload("res://addons/gdpackage/src/components/doc_viewer/markdown_parser.gd")
+const DocIndex = preload("res://addons/gdpackage/src/components/doc_viewer/doc_index.gd")
+const MarkdownView = preload("res://addons/gdpackage/src/components/doc_viewer/markdown_view.gd")
 
 const CONTENTS_TITLE = "Contents"
 const EMPTY_MESSAGE = "No documentation found."

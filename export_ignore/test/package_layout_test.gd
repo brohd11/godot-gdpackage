@@ -5,10 +5,10 @@ extends EditorScript
 ## plain file lists with cfg values in a dictionary, modelled on real packages: Godot-YAML-Parser's
 ## tag source and its release zip, and the nested _lib repos in this project.
 ##
-##     load("res://addons/package_exporter/export_ignore/test/package_layout_test.gd").run_tests()
+##     load("res://addons/gdpackage/export_ignore/test/package_layout_test.gd").run_tests()
 
-const PackageLayout = preload("res://addons/package_exporter/src/class/release/package_layout.gd")
-const DepResolver = preload("res://addons/package_exporter/src/class/release/dep_resolver.gd")
+const PackageLayout = preload("res://addons/gdpackage/src/class/release/package_layout.gd")
+const DepResolver = preload("res://addons/gdpackage/src/class/release/dep_resolver.gd")
 
 const YAML_ID = "github.com/brohd11/godot-yaml-parser"
 const YAML_URL = "https://github.com/brohd11/Godot-YAML-Parser.git"

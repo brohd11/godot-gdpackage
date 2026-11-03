@@ -1,7 +1,7 @@
 extends VBoxContainer
 
-const UtilsRemote = preload("res://addons/package_exporter/src/class/utils_remote.gd")
-const UtilsLocal = preload("res://addons/package_exporter/src/class/utils_local.gd")
+const UtilsRemote = preload("res://addons/gdpackage/src/class/utils_remote.gd")
+const UtilsLocal = preload("res://addons/gdpackage/src/class/utils_local.gd")
 const UControl = UtilsRemote.UControl
 const Options = UtilsRemote.Options
 const DepGraphUI = UtilsRemote.DepGraphUI

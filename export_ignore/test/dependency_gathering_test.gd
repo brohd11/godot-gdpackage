@@ -4,7 +4,7 @@ extends EditorScript
 ## in the editor console or test CI's headless editor, not run_headless.gd.
 
 const DIR = "user://pe_gathering_tests/"
-const UtilsLocal = preload("res://addons/package_exporter/src/class/utils_local.gd")
+const UtilsLocal = preload("res://addons/gdpackage/src/class/utils_local.gd")
 const FileUtils = UtilsLocal.ExportFileUtils
 const Keys = FileUtils.KeysData
 
@@ -142,9 +142,9 @@ static func _test_replacement() -> void:
 static func _test_scan_consumers() -> void:
 	var leaf = _w("external/consumer_leaf.gd", "extends RefCounted\n")
 	var root = _w("plugin/consumer.gd", 'const Leaf = preload("%s") #! ignore-remote\n' % leaf)
-	var report = load("res://addons/package_exporter/src/class/release/require_report.gd")
+	var report = load("res://addons/gdpackage/src/class/release/require_report.gd")
 	_check("require ignores tagged edge", report._scan_files([root], {}).has(leaf), false)
-	var view = load("res://addons/package_exporter/src/gui/panels/dep_view.gd").new()
+	var view = load("res://addons/gdpackage/src/gui/panels/dep_view.gd").new()
 	Engine.get_main_loop().root.add_child(view)
 	view.set_current_file(root)
 	_check("dependency view ignores tagged edge", view.dep_graph.get_dep_graph().has(leaf), false)
@@ -233,7 +233,7 @@ static func _test_destination_chains() -> void:
 
 static func _test_invalid_destinations() -> void:
 	var asset = _w("external/invalid.txt", "invalid\n")
-	for destination in ["<package>/../escape", "../escape", "res://addons/package_exporter/licenses/source_font/LICENSE", "<package>/licenses/"]:
+	for destination in ["<package>/../escape", "../escape", "res://addons/gdpackage/licenses/source_font/LICENSE", "<package>/licenses/"]:
 		var root = _w("plugin/invalid.gd", 'const Asset = "%s" #! dependency %s\n' % [asset, destination])
 		var export = _crawl([root])
 		_check("invalid destination aborts: " + destination, export.export_valid, false)

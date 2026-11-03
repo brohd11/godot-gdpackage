@@ -2,12 +2,12 @@
 extends EditorScript
 ## package_init's package cfg template and the unpackaged-dir completion scan.
 
-const Discovery = preload("res://addons/package_exporter/src/class/export/package_discovery.gd")
-const PluginInit = preload("res://addons/package_exporter/src/class/export/plugin_init.gd")
+const Discovery = preload("res://addons/gdpackage/src/class/export/package_discovery.gd")
+const PluginInit = preload("res://addons/gdpackage/src/class/export/plugin_init.gd")
 const PackageCfg = preload("uid://ddo8w07hts45v") #! resolve GDPackageSpec.Cfg
-const Runner = preload("res://addons/package_exporter/src/class/release/release_runner.gd")
+const Runner = preload("res://addons/gdpackage/src/class/release/release_runner.gd")
 const ROOT = "user://pe_package_init_tests"
-const FIXTURES = "res://addons/package_exporter/export_ignore/test/fixtures"
+const FIXTURES = "res://addons/gdpackage/export_ignore/test/fixtures"
 const GIT_CEILING = "GIT_CEILING_DIRECTORIES"
 
 static var _failures:Array[String] = []
@@ -19,7 +19,7 @@ static func run_tests() -> Dictionary:
 	_passed = 0
 	_test_package_cfg()
 	_test_unpackaged()
-	# Fixtures sit inside package_exporter's own checkout; without a ceiling, git would find that
+	# Fixtures sit inside gdpackage's own checkout; without a ceiling, git would find that
 	# repo above them, as it doesn't in CI's test workspace.
 	var ceiling = OS.get_environment(GIT_CEILING)
 	DirAccess.make_dir_recursive_absolute(FIXTURES)
@@ -86,7 +86,7 @@ static func _test_release_workflow() -> void:
 	_check("written at the package root", path, dir.path_join(".github/workflows/release.yml"))
 	_check("warns without a .git dir", notes.size() == 1 and "no .git dir" in notes[0], true)
 	var text = FileAccess.get_file_as_string(path)
-	_check("calls the reusable workflow", "uses: brohd11/godot-package-exporter/.github/workflows/package-release.yml@%s" % PluginInit.RELEASE_WORKFLOW_REF in text, true)
+	_check("calls the reusable workflow", "uses: brohd11/godot-gdpackage/.github/workflows/package-release.yml@%s" % PluginInit.RELEASE_WORKFLOW_REF in text, true)
 	_check("runs on version tags", 'tags: ["v*", "[0-9]*"]' in text, true)
 	_check("builds on the editor's Godot", 'godot-version: "%s"' % PluginInit.godot_build_name() in text, true)
 	_check("manual runs are dry runs", ["workflow_dispatch:" in text, "publish: ${{ github.event_name == 'push' }}" in text], [true, true])

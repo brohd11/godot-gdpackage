@@ -1,11 +1,11 @@
 extends GDSh.CommandBase
 
-const PluginExporter = preload("res://addons/package_exporter/src/class/plugin_exporter.gd")
-const PECommandUtils = preload("res://addons/package_exporter/src/editor_plugins/console_command/command_utils.gd")
+const PluginExporter = preload("res://addons/gdpackage/src/class/plugin_exporter.gd")
+const PECommandUtils = preload("res://addons/gdpackage/src/editor_plugins/console_command/command_utils.gd")
 
 const _HELP = \
-"Open PackageExporter gui instance with selected plugin
-Usage: package_exporter open gui <plugin_name>"
+"Open GDPackage gui instance with selected plugin
+Usage: gdpackage open gui <plugin_name>"
 
 static func get_command_name() -> String:
 	return "gui"

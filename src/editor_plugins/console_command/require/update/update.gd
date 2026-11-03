@@ -1,8 +1,8 @@
 extends GDSh.CommandBase
 
-const RequireReport = preload("res://addons/package_exporter/src/class/release/require_report.gd")
-const RequireUpdate = preload("res://addons/package_exporter/src/class/release/require_update.gd")
-const PECommandUtils = preload("res://addons/package_exporter/src/editor_plugins/console_command/command_utils.gd")
+const RequireReport = preload("res://addons/gdpackage/src/class/release/require_report.gd")
+const RequireUpdate = preload("res://addons/gdpackage/src/class/release/require_update.gd")
+const PECommandUtils = preload("res://addons/gdpackage/src/editor_plugins/console_command/command_utils.gd")
 const PackageCfg = preload("uid://ddo8w07hts45v") #! resolve GDPackageSpec.Cfg
 
 const _HELP = \
@@ -11,7 +11,7 @@ default, which build_require and test_require read through their @require defaul
 required package's cfg version=, and a version not tagged in its checkout yet only warns. Packages
 under compile_require are left out - they install beside the package, not inside it.
   --export-config  write the export config's build_require instead (an explicit list, @require dropped)
-Usage: package_exporter require update [--overwrite] [--prune] [--export-config] <plugin_name>"
+Usage: gdpackage require update [--overwrite] [--prune] [--export-config] <plugin_name>"
 
 var overwrite_flag := false
 var prune_flag := false

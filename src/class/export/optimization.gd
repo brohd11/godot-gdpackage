@@ -1,4 +1,4 @@
-extends "res://addons/package_exporter/src/class/export/parse/parse_base.gd"
+extends "res://addons/gdpackage/src/class/export/parse/parse_base.gd"
 ## Render before packaging changes source identities, then let packaging relocate new references.
 
 const Optimizer = UtilsRemote.GDScriptOptimizer
@@ -61,7 +61,7 @@ func pre_export() -> void:
 	context.set_global_classes(export_obj.export_data.class_list)
 	context.removed_globals = export_obj.class_renames
 	context.scan_references = _references
-	context.injection_header = "### Package Exporter Structs"
+	context.injection_header = "### GDPackage Structs"
 	context.configure(_policy(options))
 	var sources:Dictionary = {}
 	for key:String in export_obj.files_to_copy:
@@ -93,7 +93,7 @@ func pre_export() -> void:
 				pending[key] = result.lines
 	if errors.is_empty():
 		replacements = pending
-		export_obj.reporter.info("Package Exporter - optimizer stats=" + JSON.stringify(stats))
+		export_obj.reporter.info("GDPackage - optimizer stats=" + JSON.stringify(stats))
 	_report()
 
 
@@ -127,6 +127,6 @@ func _report() -> void:
 	for warning in warnings:
 		export_obj.reporter.warn("Optimizer - " + warning)
 	for error in errors:
-		export_obj.reporter.error("Package Exporter - optimizer - " + error)
+		export_obj.reporter.error("GDPackage - optimizer - " + error)
 	if not errors.is_empty():
 		export_obj.invalidate()

@@ -1,11 +1,11 @@
 extends SceneTree
 ## Headless release export, the entry CI runs:
-##     godot --headless --path <project> --script res://addons/package_exporter/src/class/release/release_cli.gd -- <package dir> [--tree <checkout>] [--refresh] [--local]
+##     godot --headless --path <project> --script res://addons/gdpackage/src/class/release/release_cli.gd -- <package dir> [--tree <checkout>] [--refresh] [--local]
 ## <package dir> is res://, project-relative (addons/_lib/x) or absolute inside the project; --tree
 ## is its checkout when that's elsewhere. Exits 0 once the release exported and verified, printing
 ## its zips as one OUTPUT_PREFIX line of JSON.
 
-const ReleaseExport = preload("res://addons/package_exporter/src/class/release/release_export.gd")
+const ReleaseExport = preload("res://addons/gdpackage/src/class/release/release_export.gd")
 
 const OUTPUT_PREFIX = "PE_RELEASE_OUTPUT "
 const USAGE = "usage: release_cli.gd -- <package dir> [--tree <checkout>] [--refresh] [--local]"

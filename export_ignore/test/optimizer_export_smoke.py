@@ -37,7 +37,7 @@ def main():
     print(f"Integration output: {output}", flush=True)
     before = hashes()
     if not args.reuse:
-        log = run(args.godot, ROOT, "--script", "res://addons/package_exporter/export_ignore/test/run_optimizer_export.gd", "--", str(output))
+        log = run(args.godot, ROOT, "--script", "res://addons/gdpackage/export_ignore/test/run_optimizer_export.gd", "--", str(output))
         (output / "export.log").write_text(log)
         assert "OPTIMIZER_EXPORT_ASSERTIONS" in log, log
     for entry in json.loads((output / "manifest.json").read_text()):

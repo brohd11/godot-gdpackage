@@ -4,10 +4,10 @@ extends RefCounted
 ## export config's build/compile/test_require, each looked up at its tag through PackageFetcher, so
 ## an unpushed tag or a /release without one matching asset fails here instead of in CI.
 
-const DepResolver = preload("res://addons/package_exporter/src/class/release/dep_resolver.gd")
-const RepoCache = preload("res://addons/package_exporter/src/class/release/repo_cache.gd")
-const ReleaseCache = preload("res://addons/package_exporter/src/class/release/release_cache.gd")
-const PackageFetcher = preload("res://addons/package_exporter/src/class/release/package_fetcher.gd")
+const DepResolver = preload("res://addons/gdpackage/src/class/release/dep_resolver.gd")
+const RepoCache = preload("res://addons/gdpackage/src/class/release/repo_cache.gd")
+const ReleaseCache = preload("res://addons/gdpackage/src/class/release/release_cache.gd")
+const PackageFetcher = preload("res://addons/gdpackage/src/class/release/package_fetcher.gd")
 
 
 ## {rows: [{spec, key, tag, ok, reason, note}], errors}. `key` is where the spec came from (build,

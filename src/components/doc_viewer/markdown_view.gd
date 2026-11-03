@@ -6,7 +6,7 @@ extends VBoxContainer
 ## change, so the view tracks the editor's font size and scale instead of fighting them.
 ## Engine-only and host-agnostic: links are reported, never resolved here.
 
-const Parser = preload("res://addons/package_exporter/src/components/doc_viewer/markdown_parser.gd")
+const Parser = preload("res://addons/gdpackage/src/components/doc_viewer/markdown_parser.gd")
 
 const _FALLBACK_FONT_SIZE = 16
 ## Images are held to a fraction of the viewport height so a screenshot cannot fill the page.

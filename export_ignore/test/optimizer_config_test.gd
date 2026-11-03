@@ -1,7 +1,7 @@
 extends RefCounted
 
-const Optimization = preload("res://addons/package_exporter/src/class/export/optimization.gd")
-const Init = preload("res://addons/package_exporter/src/class/export/plugin_init.gd")
+const Optimization = preload("res://addons/gdpackage/src/class/export/optimization.gd")
+const Init = preload("res://addons/gdpackage/src/class/export/plugin_init.gd")
 
 static func run_tests() -> Dictionary:
 	var failures:Array = []

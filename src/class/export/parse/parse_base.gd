@@ -1,8 +1,8 @@
 extends RefCounted
 
 
-const UtilsLocal = preload("res://addons/package_exporter/src/class/utils_local.gd")
-const UtilsRemote = preload("res://addons/package_exporter/src/class/utils_remote.gd") #>remote
+const UtilsLocal = preload("res://addons/gdpackage/src/class/utils_local.gd")
+const UtilsRemote = preload("res://addons/gdpackage/src/class/utils_remote.gd") #>remote
 const UFile = UtilsRemote.UFile
 const UString = UtilsRemote.UString
 const URegex = UtilsRemote.URegex

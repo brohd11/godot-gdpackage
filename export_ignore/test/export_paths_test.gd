@@ -4,9 +4,9 @@ extends EditorScript
 ## Tests for export config path rules: export_folder is an install path anywhere under res://, and
 ## the old "<package>/<folder>" form is caught by its {{...}} template instead of installing wrong.
 ##
-##     load("res://addons/package_exporter/export_ignore/test/export_paths_test.gd").run_tests()
+##     load("res://addons/gdpackage/export_ignore/test/export_paths_test.gd").run_tests()
 
-const ExportPaths = preload("res://addons/package_exporter/src/class/export/export_paths.gd")
+const ExportPaths = preload("res://addons/gdpackage/src/class/export/export_paths.gd")
 
 static var _failures:Array[String] = []
 static var _passed:int = 0

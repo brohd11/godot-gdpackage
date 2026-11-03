@@ -4,13 +4,13 @@ extends RefCounted
 ## its staged package into its install path, the standalone exporter as toolchain, and a minimal
 ## project.godot. Keyed by lock hash and reused, so an unchanged lock keeps its .godot import cache.
 
-const DepResolver = preload("res://addons/package_exporter/src/class/release/dep_resolver.gd")
-const ReleaseRunner = preload("res://addons/package_exporter/src/class/release/release_runner.gd")
+const DepResolver = preload("res://addons/gdpackage/src/class/release/dep_resolver.gd")
+const ReleaseRunner = preload("res://addons/gdpackage/src/class/release/release_runner.gd")
 const ExportIgnore = preload("uid://c4pt5djyuf8c") #! resolve GDPackageSpec.ExportIgnore
-const ExportPaths = preload("res://addons/package_exporter/src/class/export/export_paths.gd")
+const ExportPaths = preload("res://addons/gdpackage/src/class/export/export_paths.gd")
 
 const READY_MARKER = ".pe_release_ready"
-const TOOLCHAIN_PATH = "res://addons/package_exporter"
+const TOOLCHAIN_PATH = "res://addons/gdpackage"
 
 var fetcher # PackageFetcher
 var errors:Array[String] = []
@@ -32,7 +32,7 @@ func workspace_dir(target_name:String, lock:Dictionary, kind:String = WORKSPACES
 
 
 ## Builds (or reuses) the workspace and points its export at export_root_abs. `toolchain_dir` may be
-## "" only when the target is package_exporter itself, whose pinned checkout is then the toolchain.
+## "" only when the target is gdpackage itself, whose pinned checkout is then the toolchain.
 ## Returns the absolute workspace dir, or "" with `errors` filled.
 func build(lock:Dictionary, target_name:String, toolchain_dir:String, export_root_abs:String, debug_section:String) -> String:
 	errors.clear()
@@ -123,7 +123,7 @@ func _populate(ws:String, lock:Dictionary, toolchain_dir:String) -> bool:
 			return false
 
 	if lock.target.path != TOOLCHAIN_PATH:
-		if toolchain_dir == "" or not ReleaseRunner.copy_dir(toolchain_dir, ws.path_join("addons/package_exporter")):
+		if toolchain_dir == "" or not ReleaseRunner.copy_dir(toolchain_dir, ws.path_join("addons/gdpackage")):
 			errors.append("could not copy the standalone exporter from '%s'" % toolchain_dir)
 			return false
 	return true

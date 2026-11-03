@@ -1,12 +1,12 @@
-extends "res://addons/package_exporter/src/class/export/parse/parse_base.gd"
+extends "res://addons/gdpackage/src/class/export/parse/parse_base.gd"
 
-const StripTypeCast = preload("res://addons/package_exporter/src/class/export/parse/gd/global_class/strip_type_cast.gd")
+const StripTypeCast = preload("res://addons/gdpackage/src/class/export/parse/gd/global_class/strip_type_cast.gd")
 var strip_type_cast:StripTypeCast
 
-const GlobalRename = preload("res://addons/package_exporter/src/class/export/parse/gd/global_class/global_rename.gd")
+const GlobalRename = preload("res://addons/gdpackage/src/class/export/parse/gd/global_class/global_rename.gd")
 var global_rename:GlobalRename
 
-const RemoveNamespace = preload("res://addons/package_exporter/src/class/export/parse/gd/global_class/remove_namespace.gd")
+const RemoveNamespace = preload("res://addons/gdpackage/src/class/export/parse/gd/global_class/remove_namespace.gd")
 var remove_namespace: RemoveNamespace
 
 func _init() -> void:

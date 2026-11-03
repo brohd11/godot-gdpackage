@@ -7,7 +7,7 @@ extends RefCounted
 ## "@require" is dropped rather than expanded: writing there means an explicit list.
 ## Only DepResolver is imported - reaching for the export pipeline here would break headless callers.
 
-const DepResolver = preload("res://addons/package_exporter/src/class/release/dep_resolver.gd")
+const DepResolver = preload("res://addons/gdpackage/src/class/release/dep_resolver.gd")
 
 const KEY = DepResolver.BUILD_KEY
 const CFG_NAMES = DepResolver.CFG_NAMES

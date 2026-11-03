@@ -1,13 +1,13 @@
-extends "res://addons/package_exporter/src/class/export/parse/parse_base.gd"
+extends "res://addons/gdpackage/src/class/export/parse/parse_base.gd"
 
-const Backport = preload("res://addons/package_exporter/src/class/export/parse/gd/backport.gd")
+const Backport = preload("res://addons/gdpackage/src/class/export/parse/gd/backport.gd")
 
-const PACKAGE_EXPORTER_TAG = "# PACKAGE EXPORTER CONTEXT BACKPORT"
+const GDPACKAGE_TAG = "# GDPACKAGE CONTEXT BACKPORT"
 
 const COMPAT_SING_NAME = "ContextPluginBackport"
-const COMPAT_SING_PATH = "res://addons/package_exporter/src/class/export/backport/context/context_backport.gd"
+const COMPAT_SING_PATH = "res://addons/gdpackage/src/class/export/backport/context/context_backport.gd"
 
-const COMPAT_CLASS_PATH = "res://addons/package_exporter/src/class/export/backport/context/context_plugin_compat.gd"
+const COMPAT_CLASS_PATH = "res://addons/gdpackage/src/class/export/backport/context/context_plugin_compat.gd"
 const COMPAT_NAME = "EditorContextMenuPluginCompat"
 
 const SLOT_ENUMS = {
@@ -88,11 +88,11 @@ func post_export_edit_file(file_path:String, file_lines:Variant=null) -> Variant
 			file_lines[i] = line
 		
 	if is_editor_plugin or is_editor_context_plugin or has_editor_context_plugin:
-		file_lines.append(PACKAGE_EXPORTER_TAG)
+		file_lines.append(GDPACKAGE_TAG)
 		file_lines.append(Backport.get_backport_file_path(self, COMPAT_SING_NAME, COMPAT_SING_PATH, export_obj))
 		file_lines.append(Backport.get_backport_file_path(self, COMPAT_NAME, COMPAT_CLASS_PATH, export_obj))
 		
-		#file_lines.append(PACKAGE_EXPORTER_TAG)
+		#file_lines.append(GDPACKAGE_TAG)
 		file_lines.append("")
 	
 	

@@ -6,20 +6,20 @@ extends RefCounted
 ## Diffs every full `extension_api_*.json` in the dev-only source_dir() in ascending
 ## version order and writes one compact `api_min_version.json`: each class / member /
 ## global mapped to its earliest Godot version, plus an `inherits` map for hierarchy walks.
-## Re-run when dumps change: `preload("res://addons/package_exporter/src/editor_plugins/console_command/min_version/extract_api.gd").build()`
+## Re-run when dumps change: `preload("res://addons/gdpackage/src/editor_plugins/console_command/min_version/extract_api.gd").build()`
 
-const UtilsRemote = preload("res://addons/package_exporter/src/class/utils_remote.gd")
+const UtilsRemote = preload("res://addons/gdpackage/src/class/utils_remote.gd")
 
 const UFile = UtilsRemote.UFile
 
 const ExportIgnore = preload("uid://c4pt5djyuf8c") #! resolve GDPackageSpec.ExportIgnore
 
-const OUTPUT_PATH := "res://addons/package_exporter/src/editor_plugins/console_command/min_version/extension_api/api_min_version.json"
+const OUTPUT_PATH := "res://addons/gdpackage/src/editor_plugins/console_command/min_version/extension_api/api_min_version.json"
 
 
-## The dumps folder inside package_exporter's own _export_ignore/ (or export_ignore/).
+## The dumps folder inside gdpackage's own _export_ignore/ (or export_ignore/).
 static func source_dir() -> String:
-	return ExportIgnore.dir_or_default("res://addons/package_exporter").path_join("extension_api/")
+	return ExportIgnore.dir_or_default("res://addons/gdpackage").path_join("extension_api/")
 
 
 ## Build the merged index. Returns the output path (empty on failure).

@@ -9,8 +9,8 @@ extends RefCounted
 ## parser-based scan; members missing from the index are assumed user-defined.
 
 const URegex = preload("uid://d0rbf4as6kpns") #! resolve UtilR.Strings.URegex
-const VersionApi = preload("res://addons/package_exporter/src/editor_plugins/console_command/min_version/version_api.gd")
-const SyntaxRules = preload("res://addons/package_exporter/src/editor_plugins/console_command/min_version/syntax_rules.gd")
+const VersionApi = preload("res://addons/gdpackage/src/editor_plugins/console_command/min_version/version_api.gd")
+const SyntaxRules = preload("res://addons/gdpackage/src/editor_plugins/console_command/min_version/syntax_rules.gd")
 
 var api := VersionApi.new()
 ## Off for scripts outside this project (release workspaces): loading them here would parse them

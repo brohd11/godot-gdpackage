@@ -1,13 +1,13 @@
 extends GDSh.CommandBase
 
 
-const PluginExporter = preload("res://addons/package_exporter/src/class/plugin_exporter.gd")
-const PECommandUtils = preload("res://addons/package_exporter/src/editor_plugins/console_command/command_utils.gd")
+const PluginExporter = preload("res://addons/gdpackage/src/class/plugin_exporter.gd")
+const PECommandUtils = preload("res://addons/gdpackage/src/editor_plugins/console_command/command_utils.gd")
 const ExportData = PluginExporter.PluginExporterStatic.ExportData
 const Export = ExportData.Export
 
-const VersionScanner = preload("res://addons/package_exporter/src/editor_plugins/console_command/min_version/version_scanner.gd")
-const VersionApi = preload("res://addons/package_exporter/src/editor_plugins/console_command/min_version/version_api.gd")
+const VersionScanner = preload("res://addons/gdpackage/src/editor_plugins/console_command/min_version/version_scanner.gd")
+const VersionApi = preload("res://addons/gdpackage/src/editor_plugins/console_command/min_version/version_api.gd")
 
 const UString = PluginExporter.UtilsRemote.UString
 
@@ -20,7 +20,7 @@ Usage: min_version [--min=4.4] <addon_name> [--verbose] [--full]
              implemented — currently runs the standard scan.
   --min=VER  Only show findings introduced above VER (e.g. --min=4.4). Does not
              change the scan or the reported minimum, only what is listed.
-             Can set $PACKAGE_EXPORTER_MIN_VERSION for persistence, flag overides variable."
+             Can set $GDPACKAGE_MIN_VERSION for persistence, flag overides variable."
 
 var verbose_flag := false
 var full_flag := false
@@ -63,7 +63,7 @@ func _get_completions(ctx:Completion):
 
 func _execute(ctx:Context):
 	if min_flag == "":
-		var min_var = ctx.get_variable("$PACKAGE_EXPORTER_MIN_VERSION")
+		var min_var = ctx.get_variable("$GDPACKAGE_MIN_VERSION")
 		min_flag = UString.unquote(min_var)
 		if not min_flag.is_empty():
 			_min_provided = true

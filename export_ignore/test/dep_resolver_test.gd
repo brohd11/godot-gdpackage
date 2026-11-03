@@ -6,10 +6,10 @@ extends EditorScript
 ## flags, and packages located inside whole projects or release zips. Repos are a fake fetcher (git
 ## trees and single-asset releases), so no git or network.
 ##
-##     load("res://addons/package_exporter/export_ignore/test/dep_resolver_test.gd").run_tests()
+##     load("res://addons/gdpackage/export_ignore/test/dep_resolver_test.gd").run_tests()
 
-const DepResolver = preload("res://addons/package_exporter/src/class/release/dep_resolver.gd")
-const ReleaseCache = preload("res://addons/package_exporter/src/class/release/release_cache.gd")
+const DepResolver = preload("res://addons/gdpackage/src/class/release/dep_resolver.gd")
+const ReleaseCache = preload("res://addons/gdpackage/src/class/release/release_cache.gd")
 
 const EX = "export_ignore/plugin_export.yml"
 

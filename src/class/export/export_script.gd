@@ -1,9 +1,9 @@
 @tool
 extends Node
-## Base for a config's pre_script / post_script: `extends PackageExporter.ExportScript`.
+## Base for a config's pre_script / post_script: `extends GDPackage.ExportScript`.
 ## _configure runs before pre_export / post_export; override it to pull more from ExportData.
 
-const ExportData = preload("res://addons/package_exporter/src/class/export/export_data.gd")
+const ExportData = preload("res://addons/gdpackage/src/class/export/export_data.gd")
 
 var export_path:String
 

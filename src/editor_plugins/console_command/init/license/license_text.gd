@@ -1,8 +1,8 @@
 # License templates. MIT/BSD_3/ISC contain two `%s` placeholders filled with [year, name].
 # APACHE_2/GPL_3 are the verbatim canonical texts (no substitution).
 
-const APACHE_2_PATH = "res://addons/package_exporter/src/editor_plugins/console_command/init/license/apache.txt"
-const GPL_3_PATH = "res://addons/package_exporter/src/editor_plugins/console_command/init/license/gpl3.txt"
+const APACHE_2_PATH = "res://addons/gdpackage/src/editor_plugins/console_command/init/license/apache.txt"
+const GPL_3_PATH = "res://addons/gdpackage/src/editor_plugins/console_command/init/license/gpl3.txt"
 
 static func get_text(license_id:String, name:String, year:String) -> String:
 	match license_id:

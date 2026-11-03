@@ -4,10 +4,10 @@ extends RefCounted
 ## gets NOTE/WARN/ERROR, INFO only when verbose. Repeated warnings and errors reach the sink once
 ## but are all kept in `entries`.
 
-const _UtilsRemote = preload("res://addons/package_exporter/src/class/utils_remote.gd")
+const _UtilsRemote = preload("res://addons/gdpackage/src/class/utils_remote.gd")
 const _UEditor = _UtilsRemote.UEditor
 
-const SELF = preload("res://addons/package_exporter/src/class/export/reporter.gd")
+const SELF = preload("res://addons/gdpackage/src/class/export/reporter.gd")
 
 enum Level {INFO, NOTE, WARN, ERROR}
 

@@ -2,10 +2,10 @@
 extends EditorScript
 ## Config lookup and version tokens must retain package identity outside addons/.
 
-const Files = preload("res://addons/package_exporter/src/class/export/plugin_exporter_file_utils.gd")
-const Runner = preload("res://addons/package_exporter/src/class/release/release_runner.gd")
-const Workspace = preload("res://addons/package_exporter/src/class/release/release_workspace.gd")
-const ROOT = "res://addons/package_exporter/export_ignore/test/fixtures/_package_targets"
+const Files = preload("res://addons/gdpackage/src/class/export/plugin_exporter_file_utils.gd")
+const Runner = preload("res://addons/gdpackage/src/class/release/release_runner.gd")
+const Workspace = preload("res://addons/gdpackage/src/class/release/release_workspace.gd")
+const ROOT = "res://addons/gdpackage/export_ignore/test/fixtures/_package_targets"
 
 static var _failures:Array[String] = []
 static var _passed:int = 0
@@ -23,7 +23,7 @@ static func run_tests() -> Dictionary:
 	_passed = 0
 	Runner.remove_dir(ProjectSettings.globalize_path(ROOT))
 	_write(ROOT.path_join(".gdignore"), "")
-	var target = ROOT.path_join("package_exporter")
+	var target = ROOT.path_join("gdpackage")
 	var config = target.path_join("_export_ignore/export.yml")
 	_write(target.path_join("plugin.cfg"), '[plugin]\nversion="9.9.9"\n')
 	_write(config, 'export_root: "unused"\n')

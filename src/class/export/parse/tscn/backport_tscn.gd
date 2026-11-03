@@ -1,6 +1,6 @@
-extends "res://addons/package_exporter/src/class/export/parse/parse_base.gd"
+extends "res://addons/gdpackage/src/class/export/parse/parse_base.gd"
 
-const DPITexBackportTscn = preload("res://addons/package_exporter/src/class/export/parse/tscn/backport/dpi_texture.gd")
+const DPITexBackportTscn = preload("res://addons/gdpackage/src/class/export/parse/tscn/backport/dpi_texture.gd")
 var dpi_tex_backport_tscn:DPITexBackportTscn
 
 var backport_target:= 100

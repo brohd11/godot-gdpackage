@@ -75,7 +75,7 @@ static func _scan(root:String, relative:String, paths:Array[String]) -> void:
 		paths.append(relative)
 		var cfgs = PackageCfg.find_all(dir)
 		if cfgs.size() > 1: # only the first is read; gdaddon does the same
-			push_warning("Package Exporter: %s has several package cfgs, only %s is read: %s" % [
+			push_warning("GDPackage: %s has several package cfgs, only %s is read: %s" % [
 				dir, cfgs[0].get_file(), ", ".join(cfgs.map(func(c): return c.get_file()))])
 	for child in access.get_directories():
 		if child.begins_with(".") or ExportIgnore.is_name(child) or access.is_link(child):

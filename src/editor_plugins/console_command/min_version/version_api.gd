@@ -7,7 +7,7 @@ extends RefCounted
 ## this class / member / global?". An empty string means "not in any dump" —
 ## treated by callers as user-defined / unknown and skipped.
 
-const UtilsRemote = preload("res://addons/package_exporter/src/class/utils_remote.gd")
+const UtilsRemote = preload("res://addons/gdpackage/src/class/utils_remote.gd")
 const UFile = UtilsRemote.UFile
 
 ## Lowest version the index covers; findings at/below it don't raise the floor.

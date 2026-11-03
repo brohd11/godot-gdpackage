@@ -5,7 +5,7 @@ const _HELP = \
   package  make a folder a library package: a package cfg, git init, src/, then init plugin
   plugin   initialize a plugin folder with the required files
   license  generate a LICENSE file
-Usage: package_exporter init <package|plugin|license> ..."
+Usage: gdpackage init <package|plugin|license> ..."
 
 static func get_command_name() -> String:
 	return "init"

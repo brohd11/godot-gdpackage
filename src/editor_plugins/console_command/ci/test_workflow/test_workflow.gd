@@ -1,13 +1,13 @@
 extends GDSh.CommandBase
 
-const PluginExporter = preload("res://addons/package_exporter/src/class/plugin_exporter.gd")
-const PECommandUtils = preload("res://addons/package_exporter/src/editor_plugins/console_command/command_utils.gd")
+const PluginExporter = preload("res://addons/gdpackage/src/class/plugin_exporter.gd")
+const PECommandUtils = preload("res://addons/gdpackage/src/editor_plugins/console_command/command_utils.gd")
 
 const _HELP = \
 "Opt a package into test CI: writes .github/workflows/test.yml at its repo root, running its
 suites on every push against its requires at their tags. Never overwrites an existing file.
 A package below its repo's root (a whole-project repo) is refused unless --allow-project-root.
-Usage: package_exporter ci test_workflow [--allow-project-root] <plugin_name>"
+Usage: gdpackage ci test_workflow [--allow-project-root] <plugin_name>"
 
 var allow_project_root_flag := false
 

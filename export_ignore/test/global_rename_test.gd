@@ -5,9 +5,9 @@ extends EditorScript
 ## Strings and comments must come through untouched, including literals that span lines - a
 ## per-line pass can't see those, which is how SweetUI's code templates got renamed.
 ##
-##     load("res://addons/package_exporter/export_ignore/test/global_rename_test.gd").run_tests()
+##     load("res://addons/gdpackage/export_ignore/test/global_rename_test.gd").run_tests()
 
-const GlobalRename = preload("res://addons/package_exporter/src/class/export/parse/gd/global_class/global_rename.gd")
+const GlobalRename = preload("res://addons/gdpackage/src/class/export/parse/gd/global_class/global_rename.gd")
 
 static var _failures:Array[String] = []
 static var _passed:int = 0

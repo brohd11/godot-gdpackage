@@ -1,10 +1,10 @@
 extends GDSh.CommandBase
 
-const PluginExporter = preload("res://addons/package_exporter/src/class/plugin_exporter.gd")
+const PluginExporter = preload("res://addons/gdpackage/src/class/plugin_exporter.gd")
 
 const _HELP = \
 "create a new plugin from template and initialize
-Usage: package_exporter new_plugin <plugin_name>"
+Usage: gdpackage new_plugin <plugin_name>"
 
 static func get_command_name() -> String:
 	return "new_plugin"

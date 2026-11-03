@@ -1,12 +1,12 @@
 extends SceneTree
 ## Headless test CI, the entry the test workflow runs:
-##     godot --headless --path <project> --script res://addons/package_exporter/src/class/release/test_cli.gd -- <package dir> [--tree <checkout>] [--refresh] [--local]
+##     godot --headless --path <project> --script res://addons/gdpackage/src/class/release/test_cli.gd -- <package dir> [--tree <checkout>] [--refresh] [--local]
 ## <package dir> is where the package installs; --tree is its checkout when that's elsewhere.
 ## Exits 0 when the package's suites pass against its requires at their tags, printing TestRunner's
 ## report as one OUTPUT_PREFIX line of JSON ({} if the suites never ran).
 
-const TestCI = preload("res://addons/package_exporter/src/class/release/test_ci.gd")
-const ReleaseCli = preload("res://addons/package_exporter/src/class/release/release_cli.gd")
+const TestCI = preload("res://addons/gdpackage/src/class/release/test_ci.gd")
+const ReleaseCli = preload("res://addons/gdpackage/src/class/release/release_cli.gd")
 
 const OUTPUT_PREFIX = "PE_TEST_OUTPUT "
 const USAGE = "usage: test_cli.gd -- <package dir> [--tree <checkout>] [--refresh] [--local]"

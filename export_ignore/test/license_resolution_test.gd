@@ -5,9 +5,9 @@ extends EditorScript
 ## gather_licenses. Synthetic paths only, nothing is read from disk: is_file_in_directory just
 ## globalizes and compares prefixes, so res:// paths that do not exist resolve fine.
 ##
-##     load("res://addons/package_exporter/export_ignore/test/license_resolution_test.gd").run_tests()
+##     load("res://addons/gdpackage/export_ignore/test/license_resolution_test.gd").run_tests()
 
-const ExportObj = preload("res://addons/package_exporter/src/class/utils_local.gd").ExportObj
+const ExportObj = preload("res://addons/gdpackage/src/class/utils_local.gd").ExportObj
 
 const LIB = "res://addons/_lib/brohd"
 const CONFIG = "res://addons/_lib/dock_manager/config"

@@ -5,7 +5,7 @@ const _HELP = \
   check      list the package's own requires; --tags checks they can be fetched, --all walks every dependency
   update     write the requires the export crawl finds into the cfg (or --export-config)
   consumers  list every package that declares a given repo among its requires
-Usage: package_exporter require <check|update|consumers> ..."
+Usage: gdpackage require <check|update|consumers> ..."
 
 static func get_command_name() -> String:
 	return "require"

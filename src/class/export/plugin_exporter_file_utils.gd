@@ -1,6 +1,6 @@
 
-const UtilsRemote = preload("res://addons/package_exporter/src/class/utils_remote.gd")
-const UtilsLocal = preload("res://addons/package_exporter/src/class/utils_local.gd")
+const UtilsRemote = preload("res://addons/gdpackage/src/class/utils_remote.gd")
+const UtilsLocal = preload("res://addons/gdpackage/src/class/utils_local.gd")
 
 const ExportData = UtilsLocal.ExportData
 const FileParser = UtilsLocal.FileParser
@@ -15,7 +15,7 @@ const Reporter = UtilsLocal.Reporter
 
 const Confirmation = UtilsRemote.Confirmation
 const ExportIgnore = preload("uid://c4pt5djyuf8c") #! resolve GDPackageSpec.ExportIgnore
-const ExportPaths = preload("res://addons/package_exporter/src/class/export/export_paths.gd")
+const ExportPaths = preload("res://addons/gdpackage/src/class/export/export_paths.gd")
 const PackageCfg = preload("uid://ddo8w07hts45v") #! resolve GDPackageSpec.Cfg
 
 const VALID_FILE_NAMES = ExportIgnore.CONFIG_NAMES
@@ -49,20 +49,20 @@ static func get_export_data(export_config_path:String, reporter = null):
 		var json = JSON.new()
 		var parse_result = json.parse(config_string)
 		if parse_result != OK:
-			reporter.error("Package Exporter - Error parsing JSON: " + json.get_error_message() + " at line " + str(json.get_error_line()))
+			reporter.error("GDPackage - Error parsing JSON: " + json.get_error_message() + " at line " + str(json.get_error_line()))
 			return
 		return json.data
 	elif export_config_path.get_extension() in ["yml", "yaml"]:
 		var parser = YAMLParser.new()
 		var err = parser.parse(config_string)
 		if err != OK:
-			reporter.error("Package Exporter - Error parsing YAML: %s %s" % [err, parser.errors])
+			reporter.error("GDPackage - Error parsing YAML: %s %s" % [err, parser.errors])
 			return
 		return parser.data
 
 static func get_file_export_path(file_path:String, export_config_path:String, desired_export:int=-1, export_data:ExportData=null):
 	if not FileAccess.file_exists(file_path):
-		Reporter.or_default(export_data.reporter if export_data else null).error("Package Exporter - File doesn't exist: %s" % file_path)
+		Reporter.or_default(export_data.reporter if export_data else null).error("GDPackage - File doesn't exist: %s" % file_path)
 		return
 	if export_data == null:
 		export_data = ExportData.new(export_config_path)

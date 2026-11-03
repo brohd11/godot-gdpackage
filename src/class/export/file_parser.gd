@@ -1,7 +1,7 @@
 extends RefCounted
 
-const UtilsRemote = preload("res://addons/package_exporter/src/class/utils_remote.gd")
-const UtilsLocal = preload("res://addons/package_exporter/src/class/utils_local.gd")
+const UtilsRemote = preload("res://addons/gdpackage/src/class/utils_remote.gd")
+const UtilsLocal = preload("res://addons/gdpackage/src/class/utils_local.gd")
 
 const KeysData = UtilsLocal.ExportFileUtils.KeysData
 const DependencyTags = UtilsLocal.DependencyTags
@@ -23,7 +23,7 @@ var current_file_path_parsing:String
 var current_adjusted_file_path:String
 
 func _init() -> void:
-	optimization = load("res://addons/package_exporter/src/class/export/optimization.gd").new()
+	optimization = load("res://addons/gdpackage/src/class/export/optimization.gd").new()
 	var file_parser_path = self.get_script().resource_path
 	var parse_folder_path = file_parser_path.get_base_dir().path_join("parse")
 	

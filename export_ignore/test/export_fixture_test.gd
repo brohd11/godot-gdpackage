@@ -10,9 +10,9 @@ extends EditorScript
 ## with the fixture plugin pulled in through test_require; the plain --script run_headless.gd can't,
 ## so it stays out of that runner's explicit SUITES list.
 ##
-##     load("res://addons/package_exporter/export_ignore/test/export_fixture_test.gd").run_tests()
+##     load("res://addons/gdpackage/export_ignore/test/export_fixture_test.gd").run_tests()
 
-const UtilsLocal = preload("res://addons/package_exporter/src/class/utils_local.gd")
+const UtilsLocal = preload("res://addons/gdpackage/src/class/utils_local.gd")
 const ExportFileUtils = UtilsLocal.ExportFileUtils
 const KeysConfig = ExportFileUtils.KeysConfig
 
@@ -131,9 +131,9 @@ static func _test_layout() -> void:
 	# The pair lives outside the plugin: a license inside the exported source is skipped by
 	# gather_licenses, and check_ignore hard-blocks anything under export_ignore/.
 	_check("vendor license gathered",
-		_found(dir, "licenses/package_exporter_export_ignore_test_fixtures_vendor/LICENSE"), true)
+		_found(dir, "licenses/gdpackage_export_ignore_test_fixtures_vendor/LICENSE"), true)
 	_check("nested license gathered alongside its parent",
-		_found(dir, "licenses/package_exporter_export_ignore_test_fixtures_vendor_nested/LICENSE"), true)
+		_found(dir, "licenses/gdpackage_export_ignore_test_fixtures_vendor_nested/LICENSE"), true)
 	# res:// is held out of the matching, so no license lands from an empty flattened dir name.
 	_check("no project-root license", _exists(dir, "licenses/LICENSE"), false)
 
@@ -169,7 +169,7 @@ static func _test_rewrites() -> void:
 	_check("class_name kept for ignored class", _has(dir, "global/fixture_kept.gd",
 		"class_name PETKeptGlobal"), true)
 	_check("renamed class injected as preload", _has(dir, "src/core/consumer.gd",
-		"### Package Exporter Global Classes"), true)
+		"### GDPackage Global Classes"), true)
 	_check("renamed class use rewritten", _has(dir, "src/core/consumer.gd",
 		"PETFixtureGlobal."), false)
 	_check("renamed class kept inside multi-line string", _has(dir, "src/core/consumer.gd",
@@ -337,12 +337,12 @@ static func _test_struct() -> void:
 	_check("struct access: multi-line inline lambda", _has(dir, access,
 		"var ys := vs.map(func(e: Array) -> float:\n\t\tvar y: float = e[StructVec.Y]"), true)
 	_check("struct access: var-bound lambda", _has(dir, access, "var get_x = func(v: Array) -> float: return v[StructVec.X]"), true)
-	_check("struct access: nothing injected where the name exists", _has(dir, access, "### Package Exporter Structs"), false)
+	_check("struct access: nothing injected where the name exists", _has(dir, access, "### GDPackage Structs"), false)
 
 	var blind = "src/core/struct_blind.gd"
 	_check("struct blind: read through the injected name", _has(dir, blind, "return StructUser.origin()[StructVec.X]"), true)
 	_check("struct blind: preload injected", _has(dir, blind,
-		'### Package Exporter Structs\nconst StructVec = preload("res://addons/plugin_exporter_test/src/core/struct_vec.gd")'), true)
+		'### GDPackage Structs\nconst StructVec = preload("res://addons/plugin_exporter_test/src/core/struct_vec.gd")'), true)
 
 
 static func _test_optimizer() -> void:

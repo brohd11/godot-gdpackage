@@ -1,9 +1,9 @@
 extends GDSh.CommandBase
 
-const RequireReport = preload("res://addons/package_exporter/src/class/release/require_report.gd")
-const RequireUpdate = preload("res://addons/package_exporter/src/class/release/require_update.gd")
-const RequireCheck = preload("res://addons/package_exporter/src/class/release/require_check.gd")
-const PECommandUtils = preload("res://addons/package_exporter/src/editor_plugins/console_command/command_utils.gd")
+const RequireReport = preload("res://addons/gdpackage/src/class/release/require_report.gd")
+const RequireUpdate = preload("res://addons/gdpackage/src/class/release/require_update.gd")
+const RequireCheck = preload("res://addons/gdpackage/src/class/release/require_check.gd")
+const PECommandUtils = preload("res://addons/gdpackage/src/editor_plugins/console_command/command_utils.gd")
 
 const _HELP = \
 "List the packages a plugin's export pulls in, as its own require list: one require@tag per line,
@@ -14,7 +14,7 @@ the tag being each package's cfg version=. Runs the export crawl only.
              belongs in, marked declared or MISSING
   --verbose  with the list or --all: every reference behind each package, as file:line, kind,
              the text as written and the file it lands on
-Usage: package_exporter require check [--tags] [--all] [--verbose] <plugin_name>"
+Usage: gdpackage require check [--tags] [--all] [--verbose] <plugin_name>"
 
 var tags_flag := false
 var all_flag := false

@@ -1,5 +1,5 @@
-const LicenseText = preload("res://addons/package_exporter/src/editor_plugins/console_command/init/license/license_text.gd")
-const ExportPaths = preload("res://addons/package_exporter/src/class/export/export_paths.gd")
+const LicenseText = preload("res://addons/gdpackage/src/editor_plugins/console_command/init/license/license_text.gd")
+const ExportPaths = preload("res://addons/gdpackage/src/class/export/export_paths.gd")
 
 # Never overwrites an existing LICENSE (prints an error and returns false instead).
 static func generate(plugin_name:String, name:String, year:String, license_id:String, ctx) -> bool:

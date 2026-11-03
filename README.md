@@ -1,4 +1,8 @@
-# Godot Package Exporter
+# GDPackage
+
+GDPackage authors, tests and releases Godot packages (plugins and libraries);
+[gdaddon](https://github.com/brohd11/gdaddon) installs them. Formerly Package Exporter
+(`godot-package-exporter`), renamed in 0.11.0.
 
 This plugin is used to create release packages for your plugins.
 
@@ -8,7 +12,7 @@ The main feature is to get any global classes used in your plugin and remove the
 
 The other aspect of this is that the global class can be outside of the plugin. It would then be copied into your plugin on export. This allows you to keep shared classes in a central folder/submodule, but use the classes as normal.
 
-In the image below, you can see how the exporter itself is exported. The main logic lives in the package_exporter folder, it pulls utility classes from _lib folder, and then pulls the editor_console plugin as a sub plugin.
+In the image below, you can see how the exporter itself is exported. The main logic lives in the gdpackage folder, it pulls utility classes from _lib folder, and then pulls the editor_console plugin as a sub plugin.
 
 
 <img width="1161" height="955" alt="exporter-example-git" src="https://github.com/user-attachments/assets/d391a7b0-84dc-416e-a221-6a5fa798d9ee" />
@@ -26,19 +30,19 @@ You can open a package exporter instance from the project menu. In the instance 
 
 The default export location is "_export_ignore/exports". The folder itself is never copied into an export, whatever the exclude list says. A .gdignore file is created in "exports" so that the files are not imported into your project.
 
-Alternatively, you can run this setup from the [editor console plugin](https://github.com/brohd11/Godot-Editor-Console) that is bundled with this plugin. With or without the GUI open, run: `package_exporter init plugin my_plugin_folder`
+Alternatively, you can run this setup from the [editor console plugin](https://github.com/brohd11/Godot-Editor-Console) that is bundled with this plugin. With or without the GUI open, run: `gdpackage init plugin my_plugin_folder`
 
 With the setup complete, you can click "Read" in the GUI tool menu. This will create a tree that displays all the files that will be exported including the files outside of the plugin. These will be labeled with the file's relationship to the plugin.
  - remote file - global class or "#! remote" files
  - dependency - file found in a remote file when scanned
 
-Console command: `package_exporter open gui my_plugin_folder` will open a GUI instance and read the export file.
+Console command: `gdpackage open gui my_plugin_folder` will open a GUI instance and read the export file.
 
 ### Export
 
 You can export through the GUI by clicking "Export" in the tool menu.
 
-Console command: `package_exporter export my_plugin_folder`
+Console command: `gdpackage export my_plugin_folder`
 
 
 ### Package targets
@@ -49,10 +53,10 @@ explicit `res://` paths, or absolute filesystem paths inside the current project
 For example:
 
 ```text
-package_exporter export _lib/brohd
-package_exporter init plugin res://lib/my_package
-package_exporter export res://lib/my_package
-package_exporter export --release --local res://lib/my_package
+gdpackage export _lib/brohd
+gdpackage init plugin res://lib/my_package
+gdpackage export res://lib/my_package
+gdpackage export --release --local res://lib/my_package
 ```
 
 Autocomplete recursively finds folders under `addons/` containing a package cfg, suggesting
@@ -82,8 +86,8 @@ See [optimizer settings](export_ignore/doc/export_settings.md#gdscript-optimizer
 Validation:
 
 ```sh
-godot --headless --path . --script res://addons/package_exporter/export_ignore/test/run_headless.gd
-python3 addons/package_exporter/export_ignore/test/optimizer_export_smoke.py --godot /path/to/godot
+godot --headless --path . --script res://addons/gdpackage/export_ignore/test/run_headless.gd
+python3 addons/gdpackage/export_ignore/test/optimizer_export_smoke.py --godot /path/to/godot
 ```
 
 The smoke test exports the fixture plugin with optimizer and packaging variants, then

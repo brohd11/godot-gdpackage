@@ -4,27 +4,27 @@ extends RefCounted
 ## those tags instead of the dev tree, then proves the output compiles on its own. The workspace
 ## export (PluginExporterStatic.export_by_name) is untouched - this is the build with go.work off.
 
-const UtilsLocal = preload("res://addons/package_exporter/src/class/utils_local.gd")
-const UtilsRemote = preload("res://addons/package_exporter/src/class/utils_remote.gd")
+const UtilsLocal = preload("res://addons/gdpackage/src/class/utils_local.gd")
+const UtilsRemote = preload("res://addons/gdpackage/src/class/utils_remote.gd")
 const ExportFileUtils = UtilsLocal.ExportFileUtils
 const ExportPaths = ExportFileUtils.ExportPaths
 const Reporter = UtilsLocal.Reporter
 
-const DepResolver = preload("res://addons/package_exporter/src/class/release/dep_resolver.gd")
-const RepoCache = preload("res://addons/package_exporter/src/class/release/repo_cache.gd")
-const ReleaseWorkspace = preload("res://addons/package_exporter/src/class/release/release_workspace.gd")
-const ReleaseRunner = preload("res://addons/package_exporter/src/class/release/release_runner.gd")
-const CompileCheck = preload("res://addons/package_exporter/src/class/release/compile_check.gd")
-const Toolchain = preload("res://addons/package_exporter/src/class/release/toolchain.gd")
-const ReleaseCache = preload("res://addons/package_exporter/src/class/release/release_cache.gd")
-const PackageFetcher = preload("res://addons/package_exporter/src/class/release/package_fetcher.gd")
-const VersionScanner = preload("res://addons/package_exporter/src/editor_plugins/console_command/min_version/version_scanner.gd")
+const DepResolver = preload("res://addons/gdpackage/src/class/release/dep_resolver.gd")
+const RepoCache = preload("res://addons/gdpackage/src/class/release/repo_cache.gd")
+const ReleaseWorkspace = preload("res://addons/gdpackage/src/class/release/release_workspace.gd")
+const ReleaseRunner = preload("res://addons/gdpackage/src/class/release/release_runner.gd")
+const CompileCheck = preload("res://addons/gdpackage/src/class/release/compile_check.gd")
+const Toolchain = preload("res://addons/gdpackage/src/class/release/toolchain.gd")
+const ReleaseCache = preload("res://addons/gdpackage/src/class/release/release_cache.gd")
+const PackageFetcher = preload("res://addons/gdpackage/src/class/release/package_fetcher.gd")
+const VersionScanner = preload("res://addons/gdpackage/src/editor_plugins/console_command/min_version/version_scanner.gd")
 const VersionApi = VersionScanner.VersionApi
 
 const LOCK_FILE = ".export_lock.json"
 const GIT_DETAILS_FILE = ".export_git_details"
 const UNVERIFIED_SUFFIX = "-unverified"
-const TOOLCHAIN_SCRIPTS = "res://addons/package_exporter/src/class/"
+const TOOLCHAIN_SCRIPTS = "res://addons/gdpackage/src/class/"
 
 ## The running export_release call's reporter (the caller's, so a console can sink it live). Null
 ## between calls: kept past one, its sink would live until static teardown and crash the exit.
@@ -36,7 +36,7 @@ static var zips:Array[String] = []
 ## `local` fetches every repo checked out in this project from that checkout rather than its
 ## remote - still by tag, so nothing uncommitted gets in, but nothing has to be pushed either.
 ## `tree_dir` is the checkout to read cfg, config and origin from when it isn't at the install path,
-## as when CI releases package_exporter with a released one installed there.
+## as when CI releases gdpackage with a released one installed there.
 static func export_release(plugin_name:String, refresh:bool = false, local:bool = false, _reporter = null, tree_dir:String = "") -> bool:
 	reporter = Reporter.or_default(_reporter)
 	zips.clear()

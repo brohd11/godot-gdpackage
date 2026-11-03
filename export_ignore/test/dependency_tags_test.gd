@@ -1,18 +1,18 @@
 @tool
 extends EditorScript
 
-## Tests for package_exporter's `#! dependency` tag handler — the one handler the exporter
+## Tests for gdpackage's `#! dependency` tag handler — the one handler the exporter
 ## registers on DepMap.Scanner. The collector itself ships no handlers; the mechanism
 ## it provides is covered by dep_map's own suite.
 ##
 ## Fixtures are written to user:// for the same reason the collector suite does it: the tag
 ## lines are more readable sitting next to the assertion that reads them.
 ##
-##     load("res://addons/package_exporter/export_ignore/test/dependency_tags_test.gd").run_tests()
+##     load("res://addons/gdpackage/export_ignore/test/dependency_tags_test.gd").run_tests()
 
 const DepScanner = preload("uid://dbn0kmkxa7caq") #! resolve DepMap.Scanner
 const Kind = DepScanner.Kind
-const DependencyTags = preload("res://addons/package_exporter/src/class/export/dependency_tags.gd")
+const DependencyTags = preload("res://addons/gdpackage/src/class/export/dependency_tags.gd")
 const DIR_KEY = DependencyTags.DIR_KEY
 
 const DIR = "user://pe_dependency_tag_tests/"

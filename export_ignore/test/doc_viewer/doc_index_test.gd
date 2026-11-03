@@ -7,9 +7,9 @@ extends EditorScript
 ##
 ## Fixtures are written to user:// so the layouts under test sit beside their assertions.
 ##
-##     load("res://addons/package_exporter/export_ignore/test/doc_viewer/doc_index_test.gd").run_tests()
+##     load("res://addons/gdpackage/export_ignore/test/doc_viewer/doc_index_test.gd").run_tests()
 
-const DocIndex = preload("res://addons/package_exporter/src/components/doc_viewer/doc_index.gd")
+const DocIndex = preload("res://addons/gdpackage/src/components/doc_viewer/doc_index.gd")
 
 const DIR = "user://pe_doc_index_tests/"
 

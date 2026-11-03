@@ -1,6 +1,6 @@
-extends PackageExporter.UtilsRemote.TreeHelperBase
+extends GDPackage.UtilsRemote.TreeHelperBase
 
-const UtilsRemote = preload("res://addons/package_exporter/src/class/utils_remote.gd")
+const UtilsRemote = preload("res://addons/gdpackage/src/class/utils_remote.gd")
 
 func _set_folder_icon_img():
 	folder_icon = EditorInterface.get_base_control().get_theme_icon("Folder", &"EditorIcons")

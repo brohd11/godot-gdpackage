@@ -6,8 +6,8 @@ extends RefCounted
 ## Files tagged `#! pe-skip-parse` (DependencyTags.SKIP_PARSE) are not loaded, e.g. a placeholder
 ## extends that Singletons.RuntimeExtend swaps at runtime and so can never compile as written.
 
-const ReleaseRunner = preload("res://addons/package_exporter/src/class/release/release_runner.gd")
-const DependencyTags = preload("res://addons/package_exporter/src/class/export/dependency_tags.gd")
+const ReleaseRunner = preload("res://addons/gdpackage/src/class/release/release_runner.gd")
+const DependencyTags = preload("res://addons/gdpackage/src/class/export/dependency_tags.gd")
 
 const PROBE_DIR = "pe_compile_probe"
 const LOAD_FAIL_PREFIX = "PE_LOAD_FAIL "
@@ -15,7 +15,7 @@ const LOAD_EXTENSIONS = ["gd", "tscn", "tres"]
 
 const _PROBE = """@tool
 extends EditorPlugin
-# Written by PackageExporter's release compile check: loads every file of one plugin, then quits.
+# Written by GDPackage's release compile check: loads every file of one plugin, then quits.
 
 var _started := false
 var _done := false

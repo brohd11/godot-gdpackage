@@ -5,9 +5,9 @@ extends EditorScript
 ## project uses, and splicing a new list back in without touching anything else. Temporary configs
 ## exercise apply() without a crawl, git or editor.
 ##
-##     load("res://addons/package_exporter/export_ignore/test/require_update_test.gd").run_tests()
+##     load("res://addons/gdpackage/export_ignore/test/require_update_test.gd").run_tests()
 
-const RequireUpdate = preload("res://addons/package_exporter/src/class/release/require_update.gd")
+const RequireUpdate = preload("res://addons/gdpackage/src/class/release/require_update.gd")
 const DepResolver = RequireUpdate.DepResolver
 
 static var _failures:Array[String] = []
@@ -145,7 +145,7 @@ static func _test_repin() -> void:
 
 
 static func _test_apply_require_ref() -> void:
-	var root = "res://addons/package_exporter/export_ignore/test/fixtures/_require_update_%d" % Time.get_ticks_usec()
+	var root = "res://addons/gdpackage/export_ignore/test/fixtures/_require_update_%d" % Time.get_ticks_usec()
 	var err = DirAccess.make_dir_recursive_absolute(root)
 	_check("apply fixture directory", err, OK)
 	if err != OK:

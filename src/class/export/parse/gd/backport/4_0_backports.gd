@@ -1,6 +1,6 @@
 extends RefCounted
 
-const UtilsRemote = preload("res://addons/package_exporter/src/class/utils_remote.gd")
+const UtilsRemote = preload("res://addons/gdpackage/src/class/utils_remote.gd")
 const URegex = UtilsRemote.URegex
 
 const EI_BACKPORT = "_EIBackport"
@@ -207,7 +207,7 @@ func _replace_ei_methods(line: String) -> String:
 	return line
 
 func replace_editor_interface(line: String) -> String:
-	#if current_file_path == "res://addons/package_exporter/src/class/export/plugin_exporter_static.gd":
+	#if current_file_path == "res://addons/gdpackage/src/class/export/plugin_exporter_static.gd":
 		#if line.strip_edges() == "":
 			#return line
 	if line.strip_edges() == "ei = EditorInterface":

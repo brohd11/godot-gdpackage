@@ -7,8 +7,8 @@ const DOC_DIR_NAME = ".doc"
 ## Base dir of a project-root LICENSE, as get_base_dir() reports it.
 const PROJECT_LICENSE_DIR = "res://"
 
-const _UtilsRemote = preload("res://addons/package_exporter/src/class/utils_remote.gd")
-const _UtilsLocal = preload("res://addons/package_exporter/src/class/utils_local.gd")
+const _UtilsRemote = preload("res://addons/gdpackage/src/class/utils_remote.gd")
+const _UtilsLocal = preload("res://addons/gdpackage/src/class/utils_local.gd")
 const _ExportFileUtils = _UtilsLocal.ExportFileUtils
 const _KeysConfig = _ExportFileUtils.KeysConfig
 const _KeysData = _ExportFileUtils.KeysData
@@ -18,7 +18,7 @@ const _UClassDetail = _UtilsRemote.UClassDetail
 const _UFile = _UtilsRemote.UFile
 const _GetFiles = _UtilsRemote.GetFiles
 const _PackageCfg = preload("uid://ddo8w07hts45v") #! resolve GDPackageSpec.Cfg
-const _VersionScanner = preload("res://addons/package_exporter/src/editor_plugins/console_command/min_version/version_scanner.gd")
+const _VersionScanner = preload("res://addons/gdpackage/src/editor_plugins/console_command/min_version/version_scanner.gd")
 
 var export_data: _ExportData
 var reporter: _UtilsLocal.Reporter:
@@ -312,7 +312,7 @@ func _dependency_placement_error(path:String, reason:String) -> void:
 	var data:Dictionary = _dependency_placements[path]
 	var message = 'Dependency destination "%s" for %s declared in %s: %s' % [
 		data[_KeysData.DEPENDENCY_DIR], path, data[_KeysData.DEPENDENCY_SOURCE], reason]
-	reporter.error("Package Exporter - " + message, true)
+	reporter.error("GDPackage - " + message, true)
 	files_to_copy.erase(path)
 	adjusted_remote_paths.erase(path)
 	_local_copy_paths.erase(path)
