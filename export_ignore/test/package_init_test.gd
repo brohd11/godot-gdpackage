@@ -4,6 +4,7 @@ extends EditorScript
 
 const Discovery = preload("res://addons/package_exporter/src/class/export/package_discovery.gd")
 const PluginInit = preload("res://addons/package_exporter/src/class/export/plugin_init.gd")
+const PackageCfg = preload("uid://ddo8w07hts45v") #! resolve GDPackageSpec.Cfg
 const Runner = preload("res://addons/package_exporter/src/class/release/release_runner.gd")
 const ROOT = "user://pe_package_init_tests"
 const FIXTURES = "res://addons/package_exporter/export_ignore/test/fixtures"
@@ -40,11 +41,12 @@ static func run_tests() -> Dictionary:
 static func _test_package_cfg() -> void:
 	var cfg = ConfigFile.new()
 	_check("cfg parses", cfg.parse(PluginInit.package_cfg_text("res://addons/_lib/my_pkg/")), OK)
-	_check("name is folder", cfg.get_value("plugin", "name"), "my_pkg")
-	_check("path drops res://", cfg.get_value("plugin", "path"), "addons/_lib/my_pkg")
-	_check("version", cfg.get_value("plugin", "version"), "0.1.0")
-	_check("url", cfg.get_value("plugin", "url"), "")
-	_check("require", cfg.get_value("plugin", "require"), [])
+	_check("writes [package]", cfg.has_section("package") and not cfg.has_section("plugin"), true)
+	_check("name is folder", PackageCfg.get_value(cfg, "name"), "my_pkg")
+	_check("path drops res://", PackageCfg.get_value(cfg, "path"), "addons/_lib/my_pkg")
+	_check("version", PackageCfg.get_value(cfg, "version"), "0.1.0")
+	_check("url", PackageCfg.get_value(cfg, "url"), "")
+	_check("require", PackageCfg.get_value(cfg, "require"), [])
 	_check("namespace path", cfg.get_value("namespace", "path"), "")
 
 

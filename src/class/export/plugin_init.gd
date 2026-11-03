@@ -109,7 +109,7 @@ static func plugin_init(plugin_name:=""):
 
 ## Turns any folder into a library package: a package cfg (`cfg_name`, one of PackageCfg.NAMES),
 ## its own git repo, src/, then plugin_init.
-static func package_init(target:String, cfg_name:String = "addon.cfg"):
+static func package_init(target:String, cfg_name:String = "package.cfg"):
 	if not cfg_name in PackageCfg.NAMES:
 		printerr("Invalid cfg name %s, expected one of: %s" % [cfg_name, ", ".join(PackageCfg.NAMES)])
 		return
@@ -321,7 +321,7 @@ version="0.1.0"
 script="plugin.gd"'
 
 	const PACKAGE_CFG_TEXT = \
-'[plugin]
+'[package]
 name="%s"
 path="%s"
 version="0.1.0"

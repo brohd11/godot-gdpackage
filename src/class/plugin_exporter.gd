@@ -32,7 +32,7 @@ static func new_plugin(plugin_name:String):
 static func plugin_init(plugin_name:String):
 	PluginInit.plugin_init(plugin_name)
 
-static func package_init(target:String, cfg_name:String = "addon.cfg"):
+static func package_init(target:String, cfg_name:String = "package.cfg"):
 	PluginInit.package_init(target, cfg_name)
 
 static func add_release_workflow(target:String, allow_project_root:bool = false) -> String:

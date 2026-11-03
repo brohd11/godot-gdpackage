@@ -60,10 +60,11 @@ their addon-relative paths. Export commands suggest configured packages; init su
 without an export config. Packages elsewhere can be addressed explicitly. `new_plugin` continues
 to scaffold editor plugins under `addons/`.
 
-A package cfg is the first of `plugin.cfg`, `addon.cfg` or `version.cfg` in the folder, the same
-order gdaddon uses. Package keys (`version`, `path`, `url`, `require`, ...) are read from an
-`[addon]` section key by key, falling back to `[plugin]`. `init package <folder>` writes
-`addon.cfg`; `--name=plugin` or `--name=version` picks the other names.
+A package cfg is the first of `plugin.cfg` or `package.cfg` (then legacy `addon.cfg`, `version.cfg`)
+in the folder, the same order gdaddon uses. Package keys (`version`, `path`, `url`, `require`, ...)
+are read key by key from `[package]`, then legacy `[addon]`, then `[plugin]`, so a `plugin.cfg` keeps
+Godot's own keys beside them. `init package <folder>` writes `package.cfg` with a `[package]`
+section; `--name=plugin` picks `plugin.cfg`.
 
 New configs use `export.yml`. Legacy `plugin_export.yml`, `plugin_export.yaml`, and
 `plugin_export.json` still work. `_export_ignore` takes precedence over `export_ignore`;

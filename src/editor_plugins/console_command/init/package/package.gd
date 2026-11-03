@@ -7,10 +7,10 @@ const UString = PluginExporter.UtilsRemote.UString
 
 const _HELP = \
 "Initialize a folder as a library package: a package cfg, git init, src/, then plugin_init
-Usage: package_exporter init package [--name=addon|plugin|version] <folder>
-  --name=NAME  Cfg file to write, NAME.cfg (default: addon)."
+Usage: package_exporter init package [--name=package|plugin|addon|version] <folder>
+  --name=NAME  Cfg file to write, NAME.cfg (default: package; addon and version are legacy)."
 
-var name_flag := "addon"
+var name_flag := "package"
 
 static func get_command_name() -> String:
 	return "package"
@@ -24,7 +24,7 @@ static func get_self_command_data() -> Dictionary:
 func _get_flags() -> Dictionary:
 	var options = Options.new()
 	options.add_option("--name=", {
-		&"help": "Cfg file to write: addon, plugin or version (default: addon).",
+		&"help": "Cfg file to write: package, plugin, or legacy addon/version (default: package).",
 		&"trailing_char": "",
 	})
 	return options.get_options()

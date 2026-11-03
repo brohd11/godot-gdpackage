@@ -71,11 +71,31 @@ runs:
         fi
         echo "godot=$godot" >> "$GITHUB_OUTPUT"
 
-        # First `key="value"` line of a cfg; a missing key is "", not a pipefail exit.
-        cfg_value() { grep -m1 -E "^$2[[:space:]]*=" "$1" | sed -E 's/^[^=]*=[[:space:]]*"?([^"]*)"?[[:space:]]*$/\1/' || true; }
+        # A package key's value, unquoted, as PackageCfg reads it: [package] over legacy [addon]
+        # over [plugin], other sections ignored. A missing key is "".
+        cfg_value() {
+          awk -v key="$2" '
+            /^[[:space:]]*\[/ { sec = $0; gsub(/^[[:space:]]*\[|\][[:space:]]*$/, "", sec); next }
+            sec != "package" && sec != "addon" && sec != "plugin" { next }
+            (sec in got) || index($0, "=") == 0 { next }
+            {
+              k = $0; sub(/=.*/, "", k); gsub(/[[:space:]]/, "", k)
+              if (k != key) next
+              v = $0; sub(/^[^=]*=[[:space:]]*/, "", v)
+              if (substr(v, 1, 1) == "\"") { v = substr(v, 2); i = index(v, "\""); if (i) v = substr(v, 1, i - 1) }
+              else sub(/[[:space:]]*([;#].*)?$/, "", v)
+              got[sec] = v
+            }
+            END {
+              if ("package" in got) print got["package"]
+              else if ("addon" in got) print got["addon"]
+              else if ("plugin" in got) print got["plugin"]
+            }' "$1"
+        }
+        # The package cfg in a dir, in gdpackage_spec's lookup order.
         cfg_in() {
           local name
-          for name in plugin.cfg version.cfg addon.cfg; do
+          for name in plugin.cfg package.cfg addon.cfg version.cfg; do
             if [ -f "$1/$name" ]; then echo "$1/$name"; return 0; fi
           done
           return 0
@@ -87,12 +107,12 @@ runs:
         dir="${dir%/}"
         if [ -n "$dir" ]; then
           if [ -z "$(cfg_in "pkg/$dir")" ]; then
-            echo "::error::no plugin.cfg / version.cfg / addon.cfg in package-dir $dir"; exit 1
+            echo "::error::no plugin.cfg / package.cfg / addon.cfg / version.cfg in package-dir $dir"; exit 1
           fi
         elif [ -z "$(cfg_in pkg)" ]; then
           # A whole-project repo: the outermost tracked cfg outside export_ignore fixtures, or among
           # several the one whose url= names this repo - the same pick as PackageLayout.locate.
-          mapfile -t found < <(git -C pkg ls-files | grep -E '/(plugin|version|addon)\.cfg$' \
+          mapfile -t found < <(git -C pkg ls-files | grep -E '/(plugin|package|addon|version)\.cfg$' \
             | grep -vE '(^|/)_?export_ignore/' | sed -E 's#/[^/]+$##' | sort -u)
           top=()
           for d in "${found[@]}"; do
@@ -110,7 +130,7 @@ runs:
             done
           fi
           if [ "${#picked[@]}" -ne 1 ]; then
-            echo "::error::no plugin.cfg / version.cfg / addon.cfg at the repo root, and ${#top[@]} package cfgs elsewhere${top[*]:+ (${top[*]})}; pass package-dir"; exit 1
+            echo "::error::no plugin.cfg / package.cfg / addon.cfg / version.cfg at the repo root, and ${#top[@]} package cfgs elsewhere${top[*]:+ (${top[*]})}; pass package-dir"; exit 1
           fi
           dir="${picked[0]}"
         fi

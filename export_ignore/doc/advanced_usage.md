@@ -294,11 +294,11 @@ A `path=`/`dir=` in the chosen cfg always wins over the derived location.
 
 To find out what to require, run `package_exporter require my_plugin`. It runs the export crawl
 without writing anything and lists the packages the export pulls in (no tags). A package is the
-nearest folder with a `plugin.cfg`, `addon.cfg` or `version.cfg`, so every file of one release counts once. Its
-identity is the git `origin` when the folder is a checkout, or the cfg `url=` for a package installed
-from a release zip. Packages are grouped by the package whose export config should list them, and
-each is marked `declared (build)`, `declared (compile)` or `MISSING`. A package with no export
-config is flagged, since it declares nothing.
+nearest folder with a `plugin.cfg` or `package.cfg` (or a legacy `addon.cfg`/`version.cfg`), so every
+file of one release counts once. Its identity is the git `origin` when the folder is a checkout, or the
+cfg `url=` for a package installed from a release zip. Packages are grouped by the package whose
+export config should list them, and each is marked `declared (build)`, `declared (compile)` or
+`MISSING`. A package with no export config is flagged, since it declares nothing.
 
 `package_exporter require --self my_plugin` prints only that plugin's own list, one `owner/repo@tag`
 per line and nothing else, for piping.
