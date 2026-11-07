@@ -71,8 +71,8 @@ var class_renames:Dictionary = {}
 
 ## Rewrite dotted access paths into direct preloads on export, so a file using
 ## "ALibRuntime.Utils.UFile" depends on u_file.gd instead of the namespace hub that would drag
-## every one of its siblings in. Opt-in per export.
-var reduce_access_paths:bool = false
+## every one of its siblings in. A hub inside the source ships whole regardless.
+var reduce_access_paths:bool = true
 ## {file_path: {expression: {name, parent, path, tail}}} - what each file's dotted paths reduce
 ## to. Filled during the dependency crawl, applied on export.
 var access_reductions:Dictionary = {}
@@ -81,6 +81,9 @@ var access_reductions:Dictionary = {}
 ## because GDScript rejects redeclaring an inherited constant and the injection can only skip
 ## what an ancestor already declares if the two agree.
 var access_bindings:Dictionary = {}
+## {file_path: {const_name: true}} - consts some exported file still reaches through, which the
+## declaring file must keep even if its own uses were all reduced.
+var retained_consts:Dictionary = {}
 
 var unique_files:Array = []
 
@@ -350,12 +353,23 @@ func _register_copy(source_path:String, local_dest:String, dependent = null) -> 
 		}
 
 
+func retain_const(file_path:String, const_name:String) -> void:
+	if not retained_consts.has(file_path):
+		retained_consts[file_path] = {}
+	retained_consts[file_path][const_name] = true
+
+
+func const_retained(file_path:String, const_name:String) -> bool:
+	return retained_consts.get(file_path, {}).has(const_name)
+
+
 ## Decides the const name every reduced expression binds to, once for the whole export.
 ##
-## Two expressions landing on the same file share a name - they are the same preload. Two
-## landing on different files cannot, so the loser takes the segment above it ("Utils_UFile")
-## and then an index. A reduction whose target will not be in the export is dropped outright:
-## rewriting it would leave a preload of a file that was never copied.
+## Names are qualified ("Utils_UFile") because an injected const lands in the inherited namespace
+## of every subclass: plain "Utils" would clash with a subclass's own, or silently shadow an outer
+## class inside one of its inner classes. Two expressions landing on the same file share a name,
+## and different files fall back to an index. A reduction whose target will not be in the export
+## is dropped outright: rewriting it would leave a preload of a file that was never copied.
 func build_access_bindings():
 	if not reduce_access_paths:
 		return
@@ -399,17 +413,16 @@ func file_deps_ignored(path:String) -> bool:
 
 
 func _free_binding_name(entry:Dictionary, by_name:Dictionary) -> String:
-	var candidates:Array = [entry.name]
-	if entry.parent != "":
-		candidates.append("%s_%s" % [entry.parent, entry.name])
+	var qualified = "%s_%s" % [entry.parent, entry.name]
+	var candidates:Array = [qualified]
 	for i in range(2, 10):
-		candidates.append("%s_%d" % [entry.name, i])
+		candidates.append("%s_%d" % [qualified, i])
 
 	for candidate:String in candidates:
 		var bound = by_name.get(candidate)
 		if bound == null or bound == entry.path:
 			return candidate
-	return "%s_%s" % [entry.name, _UtilsRemote.UFile.hash_string(entry.path).substr(0, 4)]
+	return "%s_%s" % [qualified, _UtilsRemote.UFile.hash_string(entry.path).substr(0, 4)]
 
 
 func get_global_class_export_paths():

@@ -168,7 +168,7 @@ func _init(export_config_path, _reporter = null):
 		export_obj.class_rename_ignore = parse_gd_settings.get("class_rename_ignore", [])
 		export_obj.get_class_renames()
 		export_obj.use_relative_paths = parse_gd_settings.get("use_relative_paths", false)
-		export_obj.reduce_access_paths = parse_gd_settings.get("reduce_access_paths", false)
+		export_obj.reduce_access_paths = parse_gd_settings.get("reduce_access_paths", true)
 		
 		export_obj.parser_overide_settings = overide_settings
 		export_obj.file_parser.set_parser_settings(overide_settings)

@@ -170,8 +170,20 @@ func _on_options_pressed():
 	right_click_handler.display_on_control(options, options_button)
 
 func _show_all_deps():
+	_sync_dep_view()
 	dep_view.current_files = current_export_data.exports[0].valid_files_for_transfer.keys()
 	dep_view._create_graph()
+
+func _show_dependency(path:String):
+	_sync_dep_view()
+	dep_view.set_current_file(path)
+
+func _sync_dep_view():
+	if current_export_data == null or current_export_data.exports.is_empty():
+		return
+	var export = current_export_data.exports[0]
+	dep_view.collapse_pass_through = export.reduce_access_paths
+	dep_view.keep_dirs = [export.source]
 
 func _on_tab_options_pressed():
 	var current_tab_control = tab_container.get_current_tab_control()
@@ -190,7 +202,7 @@ func _on_tree_right_click():
 	var options = Options.new()
 	var local = _get_tree_selected_path()
 	if FileAccess.file_exists(local):
-		options.add_option("Show Dependency", dep_view.set_current_file.bind(local), [EditorIcons.get_icon_white("GraphEdit")])
+		options.add_option("Show Dependency", _show_dependency.bind(local), [EditorIcons.get_icon_white("GraphEdit")])
 	right_click_handler.display_popup(options)
 
 func _get_tree_selected_path():

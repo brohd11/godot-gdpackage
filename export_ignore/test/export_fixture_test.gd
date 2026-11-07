@@ -16,6 +16,8 @@ const UtilsLocal = preload("res://addons/gdpackage/src/class/utils_local.gd")
 const ExportFileUtils = UtilsLocal.ExportFileUtils
 const KeysConfig = ExportFileUtils.KeysConfig
 
+const CompileCheck = preload("res://addons/gdpackage/src/class/release/compile_check.gd")
+
 const PLUGIN = "plugin_exporter_test"
 
 ## export_name prefix per variant, in the order the config declares them.
@@ -121,8 +123,8 @@ static func _test_layout() -> void:
 	_check("tres script_class exempted from rename", _exists(dir, "global/pet_resource.gd"), true)
 
 	_check("dependency tag: explicit dir", _exists(dir, "src/deps/layout.json"), true)
-	_check("dependency tag: current dir", _exists(dir, "src/version.cfg"), true)
-	_check("dependency tag: plain", _found(dir, "yaml_parser/version.cfg"), true)
+	_check("dependency tag: current dir", _exists(dir, "src/package.cfg"), true)
+	_check("dependency tag: plain", _found(dir, "yaml_parser/package.cfg"), true)
 
 	_check("licenses gathered", _found(dir, "licenses/_lib_util_r/LICENSE"), true)
 	# fixtures/vendor holds a LICENSE with a second one under vendor/nested, each claimed by a tagged
@@ -234,9 +236,10 @@ static func _test_reduction() -> void:
 	_check("reduced: bare-used hub kept", _found(dir, "_ns/singletons.gd"), true)
 	# Head already the deepest file it names, so the chain must be left alone. The global class
 	# rename (YAMLParser_<hash>) still applies, identically in baseline, so compare against it.
-	var no_op = _line(dir, "src/core/access_paths.gd", ".NODE_DICT")
+	_check("reduced: plain value inlined", _has(dir, "src/core/access_paths.gd", "return 0\n"), true)
+	var no_op = _line(dir, "src/core/access_paths.gd", ".dump(")
 	_check("reduced: no-op chain untouched", no_op != "" and no_op == _line(_dirs.get(BASELINE, ""),
-		"src/core/access_paths.gd", ".NODE_DICT"), true)
+		"src/core/access_paths.gd", ".dump("), true)
 
 	# The derived script rewrites its uses but must not redeclare the inherited constant.
 	_check("reduced: base declares the binding", _has(dir, "src/core/access_base.gd",
@@ -249,8 +252,48 @@ static func _test_reduction() -> void:
 	# An enum tail the walk cannot follow is kept on the end of the rewritten expression, and the
 	# file it resolved to has to travel even though nothing else in the plugin preloads it.
 	_check("reduced: tail chain rewritten", _has(dir, "src/core/access_tail.gd",
-		"return StringMap.Mode.STRING"), true)
+		"return UString_StringMap.Mode.STRING"), true)
 	_check("reduced: tail target exported", _found(dir, "string/string_map.gd"), true)
+
+	# the hub rule, driven by vendor/hub
+	_check("hub: remote file's own hub skipped", _found(dir, "hub/lib_hub.gd"), false)
+	_check("hub: its sibling skipped", _found(dir, "hub/lib_extra.gd"), false)
+	_check("hub: declaration removed", _text(dir, "hub/lib_user.gd").contains("LibHub"), false)
+	_check("hub: declaration became the preload", _text(dir, "hub/lib_user.gd").contains('const Leaf = preload("'), true)
+	_check("hub: tail kept on the rewrite", _text(dir, "hub/lib_user.gd").contains("Leaf.value() + 1"), true)
+	_check("hub: baseline still ships it", _found(_dirs.get(BASELINE, ""), "hub/lib_hub.gd"), true)
+
+	_check("hub: subclass keeps the hub", _found(dir, "hub/lib_kept_hub.gd"), true)
+	_check("hub: and what it preloads", _found(dir, "hub/lib_kept_extra.gd"), true)
+	_check("hub: base keeps the declaration", _text(dir, "hub/lib_base.gd").contains("const KeptHub ="), true)
+
+	# a source hub ships whole, so nothing is rewritten around it
+	_check("hub: source hub untouched", _has(dir, "src/core/consumer.gd", "UtilsRemote.UWindow.get_control_absolute_position"), true)
+	_check("hub: source hub shipped", _exists(dir, "src/utils_remote.gd"), true)
+
+	# a skipped file's tags would silently stop firing
+	_check("tag: tagged hub not skipped", _found(dir, "hub/lib_tagged_hub.gd"), true)
+	_check("tag: placement survives reduction", _exists(dir, "src/deps/tag_note.txt"), true)
+	_check("tag: hub survives in the baseline too", _exists(_dirs.get(BASELINE, ""), "src/deps/tag_note.txt"), true)
+
+	_check("clash: inner class keeps its name", _has(dir, "src/core/access_clash.gd", "class UName extends Strings_UName:"), true)
+	_check("clash: inherited const reused", _has(dir, "src/core/access_inherit.gd", "return UWindow.get_control_absolute_position"), true)
+	_check("clash: inherited const not redeclared", _has(dir, "src/core/access_inherit.gd", "const UWindow"), false)
+
+	_check("clash: injected binding is qualified", _has(dir, "src/core/access_shadow_base.gd", "const Strings_UName = preload("), true)
+	_check("clash: outer class not shadowed", _has(dir, "src/core/access_shadow.gd", "return UName.marker()"), true)
+
+	_check("literal: const inlined", _has(dir, "src/core/access_literal.gd", "const MY_INT = 1"), true)
+	_check("literal: body inlined", _has(dir, "src/core/access_literal.gd", "return 1 + MY_INT"), true)
+	_check("literal: head removed", _has(dir, "src/core/access_literal.gd", "LeafLib"), false)
+	_check("rebind: const a chain lands on is kept", _has(dir, "src/core/access_literal.gd", 'const Leaf = preload("'), true)
+	_check("rebind: chain uses it", _has(dir, "src/core/access_literal.gd", "return Leaf.new()"), true)
+	_check("rebind: hub removed", _has(dir, "src/core/access_literal.gd", "Hub2"), false)
+
+	# the planner and the text checks all passed while real exports failed to compile
+	var install = String(_installs.get(dir, ""))
+	var errors = CompileCheck.compile_errors(dir, install, ProjectSettings.globalize_path("user://pe_reduced_compile"))
+	_check("reduced: compiles standalone", Array(errors), [])
 
 
 static func _test_relative() -> void:
@@ -475,6 +518,14 @@ static func _found(dir:String, suffix:String) -> bool:
 		if file.ends_with(suffix):
 			return true
 	return false
+
+
+## The contents of the first file ending in `suffix`, for files the export places by itself.
+static func _text(dir:String, suffix:String) -> String:
+	for file in _walk(dir):
+		if file.ends_with(suffix):
+			return FileAccess.get_file_as_string(file)
+	return ""
 
 
 static func _has(dir:String, relative:String, needle:String) -> bool:

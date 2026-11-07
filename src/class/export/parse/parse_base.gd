@@ -23,14 +23,13 @@ const DEP_KINDS = [DepKind.PRELOAD, DepKind.EXTENDS_PATH, DepKind.EXT_RESOURCE, 
 const RES_LINE_TEMPLATE = '[ext_resource type="%s" path="%s" id="%s"]'
 
 static var preload_regex:RegEx
-static var _reduction_regexes:Dictionary = {}
-static var _class_token_regexes:Dictionary = {}
 
 var _string_regex:RegEx
 
 var _dep_scanner
 var _dep_scanner_export
 var _edge_cache:Dictionary = {}
+var _const_cache:Dictionary = {}
 
 var export_obj: UtilsLocal.ExportData.Export
 
@@ -58,7 +57,7 @@ func scan_direct_edges(file_path:String) -> Array:
 	var graph = scanner.get_graph()
 	for edge in graph.unresolved:
 		export_obj.reporter.error('Unresolved reference "%s" in %s:%s' % [edge.raw, edge.from, edge.line_no])
-	var edges = graph.get_out_edges(file_path)
+	var edges = graph.get_out_edges(file_path) + graph.self_edges.get(file_path, [])
 	_edge_cache[file_path] = edges
 	return edges
 
@@ -75,34 +74,34 @@ func reductions_for(file_path:String) -> Dictionary:
 	return plan
 
 
-## True when `cls` is only ever a pass-through in `file_path` - every mention of it is the head
-## of a chain that reduction rewrites away, so the export needs neither the class nor its tree.
+## True when `cls` is only ever a pass-through in `file_path`, so the export needs neither the
+## class nor its tree. The scanner decides this, tags included, so the graph cannot disagree.
 func class_reduced_away(file_path:String, cls:String) -> bool:
 	if not export_obj.reduce_access_paths:
 		return false
-	var plan = reductions_for(file_path)
-	var expressions = expressions_headed_by(plan, cls)
-	if expressions.is_empty():
-		return false
-	var text = DepScanner.ScanGD.mask_ignored_lines(
-		FileAccess.get_file_as_string(file_path), [DependencyTags.IGNORE_REMOTE])
-	return class_fully_reduced(text, cls, expressions)
+	for edge in scan_direct_edges(file_path):
+		if edge.meta.get("class", "") == cls and edge.meta.get(DepEdge.META_PASS_THROUGH, false):
+			return true
+	return false
 
 # One scanner per Export, reused across files by reassigning roots.
 func _get_dep_scanner():
 	if _dep_scanner == null or _dep_scanner_export != export_obj:
 		var class_map = {}
+		var keep_dirs = []
 		if export_obj != null and export_obj.reduce_access_paths:
 			class_map = export_obj.export_data.class_list
-		_dep_scanner = build_dep_scanner(class_map)
+			keep_dirs = [export_obj.source] # a source hub ships whole, so it is never reduced around
+		_dep_scanner = build_dep_scanner(class_map, keep_dirs)
 		_dep_scanner_export = export_obj
 		_edge_cache.clear()
+		_const_cache.clear()
 	return _dep_scanner
 
 ## `class_map` non-empty turns on access-path resolution: the scan then reports where a dotted
 ## path like "ALibRuntime.Utils.UFile" actually lands, which is what reduce_access_paths needs.
 ## Left empty, the scan does no global-class work at all - parse_gd's own pass owns that.
-static func build_dep_scanner(class_map:Dictionary = {}):
+static func build_dep_scanner(class_map:Dictionary = {}, keep_dirs:Array = []):
 	var scanner = DepScanner.new()
 	# depth of 1, called per file, so only need direct dependencies for each
 	scanner.max_depth = 1
@@ -110,6 +109,7 @@ static func build_dep_scanner(class_map:Dictionary = {}):
 	scanner.use_project_classes = false # the export's own class list is the authority
 	scanner.class_map = class_map
 	scanner.resolve_access_paths = not class_map.is_empty()
+	scanner.collapse_keep_dirs = keep_dirs
 	scanner.ignore_line_tags = [DependencyTags.IGNORE_REMOTE]
 	scanner.add_tag_handler(DependencyTags.TAG, DependencyTags.dependency_dir())
 	return scanner
@@ -117,7 +117,7 @@ static func build_dep_scanner(class_map:Dictionary = {}):
 ## Folds scanned edges into the legacy {path: {"dependency_dir"?: dir}} shape.
 static func edges_to_dependencies(edges:Array, out:Dictionary) -> Dictionary:
 	for edge in edges:
-		if edge.to == "":
+		if edge.to == "" or edge.to == edge.from or edge.meta.get(DepEdge.META_PASS_THROUGH, false):
 			continue
 		# An access-path edge (META_RESOLVED_FROM) names a file the export must copy in its own
 		# right - the hub it resolves to may not survive reduction. Bare ones stay parse_gd's business.
@@ -135,43 +135,9 @@ static func edges_to_dependencies(edges:Array, out:Dictionary) -> Dictionary:
 			entry[KeysData.DEPENDENCY_SOURCE] = edge.meta.get(DependencyTags.DECLARING_FILE_KEY, edge.from)
 	return out
 
-## What each dotted access path in a file reduces to: {expression: {name, path, tail}}.
-## Two kinds of expression are deliberately left alone: one whose head is already the deepest
-## file it names (a genuine use of that class, not a pass-through), and one that walks a file's
-## own const preloads rather than a global class - those paths are already rewritten on export.
+## What each dotted access path in a file reduces to: {expression: {name, parent, path, tail}}.
 static func edges_to_reductions(edges:Array, out:Dictionary) -> Dictionary:
-	for edge in edges:
-		var expression:String = edge.meta.get(DepEdge.META_RESOLVED_FROM, "")
-		if expression == "" or edge.to == "" or out.has(expression):
-			continue
-		if not edge.meta.get(DepEdge.META_HEAD_FROM_CLASS_MAP, false):
-			continue
-		var consumed:int = edge.meta.get(DepEdge.META_CONSUMED, 0)
-		if consumed < 2:
-			continue
-		var parts = expression.split(".", false)
-		if consumed > parts.size():
-			continue
-		out[expression] = {
-			"name": parts[consumed - 1],
-			# the segment above it, the first fallback when two reductions want the same name
-			"parent": parts[consumed - 2] if consumed >= 2 else "",
-			"path": edge.to,
-			"tail": Array(parts.slice(consumed)),
-		}
-	return out
-
-
-## Matches an expression as a whole dotted token. The lookbehind keeps it off a longer chain
-## that merely ends with it ("Other.ALibRuntime.Utils"), and the trailing boundary keeps
-## "A.B.UFile" from matching inside "A.B.UFileWatcher".
-static func get_reduction_regex(expression:String) -> RegEx:
-	var regex = _reduction_regexes.get(expression)
-	if regex == null:
-		regex = RegEx.new()
-		regex.compile("(?<![.\\w])%s\\b" % expression.replace(".", "\\."))
-		_reduction_regexes[expression] = regex
-	return regex
+	return DepScanner.ScanGD.plan_reductions(edges, out)
 
 
 ## The text a reduced expression becomes: the bound name, plus whatever the walk could not
@@ -181,47 +147,6 @@ static func reduction_replacement(name:String, tail:Array) -> String:
 		return name
 	return name + "." + ".".join(tail)
 
-
-## The planned expressions that `cls` heads.
-static func expressions_headed_by(plan:Dictionary, cls:String) -> Array:
-	var out:Array = []
-	for expression:String in plan:
-		if expression.get_slice(".", 0) == cls:
-			out.append(expression)
-	return out
-
-
-## True when every mention of `cls` in `text` is the head of an expression that reduction will
-## rewrite away - the class is pure pass-through here, so the file needs neither a preload of it
-## nor, in turn, the whole tree that file preloads.
-static func class_fully_reduced(text:String, cls:String, expressions:Array) -> bool:
-	if expressions.is_empty():
-		return false
-
-	var reduced_at = {}
-	for expression:String in expressions:
-		for m in get_reduction_regex(expression).search_all(text):
-			reduced_at[m.get_start()] = true
-
-	var map = ExportFileUtils.get_string_map(text)
-	for m in get_class_token_regex(cls).search_all(text):
-		var index = m.get_start()
-		if map.index_in_string_or_comment(index):
-			continue
-		if ExportFileUtils.is_member_access(text, index):
-			continue # a tail segment elsewhere, not a use of this class
-		if not reduced_at.has(index):
-			return false
-	return true
-
-
-static func get_class_token_regex(cls:String) -> RegEx:
-	var regex = _class_token_regexes.get(cls)
-	if regex == null:
-		regex = RegEx.new()
-		regex.compile("\\b%s\\b" % cls)
-		_class_token_regexes[cls] = regex
-	return regex
 
 ## Rewrites a serialized file's references: every ext_resource path is remapped to where the
 ## export puts it, and the file's own uid is regenerated if it is a copied dependency, so two

@@ -39,7 +39,30 @@ func get_direct_dependencies(file_path:String) -> Dictionary:
 			}
 		direct_dependencies[path] = {}
 
+	_retain_crossed_consts(file_path, direct_dependencies)
 	return edges_to_dependencies(scan_direct_edges(file_path), direct_dependencies)
+
+
+## An expression staying as written still reaches through every const on its way, whether or not
+## the file declaring one could do without it. Runs per file, so crawl order cannot matter.
+func _retain_crossed_consts(file_path:String, direct_dependencies:Dictionary) -> void:
+	if not export_obj.reduce_access_paths:
+		return
+	var plan = reductions_for(file_path)
+	for edge in scan_direct_edges(file_path):
+		var expression:String = edge.meta.get(DepEdge.META_RESOLVED_FROM, "")
+		if expression == "" or plan.has(expression):
+			continue
+		for hop:Dictionary in edge.meta.get(DepEdge.META_CROSSED, []):
+			export_obj.retain_const(hop.file, hop.name)
+			if not direct_dependencies.has(hop.path):
+				direct_dependencies[hop.path] = {}
+	# a binding this file takes from an ancestor is as good as a use of that const
+	var inherited = DepScanner.ResolveAccess.get_inherited_consts(file_path, export_obj.export_data.class_list, _const_cache)
+	for expression:String in plan:
+		var name:String = plan[expression].name
+		if inherited.has(name):
+			export_obj.retain_const(inherited[name], name)
 
 
 func post_export_edit_file(file_path:String, file_lines:Variant=null):
@@ -57,6 +80,8 @@ func post_export_edit_file(file_path:String, file_lines:Variant=null):
 
 	var reductions = _file_reductions()
 	var declared_bindings = {}
+	var used_bindings = {}
+	var dropped_consts = _dropped_consts(reductions, file_lines)
 
 	var extended_class_string = ""
 	var ignored_lines = DepScanner.ScanGD.ignored_line_numbers(
@@ -81,6 +106,10 @@ func post_export_edit_file(file_path:String, file_lines:Variant=null):
 				if binding != null:
 					classes_preloaded.append(binding.get_string(1))
 			adjusted_file_lines.append(line)
+			continue
+		
+		if _declares_dropped_const(line, dropped_consts):
+			adjusted_file_lines.append("")
 			continue
 		
 		if comment_stripped.find("extends ") > -1 and comment_stripped.count('"') == 2: # make this if so it will scan class nm too?
@@ -155,7 +184,7 @@ func post_export_edit_file(file_path:String, file_lines:Variant=null):
 
 		var declaration = _reduce_const_declaration(line, comment_stripped, reductions)
 		if declaration.is_empty():
-			line = _apply_reductions(line, comment_stripped, reductions)
+			line = _apply_reductions(line, comment_stripped, reductions, used_bindings)
 		else:
 			line = declaration.line
 			if declaration.declares != "":
@@ -204,7 +233,7 @@ func post_export_edit_file(file_path:String, file_lines:Variant=null):
 		rename_lines.append(line)
 		
 	
-	rename_lines.append_array(_reduction_preload_lines(reductions, declared_bindings))
+	rename_lines.append_array(_reduction_preload_lines(reductions, declared_bindings, used_bindings))
 
 	if not rename_lines.is_empty():
 		adjusted_file_lines.append("")
@@ -227,31 +256,51 @@ func post_export_edit_file(file_path:String, file_lines:Variant=null):
 func _file_reductions() -> Dictionary:
 	if not export_obj.reduce_access_paths:
 		return {}
-	var source_path:String = export_obj.file_parser.current_file_path_parsing
+	var source_path:String = _content_path()
 	var plan:Dictionary = export_obj.access_reductions.get(source_path, {})
 	if plan.is_empty():
 		return {}
 
-	var inherited = _inherited_expressions(source_path)
+	var injected_above = _inherited_bindings(source_path)
+	var class_list = export_obj.export_data.class_list
+	var consts = DepScanner.ResolveAccess.get_inherited_consts(source_path, class_list, _const_cache)
+	consts.merge(DepScanner.ResolveAccess.get_const_entries(source_path, _const_cache))
 	var out = {}
 	for expression:String in plan:
+		var entry:Dictionary = plan[expression]
+		if entry.get("literal", false):
+			out[expression] = {"name": entry.name, "tail": [], "path": "", "inject": false, "literal": true}
+			continue
 		var name = export_obj.access_bindings.get(expression)
 		if name == null: # dropped: its target is not in the export
 			continue
-		var entry:Dictionary = plan[expression]
+		# a const already in scope for this file reads better and costs nothing
+		var declared:bool = consts.has(entry.name) and _const_path(source_path, entry.name) == entry.path
 		out[expression] = {
-			"name": name,
+			"name": entry.name if declared else name,
 			"tail": entry.tail,
 			"path": entry.path,
-			"inject": not inherited.has(expression),
+			"inject": not declared and not injected_above.has(name),
 		}
 	return out
 
 
-## Expressions any ancestor of `source_path` also reduces. The path list starts with the script
-## itself, which has to be skipped - otherwise every file reads its own bindings as inherited and
-## never declares them.
-func _inherited_expressions(source_path:String) -> Dictionary:
+## The file being written holds this source: a `#! remote` stub is copied from its base script, and
+## that is what the crawl planned against.
+func _content_path() -> String:
+	var path:String = export_obj.file_parser.current_file_path_parsing
+	return export_obj.files_to_copy.get(path, {}).get(KeysData.REPLACE_WITH, path)
+
+
+func _const_path(source_path:String, name:String) -> String:
+	var class_list = export_obj.export_data.class_list
+	return DepScanner.ResolveAccess.resolve(name, {}, class_list, _const_cache, source_path).path
+
+
+## Binding names an ancestor really declares. The path list starts with the script itself, which
+## has to be skipped - otherwise every file reads its own bindings as inherited and never declares
+## them. Comparing names, not expressions: two chains to one file share a binding.
+func _inherited_bindings(source_path:String) -> Dictionary:
 	var out = {}
 	var script = load(source_path) as GDScript
 	if script == null:
@@ -259,9 +308,93 @@ func _inherited_expressions(source_path:String) -> Dictionary:
 	for path in UClassDetail.script_get_inherited_script_paths(script):
 		if path == source_path:
 			continue
-		for expression in export_obj.access_reductions.get(path, {}):
-			out[expression] = true
+		for expression:String in export_obj.access_reductions.get(path, {}):
+			var name = export_obj.access_bindings.get(expression)
+			if name != null and _file_binds(path, expression, name):
+				out[name] = true
 	return out
+
+
+## A binding reaches the file only through a same-named declaration or an injection, and an
+## injection needs a use outside the const line the rewrite turns into a preload.
+func _file_binds(path:String, expression:String, name:String) -> bool:
+	var regex = DepScanner.ScanGD.get_reduction_regex(expression)
+	for line:String in FileAccess.get_file_as_string(path).split("\n"):
+		var code = _strip_comment(line)
+		if regex.search(code) == null:
+			continue
+		var declaration = const_name_regex.search(code) if code.begins_with("const ") else null
+		if declaration == null or code.get_slice("=", 1).strip_edges() != expression:
+			return true
+		if declaration.get_string(1) == name:
+			return true
+	return false
+
+
+## Class-scope consts this file only walked through, and nothing else needs. An expression whose
+## binding was dropped stays as written, so the const it starts from has to as well.
+func _dropped_consts(reductions:Dictionary, file_lines:Array) -> Dictionary:
+	if not export_obj.reduce_access_paths:
+		return {}
+	var source_path:String = _content_path()
+	var plan:Dictionary = export_obj.access_reductions.get(source_path, {})
+	if plan.is_empty():
+		return {} # never crawled: nothing was reduced, so every declaration is still in use
+	var out = {}
+	var on_dropped_lines = {}
+	for edge in scan_direct_edges(source_path):
+		var name:String = edge.meta.get(DepEdge.META_CONST_NAME, "")
+		if name != "":
+			on_dropped_lines[edge.meta.get(DepEdge.META_RESOLVED_FROM, "")] = true
+			if not export_obj.const_retained(source_path, name):
+				out[name] = true
+	for expression:String in plan:
+		# an expression living only on a dropped line needs no binding to begin with
+		if not reductions.has(expression) and not on_dropped_lines.has(expression):
+			out.erase(expression.get_slice(".", 0))
+	if not out.is_empty():
+		_keep_consts_still_in_use(out, reductions, file_lines)
+	return out
+
+
+## The scan judged the source, and the text being written can differ: inlining copies a callee's
+## body in. A chain can also rewrite onto a dropped name, `Hub.X.Y` becoming `X.Y` once `const X`
+## is thought to be free to go. Repeats because keeping a declaration keeps what it mentions.
+func _keep_consts_still_in_use(dropped:Dictionary, reductions:Dictionary, file_lines:Array) -> void:
+	var text = "\n".join(file_lines)
+	var map = ExportFileUtils.get_string_map(text)
+	var starts = DepScanner.ScanGD.build_line_starts(text)
+	var changed = true
+	while changed:
+		changed = false
+		var skip = {}
+		for i in file_lines.size():
+			if _declares_dropped_const(file_lines[i], dropped):
+				skip[i + 1] = true
+		for name:String in dropped.keys():
+			var expressions = reductions.keys().filter(func(e:String): return e.get_slice(".", 0) == name)
+			if not DepScanner.ScanGD.head_fully_reduced(text, map, starts, name, expressions, skip):
+				dropped.erase(name)
+				changed = true
+		for expression:String in reductions:
+			var name:String = reductions[expression].name
+			if dropped.has(name) and _occurs_outside(text, starts, expression, skip):
+				dropped.erase(name)
+				changed = true
+
+
+func _occurs_outside(text:String, starts:PackedInt32Array, expression:String, lines:Dictionary) -> bool:
+	for m in DepScanner.ScanGD.get_reduction_regex(expression).search_all(text):
+		if not lines.has(DepScanner.ScanGD.line_of(starts, m.get_start())):
+			return true
+	return false
+
+
+func _declares_dropped_const(line:String, dropped_consts:Dictionary) -> bool:
+	if dropped_consts.is_empty() or not line.begins_with("const "):
+		return false
+	var result = const_name_regex.search(line)
+	return result != null and dropped_consts.has(result.get_string(1))
 
 
 ## `const UFile = ALibRuntime.Utils.UFile` is the shape this feature exists for, and the general
@@ -283,16 +416,16 @@ func _reduce_const_declaration(line:String, comment_stripped:String, reductions:
 		return {}
 
 	var const_name = result.get_string(1)
-	var preload_str = 'preload("%s")' % get_adjusted_path_or_old_renamed(entry.path)
+	var preload_str:String = entry.name if entry.get("literal", false) else 'preload("%s")' % get_adjusted_path_or_old_renamed(entry.path)
 	if not entry.tail.is_empty():
 		preload_str += "." + ".".join(entry.tail)
 
 	var indent = line.substr(0, line.length() - line.strip_edges(true, false).length())
 	var comment = line.substr(comment_stripped.length())
 	var declares := ""
-	# only a class-scope declaration can stand in for the injected const; one inside an inner
-	# class is scoped to it, so the outer binding may still be needed
-	if indent == "" and const_name == entry.name:
+	# only a class-scope declaration of the file itself can stand in for the injected const: one
+	# inside an inner class is scoped to it, and one with a tail names something else in the file
+	if indent == "" and const_name == entry.name and entry.tail.is_empty() and not entry.get("literal", false):
 		declares = const_name
 	return {
 		"line": "%sconst %s = %s%s" % [indent, const_name, preload_str, comment],
@@ -325,7 +458,7 @@ func _matching_preload_binding(line:String, comment_stripped:String,
 ## An `extends` line is left alone - it is rewritten to a quoted path further up, and a class
 ## body constant cannot be used there anyway. Longest expression first, so "A.B.C" is consumed
 ## before "A.B" can eat its prefix.
-func _apply_reductions(line:String, comment_stripped:String, reductions:Dictionary) -> String:
+func _apply_reductions(line:String, comment_stripped:String, reductions:Dictionary, used_bindings:Dictionary) -> String:
 	if reductions.is_empty() or line.strip_edges() == "":
 		return line
 	var stripped = comment_stripped.strip_edges()
@@ -338,18 +471,20 @@ func _apply_reductions(line:String, comment_stripped:String, reductions:Dictiona
 		if line.find(expression) == -1:
 			continue
 		var entry:Dictionary = reductions[expression]
-		var replacement = reduction_replacement(entry.name, entry.tail)
-		var regex = get_reduction_regex(expression)
+		var replacement = reduction_replacement(entry.name, entry.tail).replace("$", "$$")
+		var regex = DepScanner.ScanGD.get_reduction_regex(expression)
 		line = _string_safe_regex_sub(line, func(text:String) -> String:
+			if regex.search(text) != null:
+				used_bindings[entry.name] = true
 			return regex.sub(text, replacement, true))
 	return line
 
 
-func _reduction_preload_lines(reductions:Dictionary, declared_bindings:Dictionary) -> Array:
+func _reduction_preload_lines(reductions:Dictionary, declared_bindings:Dictionary, used_bindings:Dictionary) -> Array:
 	var by_name = {}
 	for expression:String in reductions:
 		var entry:Dictionary = reductions[expression]
-		if entry.inject and not declared_bindings.has(entry.name):
+		if entry.inject and used_bindings.has(entry.name) and not declared_bindings.has(entry.name):
 			by_name[entry.name] = entry.path
 
 	# sorted so re-exporting the same plugin produces the same file
@@ -427,7 +562,9 @@ func _recursive_get_globals(file_path:String) -> Array:
 	for path in inherited_scripts:
 		var global_classes = get_global_classes_in_file(path)
 		for cl in global_classes:
-			_classes[cl] = true
+			# reduced out of that ancestor, so it declares nothing a derived script can lean on
+			if not class_reduced_away(path, cl):
+				_classes[cl] = true
 	return _classes.keys()
 
 func post_export_edit_line(line:String):

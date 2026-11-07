@@ -30,6 +30,7 @@ static func run_tests() -> Dictionary:
 	_test_inner_class_tail()
 	_test_head_is_deepest_file()
 	_test_local_const_head()
+	_test_alias_tail()
 	_test_off_by_default()
 
 	_reset_dir()
@@ -84,31 +85,48 @@ static func _test_head_is_deepest_file() -> void:
 	_check("head-deepest: no reduction planned", plan.is_empty(), true)
 
 
-## The collector walks a local `const X = preload()` head just as happily, but the exporter must
-## not reduce it: a plugin's own aggregator ("UtilsRemote.URegex") is deliberate indirection that
-## ordinary preload rewriting already handles; only a global-class head can be a namespace hub.
+## A local hub outside the source is as much a pass-through as a global one. One inside it ships
+## whole regardless, so nothing is gained by rewriting around it.
 static func _test_local_const_head() -> void:
 	var leaf = _w("r_leaf4.gd", "extends RefCounted\n")
-	var mid = _w("r_mid4.gd", 'const Leaf = preload("%s")\n' % leaf)
+	var mid = _w("keep/r_mid4.gd", 'const Leaf = preload("%s")\n' % leaf)
 	var user = _w("r_user4.gd", 'const M = preload("%s")\nvar v = M.Leaf\n' % mid)
 
-	_check("local head: not planned", _plan(user, {}).has("M.Leaf"), false)
+	var entry = _plan(user, {}).get("M.Leaf", {})
+	_check("remote hub: planned", entry.get("path", ""), leaf)
+	var kept = _plan(user, {}, [DIR + "keep"])
+	_check("source hub: not planned", kept.has("M.Leaf"), false)
 
 	# the resolution itself still happened - it is the policy that declines it, not the walk
 	var resolved = false
-	for edge in _scan(user, {}):
+	for edge in _scan(user, {}, [DIR + "keep"]):
 		if edge.meta.get(DepEdge.META_RESOLVED_FROM, "") == "M.Leaf":
 			resolved = true
-			_check("local head: flagged as not from the class map",
+			_check("source hub: flagged as not from the class map",
 				edge.meta.get(DepEdge.META_HEAD_FROM_CLASS_MAP, true), false)
-	_check("local head: collector still resolved it", resolved, true)
+	_check("source hub: collector still resolved it", resolved, true)
 
-	# the same chain with a global-class head IS planned
-	var hub = _w("r_hub4.gd", _hub('const Leaf = preload("%s")\n' % leaf))
+	# a global head reduces wherever it lives
+	var hub = _w("keep/r_hub4.gd", _hub('const Leaf = preload("%s")\n' % leaf))
 	var user2 = _w("r_user4b.gd", "extends RefCounted\nvar v = Hub.Leaf\n")
-	var entry = _plan(user2, {"Hub": hub}).get("Hub.Leaf", {})
-	_check("class head: binds the leaf", entry.get("name", ""), "Leaf")
-	_check("class head: binds to the leaf file", entry.get("path", ""), leaf)
+	var global = _plan(user2, {"Hub": hub}, [DIR + "keep"]).get("Hub.Leaf", {})
+	_check("class head: binds the leaf", global.get("name", ""), "Leaf")
+	_check("class head: binds to the leaf file", global.get("path", ""), leaf)
+
+
+## An alias contributes segments the expression does not show, and they have to land in the tail
+## ahead of the expression's own.
+static func _test_alias_tail() -> void:
+	var leaf = _w("r_leaf6.gd", "extends RefCounted\nclass Inner:\n\tconst V = 1\n")
+	var hub = _w("r_hub6.gd", 'const Lib = preload("%s")\nconst Inner = Lib.Inner\nconst Same = Lib\n' % leaf)
+	var user = _w("r_user6.gd", "extends RefCounted\nvar v = Hub.Inner.V\nvar w = Hub.Same\n")
+
+	var plan = _plan(user, {"Hub": hub})
+	var entry = plan.get("Hub.Inner.V", {})
+	_check("alias tail: binds the file's name", entry.get("name", ""), "Lib")
+	_check("alias tail: suffix before the tail", entry.get("tail", []), ["Inner", "V"])
+	_check("alias tail: lands on the file", entry.get("path", ""), leaf)
+	_check("alias tail: plain alias has no tail", plan.get("Hub.Same", {}).get("tail", ["x"]), [])
 
 
 ## With no class map the scanner does no access-path work, so nothing is planned - this is what
@@ -138,40 +156,20 @@ static func _test_off_by_default() -> void:
 # --- harness -----------------------------------------------------------------------------
 
 ## Mirrors build_dep_scanner() with a class map.
-static func _scan(root:String, class_map:Dictionary) -> Array:
+static func _scan(root:String, class_map:Dictionary, keep_dirs:Array = []) -> Array:
 	var scanner = DepScanner.new()
 	scanner.max_depth = 1
 	scanner.include_missing = false
 	scanner.use_project_classes = false
 	scanner.class_map = class_map
 	scanner.resolve_access_paths = true
+	scanner.collapse_keep_dirs = keep_dirs
 	scanner.roots = [root]
 	return scanner.get_graph().get_out_edges(root)
 
 
-## Folds the edges the way parse_base.edges_to_reductions() does. Duplicated rather than
-## imported: parse_base pulls utils_local and the whole export pipeline in behind it, which does
-## not compile in a clean headless run. Keep the two in step.
-static func _plan(root:String, class_map:Dictionary) -> Dictionary:
-	var out = {}
-	for edge in _scan(root, class_map):
-		var expression:String = edge.meta.get(DepEdge.META_RESOLVED_FROM, "")
-		if expression == "" or edge.to == "" or out.has(expression):
-			continue
-		if not edge.meta.get(DepEdge.META_HEAD_FROM_CLASS_MAP, false):
-			continue
-		var consumed:int = edge.meta.get(DepEdge.META_CONSUMED, 0)
-		if consumed < 2:
-			continue
-		var parts = expression.split(".", false)
-		if consumed > parts.size():
-			continue
-		out[expression] = {
-			"name": parts[consumed - 1],
-			"path": edge.to,
-			"tail": Array(parts.slice(consumed)),
-		}
-	return out
+static func _plan(root:String, class_map:Dictionary, keep_dirs:Array = []) -> Dictionary:
+	return DepScanner.ScanGD.plan_reductions(_scan(root, class_map, keep_dirs), {})
 
 
 ## The header the Namespace addon writes; the collector flags these files as hubs.

@@ -41,7 +41,11 @@ these settings are passed to parsers. You can overide on a per export basis usin
 ##### parse_gd
  - replace_editor_interface - replaces 'EditorInterface' direct singleton access with 'Engine.get_singleton(&"EditorInterface")'
  - class_rename_ignore - Array of class_name to not strip and preload
- - reduce_access_paths - bool, default false. Rewrites dotted access paths to direct preloads: `ALibRuntime.Utils.UFile` becomes `UFile` with `const UFile = preload("...")` added to the script. Stops at the deepest segment that names a script file, so an inner class or enum on the end is kept (`A.B.UProfile.TimeFunction` -> `UProfile.TimeFunction`). Classes left with no bare use anywhere are then dropped from the export, which is what keeps a namespace hub from dragging in every file it preloads.
+ - reduce_access_paths - bool, default true. Rewrites dotted const chains to direct preloads, so a script ships with what it needs and not the container it went through: `ALibRuntime.Utils.UFile` becomes `Utils_UFile` with `const Utils_UFile = preload("...")` added to the script, unless the script already has a const for that file. A plain value is inlined: `const MY_INT = GlobalClass.MY_INT` becomes `const MY_INT = 3`, for a const that is a single literal with no type hint. Chains are followed through aliases (`const UFile = UtilsRemote.UFile`) and stop at the deepest segment that names a script file, so an inner class or enum on the end is kept (`A.B.UProfile.TimeFunction` -> `B_UProfile.TimeFunction`). A head with no other use is then dropped.
+   - A hub inside the plugin's source ships whole regardless, so a local const pointing at one is left as written.
+   - A hub outside the source is skipped when every mention of it reduces. One bare use or method call keeps it, as does a subclass or another file still reaching through it.
+   - A file containing a `#! dependency` tag is never skipped, nor is one a chain crosses, so the tag still fires. A const line carrying the tag is never removed.
+   - Code that reads a const dynamically (`get("UtilsRemote")`, `get_script_constant_map()`) cannot be seen; put `#! ignore-remote` on the declaration to keep it, or set this to false.
  - backport_string_renames - dictionary, key is the method to replace, value is a dictionary with key "replace":"replace_as", "min_ver": backport_target as int
 
 ##### parse_cs
