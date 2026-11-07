@@ -69,7 +69,7 @@ func new_gui_instance():
 	var gui = GUI.new()
 	#gui.name = "GDPackage"
 	#gui.name = "PE"
-	var ins = dm_instance_manager.new_freeable_dock_manager(gui, DockManager.Slot.MAIN_SCREEN)
+	var ins = dm_instance_manager.new_freeable_dock_manager(gui, DockManager.DOCK_SLOT_MAIN_SCREEN)
 	ins.allow_scene_reload = true
 	return ins
 

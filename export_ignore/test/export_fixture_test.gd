@@ -204,8 +204,11 @@ static func _test_rewrites() -> void:
 		'extends "res://addons/_lib'), false)
 
 	# The scene keeps its references, rewritten to the copies.
+	_check("tscn ext_resource gathered", _found(dir, "popup_fixture.tscn"), true)
 	_check("tscn ext_resource rewritten", _has(dir, "src/scenes/fixture_scene.tscn",
-		'path="res://addons/_lib'), false)
+		'path="res://addons/gdpackage/'), false)
+	_check("tscn ext_resource kept", _has(dir, "src/scenes/fixture_scene.tscn",
+		'popup_fixture.tscn"'), true)
 	_check("tres script_class header preserved", _has(dir, "src/scenes/fixture_resource.tres",
 		'script_class="PETResource"'), true)
 
@@ -263,6 +266,8 @@ static func _test_relative() -> void:
 		'preload("res://'), false)
 	_check("relative: scene refs are relative", _has(dir, "src/scenes/fixture_scene.tscn",
 		'path="res://'), false)
+	_check("relative: scene ref kept", _has(dir, "src/scenes/fixture_scene.tscn",
+		'popup_fixture.tscn"'), true)
 
 
 static func _test_renamed() -> void:
