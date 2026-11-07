@@ -198,6 +198,10 @@ static func _test_rewrites() -> void:
 		"-> PETStripped"), false)
 	_check("strip-cast: from inline tag", _has(dir, "src/core/tags.gd",
 		"as PETLocalOnly"), false)
+	_check("strip-cast: dict value is no cast", _has(dir, "src/core/tags.gd", "return {0:PETLocalOnly.make()}"), true)
+	_check("strip-cast: one-line branch is no cast", _has(dir, "src/core/tags.gd", "if value: PETLocalOnly.make()"), true)
+	_check("strip-cast: dotted return stripped", _has(dir, "src/core/tags.gd", "static func dotted(value):"), true)
+	_check("strip-cast: dotted var stripped", _has(dir, "src/core/tags.gd", "var inner = value"), true)
 
 	# "#! remote" + extends: the stub is replaced wholesale by the script it extended.
 	_check("remote extends replaced by target", _has(dir, "src/remote_extends.gd",

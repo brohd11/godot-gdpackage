@@ -69,7 +69,9 @@ func post_export_edit_line(line:String) -> String:
 func _build_single_regex(strip_name:String, collection:Array):
 	#var strip_pattern = r"\s*(?:->|:)\s*%s(\.\w+)*\b\s*" % _class_name
 	# new pattern handles "as" too
-	var strip_pattern = r"(?:\s*(?:->|:)\s*|\s+as\s+)%s(\.\w+)*\b" % strip_name
+	# a type is never called, which keeps `{0:Singleton.method()}` intact. Possessive because it
+	# would otherwise back off to `:Singleton` and pass the lookahead on the dot.
+	var strip_pattern = r"(?:\s*(?:->|:)\s*|\s+as\s+)%s(?:\.\w+)*+\b(?!\s*\()" % strip_name
 	var regex = RegEx.new()
 	regex.compile(strip_pattern)
 	var anon = func(line:String) -> String:
