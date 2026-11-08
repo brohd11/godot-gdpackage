@@ -3,6 +3,7 @@ extends SceneTree
 ##     godot --headless --path . --script res://addons/gdpackage/export_ignore/test/run_headless.gd
 
 const SUITES:PackedStringArray = [
+	"res://addons/gdpackage/export_ignore/test/test_commands_test.gd",
 	"res://addons/gdpackage/export_ignore/test/optimizer_config_test.gd",
 	"res://addons/gdpackage/export_ignore/test/dependency_tags_test.gd",
 	"res://addons/gdpackage/export_ignore/test/access_reduction_test.gd",

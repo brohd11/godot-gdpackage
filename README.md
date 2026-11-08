@@ -24,6 +24,49 @@ All global class or "#! remote" files will be scanned, and any global classes us
 
 **Note**: on export a new copy of the files is created. Any plugins using the same classes will technically be a different class. If the classes are not self contained, meaning multiple plugins would need to interact with the same instance of the class, you must account for this.
 
+### Test CI
+
+`gdpackage ci run_test <package>` tests the working tree in an isolated project against its
+declared dependencies at their tags. `test_require` in the export YAML adds test-only dependencies;
+they are excluded from release dependency resolution. Generate a GitHub Actions caller with
+`gdpackage ci test_workflow <package>`.
+
+By default CI runs `*_test.gd` suites exposing static `run`, `run_test`, or `run_tests`. Packages
+using another Godot CLI runner can instead configure commands in their export YAML:
+
+```yaml
+test_require:
+  - "@require"
+  - "bitwes/Gut@v9.7.1"
+  - "godot-gdunit-labs/gdUnit4@v6.2.3"
+test:
+  commands:
+    - name: gut
+      script: res://addons/gut/gut_cmdln.gd
+      args: ["-gdir=res://addons/my_plugin/_export_ignore/test/gut", "-ginclude_subdirs", "-gexit"]
+    - name: gdunit4
+      script: res://addons/gdUnit4/bin/GdUnitCmdTool.gd
+      args: ["-a", "res://addons/my_plugin/_export_ignore/test/gdunit4", "--ignoreHeadlessMode"]
+      timeout: 600
+```
+
+Commands replace native suite discovery. GDPackage imports dependencies, then runs every command
+with the current Godot executable and `--headless --path <workspace> --script <script>`. `args` is
+an argument array passed unchanged, without a shell or an implicit `--`. Scripts using
+`OS.get_cmdline_user_args()` should include `--` themselves. `name` defaults to the script path;
+`timeout` defaults to 600 seconds per command. Empty command lists are errors.
+
+Only exit zero passes. Failures include the command output and exit status; remaining commands
+still run. The CLI's JSON report represents each command as a suite. Frameworks own test discovery
+and assertion handling: a command that finds no tests may still return zero. Check framework
+reports when proving coverage. GUT's `.gutconfig.json` and GDUnit's saved runner configuration are
+optional when directories and options are passed explicitly. GDUnit4 6.2.3 requires
+`--ignoreHeadlessMode` for non-UI tests; UI input tests need a display and are outside this runner.
+
+The temporary project supplies no game autoloads or input mappings, and does not enable framework
+editor plugins. Tests must be self-contained. The reusable workflow follows its selected Git ref,
+but downloads a released GDPackage toolchain: pin `toolchain-version` when adopting new runner features.
+
 ### Setup
 
 You can open a package exporter instance from the project menu. In the instance tool menu (screwdriver and wrench), select "Plugin Init". This will prompt you to select your plugin folder. Once selected, an "_export_ignore" folder will be created in your plugin (an existing "export_ignore" folder is reused instead - both names work, and "_export_ignore" wins if a plugin has both). It holds an `export.yml` configuration file, as well as a gdscript file that has a pre and post export function. These will be called during export and can be used to do anything that may need to be done before or after export.  For example, resetting config files to default values or creating a .gdignore file manually.

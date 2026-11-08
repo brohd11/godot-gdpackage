@@ -16,6 +16,7 @@ const ExportFileUtils = ReleaseExport.ExportFileUtils
 const ExportPaths = ReleaseExport.ExportPaths
 const ExportIgnore = ExportFileUtils.ExportIgnore
 const Reporter = ReleaseExport.Reporter
+const TestCommands = preload("res://addons/gdpackage/src/class/release/test_commands.gd")
 
 const TEST_DIR = "test"
 const SKIP_PREFIX = "SKIP:"
@@ -51,7 +52,16 @@ static func _test_package(plugin_name:String, refresh:bool, local:bool, tree_dir
 	if dev_dir == "":
 		return _fail("Invalid package target (expected a path inside this project): " + plugin_name)
 	var tree = tree_dir if tree_dir != "" else dev_dir
-	if ExportIgnore.dir_in(tree) == "" or not DirAccess.dir_exists_absolute(ExportIgnore.dir_in(tree).path_join(TEST_DIR)):
+	var config = {}
+	var config_path = ExportIgnore.config_path(tree)
+	if FileAccess.file_exists(config_path):
+		config = ExportFileUtils.get_export_data(config_path, reporter)
+		if not config is Dictionary:
+			return _fail("could not read test configuration: " + config_path)
+	var selection = TestCommands.parse(config)
+	if selection.error != "":
+		return _fail(selection.error)
+	if not selection.custom and (ExportIgnore.dir_in(tree) == "" or not DirAccess.dir_exists_absolute(ExportIgnore.dir_in(tree).path_join(TEST_DIR))):
 		return _fail("%s has no %s" % [tree, " or ".join(ExportIgnore.NAMES.map(func(n): return n.path_join(TEST_DIR)))])
 	var url = DepResolver.origin_url(tree)
 	if url == "":
@@ -76,12 +86,7 @@ static func _test_package(plugin_name:String, refresh:bool, local:bool, tree_dir
 		return false
 	ReleaseExport._print_lock(lock, reporter)
 
-	var options = {}
-	var config_path = ExportIgnore.config_path(tree)
-	if FileAccess.file_exists(config_path):
-		var config = ExportFileUtils.get_export_data(config_path, reporter)
-		if config is Dictionary:
-			options = config.get("options", {})
+	var options = config.get("options", {})
 	var toolchain = ""
 	if lock.target.path != ReleaseWorkspace.TOOLCHAIN_PATH:
 		var tc = Toolchain.new()
@@ -97,7 +102,7 @@ static func _test_package(plugin_name:String, refresh:bool, local:bool, tree_dir
 
 	var workspace = ReleaseWorkspace.new(fetcher)
 	var debug_section = ReleaseRunner.project_section(FileAccess.get_file_as_string("res://project.godot"), "debug")
-	var ws = workspace.build_tests(lock, dev_dir, toolchain, tree, debug_section)
+	var ws = workspace.build_tests(lock, dev_dir, toolchain, tree, debug_section, not selection.custom)
 	if ws == "":
 		for e in workspace.errors:
 			_note("  " + e)
@@ -105,6 +110,10 @@ static func _test_package(plugin_name:String, refresh:bool, local:bool, tree_dir
 	var engine_err = ReleaseExport.engine_error(ws, reporter)
 	if engine_err != "":
 		return _fail(engine_err)
+	if selection.custom:
+		reporter.info("Test CI: running %d CLI command(s) in %s" % [selection.commands.size(), ws])
+		report = TestCommands.run(ws, selection.commands)
+		return _print_report(report, ws)
 
 	var target_dir = ws.path_join(String(lock.target.path).trim_prefix("res://"))
 	var test_dir = ExportIgnore.dir_in(target_dir).path_join(TEST_DIR)

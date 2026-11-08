@@ -44,9 +44,9 @@ func build(lock:Dictionary, target_name:String, toolchain_dir:String, export_roo
 
 ## The workspace test CI runs in: deps from the lock as in build(), the target copied from
 ## `tree_dir` (resolve_tree's lock) on every run, since the tree changes without the lock noticing.
-func build_tests(lock:Dictionary, target_name:String, toolchain_dir:String, tree_dir:String, debug_section:String) -> String:
+func build_tests(lock:Dictionary, target_name:String, toolchain_dir:String, tree_dir:String, debug_section:String, autorun:bool = true) -> String:
 	errors.clear()
-	var ws = _prepare(lock, target_name, toolchain_dir, debug_section, TEST_WORKSPACES)
+	var ws = _prepare(lock, target_name, toolchain_dir, debug_section, TEST_WORKSPACES, autorun)
 	if ws == "":
 		return ""
 	var target_dir = ws.path_join(lock.target.path.trim_prefix("res://"))
@@ -77,7 +77,7 @@ static func _copy_tree(from_dir:String, to_dir:String) -> bool:
 	return true
 
 
-func _prepare(lock:Dictionary, target_name:String, toolchain_dir:String, debug_section:String, kind:String) -> String:
+func _prepare(lock:Dictionary, target_name:String, toolchain_dir:String, debug_section:String, kind:String, autorun:bool = true) -> String:
 	var ws = workspace_dir(target_name, lock, kind)
 	if ws == "":
 		errors.append("invalid workspace target: " + target_name)
@@ -91,9 +91,9 @@ func _prepare(lock:Dictionary, target_name:String, toolchain_dir:String, debug_s
 		FileAccess.open(ws.path_join(READY_MARKER), FileAccess.WRITE).close()
 
 	# Redone on reuse too: all cheap, and the export root is the one input not in the lock.
-	if not _write_project(ws, target_name, debug_section):
+	if not _write_project(ws, target_name, debug_section, autorun):
 		return ""
-	if not ReleaseRunner.write_export_autorun(ws):
+	if autorun and not ReleaseRunner.write_export_autorun(ws):
 		errors.append("could not write the autorun plugin into " + ws)
 		return ""
 	return ws
@@ -131,10 +131,10 @@ func _populate(ws:String, lock:Dictionary, toolchain_dir:String) -> bool:
 
 ## Only the autorun is enabled. The exporter is loaded as plain scripts, so its EditorPlugin (and
 ## the singleton modules it registers with) never has to start up in the workspace.
-func _write_project(ws:String, target_name:String, debug_section:String) -> bool:
+func _write_project(ws:String, target_name:String, debug_section:String, autorun:bool = true) -> bool:
 	var project = ReleaseRunner.project_godot("PE Release %s" % target_name, [
 		"res://addons/%s/plugin.cfg" % ReleaseRunner.EXPORT_AUTORUN_DIR,
-	], debug_section)
+	] if autorun else [], debug_section)
 	var file = FileAccess.open(ws.path_join("project.godot"), FileAccess.WRITE)
 	if file == null:
 		errors.append("could not write project.godot in " + ws)
