@@ -26,6 +26,7 @@
 ### options
  - include_import - bool
  - include_uid - bool
+ - ignore_tests - bool, defaults true. Omits `*_test.gd` and scripts inheriting from GUT or GDUnit4 test bases from initial export selection. Required dependencies and explicit transfers still include those files. Set false to retain tests. This filters separate GDScript test files; scenes, fixture data, and C# files use the normal exclusion settings.
  - overwrite - bool, erases the contents of export_root + plugin_folder before export, if false, it will abort if any file already exists
  - include_docs - bool, defaults true. Copies the doc folder beside this config (export_ignore/doc) into the exported plugin as `.doc`, preserving its structure. No dependency crawl, the files are copied verbatim without uid or import sidecars. Dot-prefixed so Godot never imports them and they stay out of a game export, while DocViewer can still read them.
  - include_project_license - bool, defaults false. Licenses are gathered by matching every copied file against the closest LICENSE above it, so a nested library keeps its own. The project root (`res://LICENSE`) is held out of that matching - it contains everything, so it would otherwise claim every file no other license covers. Turn this on for a plugin that has no LICENSE of its own and takes the project's; it ships at the export root. Ignored when the plugin does have one.

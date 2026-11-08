@@ -352,6 +352,7 @@ class PluginExportJSON:
 				KeysConfig.Options.INCLUDE_UID: true,
 				KeysConfig.Options.INCLUDE_IMPORT: true,
 				KeysConfig.Options.IGNORE_SRC: false,
+				KeysConfig.Options.IGNORE_TESTS: true,
 				KeysConfig.Options.USE_TAG_IN_CFG: true,
 				KeysConfig.Options.INCLUDE_MIN_VERSION: true,
 				KeysConfig.Options.MOVE_GLOBAL_FILES: false,

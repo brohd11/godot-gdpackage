@@ -25,6 +25,7 @@ static func run_tests() -> Dictionary:
 	_expect(failures, "newer major errors: " + major, major.contains("need Godot 5.0"))
 	_expect(failures, "4.10 above 4.9", ReleaseExport.engine_check("4.10", [], {"major": 4, "minor": 9}) != "")
 	_test_reporting(failures)
+	_test_excluded_sources(failures)
 
 	var output:Array[String] = ["release_engine: %d failed" % failures.size()]
 	output.append_array(failures)
@@ -46,6 +47,22 @@ static func _test_reporting(failures:Array[String]) -> void:
 		_expect(failures, label + " fails", ok == false)
 		_expect(failures, label + " error reported", reporter.count(Reporter.Level.ERROR) == 1)
 		_expect(failures, label + " sink gets error then result", sent == [Reporter.Level.ERROR, Reporter.Level.NOTE])
+
+
+static func _test_excluded_sources(failures:Array[String]) -> void:
+	var runner = ReleaseExport.ReleaseRunner
+	var root = ProjectSettings.globalize_path("user://pe_engine_test_sources")
+	runner.remove_dir(root)
+	DirAccess.make_dir_recursive_absolute(root)
+	FileAccess.open(root.path_join("main.gd"), FileAccess.WRITE).store_string("extends RefCounted\n")
+	FileAccess.open(root.path_join("adjacent_test.gd"), FileAccess.WRITE).store_string("extends RefCounted\nvar server = AccessibilityServer\n")
+	FileAccess.open(root.path_join("test_framework.gd"), FileAccess.WRITE).store_string("extends GutTest\nvar server = AccessibilityServer\n")
+	var reporter = Reporter.new()
+	reporter.sink = func(_text:String, _level:int): pass
+	_expect(failures, "release preflight excludes test-only APIs", ReleaseExport.engine_error(root, reporter, true) == "")
+	var err = ReleaseExport.engine_error(root, reporter)
+	_expect(failures, "test CI retains test-only API requirements", (err != "") == (Engine.get_version_info().minor < 7))
+	runner.remove_dir(root)
 
 
 static func _expect(failures:Array[String], label:String, ok:bool) -> void:

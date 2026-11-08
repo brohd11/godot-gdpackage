@@ -28,6 +28,7 @@ var include_uid:bool = true
 var include_import:bool = true
 var move_global_files:bool = true
 var ignore_src:bool = true
+var ignore_tests:bool = true
 var include_docs:bool = true
 var include_project_license:bool = false
 
@@ -82,6 +83,7 @@ func _init(export_config_path, _reporter = null):
 	include_import = options.get(KeysConfig.Options.INCLUDE_IMPORT, true)
 	move_global_files = options.get(KeysConfig.Options.MOVE_GLOBAL_FILES, true)
 	ignore_src = options.get(KeysConfig.Options.IGNORE_SRC, false)
+	ignore_tests = options.get(KeysConfig.Options.IGNORE_TESTS, true)
 	include_docs = options.get(KeysConfig.Options.INCLUDE_DOCS, true)
 	include_project_license = options.get(KeysConfig.Options.INCLUDE_PROJECT_LICENSE, false)
 

@@ -30,6 +30,7 @@ static func run_tests() -> Dictionary:
 	_test_destination_chains()
 	_test_invalid_destinations()
 	_test_other_transfers()
+	_test_adjacent_tests()
 	_clear_fixtures(DIR)
 	var output:Array = ["dependency_gathering: %d passed, %d failed" % [_passed, _failures.size()]]
 	output.append_array(_failures)
@@ -315,6 +316,75 @@ static func _test_other_transfers() -> void:
 	_check("shared destination aborts", export.export_valid, false)
 	_check("shared destination not copied", export.valid_files_for_transfer.is_empty(), true)
 	_check("shared destination reported", export.reporter.count(UtilsLocal.Reporter.Level.ERROR), 1)
+
+
+static func _test_adjacent_tests() -> void:
+	var leaf = _w("external/test_only.gd", "extends RefCounted\n")
+	var root = _w("plugin/adjacent/main.gd", "extends RefCounted\n")
+	var test = _w("plugin/adjacent/helper_test.gd", 'const Leaf = preload("%s")\n' % leaf)
+	var gut = _w("plugin/adjacent/test_gut.gd", "extends GutTest\n")
+	var gdunit = _w("plugin/adjacent/checks.gd", "extends GdUnitTestSuite\n")
+	var base = _w("plugin/adjacent/base.gd", "class_name AdjacentBase extends GutTest\n")
+	var derived = _w("plugin/adjacent/derived.gd", 'extends "base.gd"\n')
+	var source_files = [root, test, gut, gdunit, base, derived, _w("plugin/adjacent/helper_test.gd.uid", "uid://c7sn8pjof4g7x")]
+	var export = _select(source_files, {"AdjacentBase": base})
+	_check("ignore_tests defaults true", export.export_data.ignore_tests, true)
+	_check("adjacent tests excluded", export.files_to_copy.keys(), [root])
+	_check("custom bases detected without registered classes", _select(source_files).files_to_copy.keys(), [root])
+	_check("excluded tests never seed dependency crawl", export.file_dependencies.has(leaf), false)
+	_check("test sidecar excluded", export.files_to_copy.has(test + ".uid"), false)
+	export = _select([root, test], {}, {"ignore_tests": false})
+	_check("explicit false keeps tests", export.files_to_copy.has(test), true)
+	_check("kept tests gather their dependencies", export.files_to_copy.has(leaf), true)
+	export = _select([root, test], {}, {"ignore_tests": true})
+	_check("explicit true excludes tests", export.files_to_copy.has(test), false)
+	_w("plugin/adjacent/main.gd", 'const Required = preload("./helper_test.gd")\n')
+	export = _select([root, test])
+	_check("required local test restored", export.files_to_copy.has(test), true)
+	_check("required test keeps local destination", export.files_to_copy[test][Keys.TO], export.get_export_path(test))
+	_check("required test dependency restored", export.files_to_copy.has(leaf), true)
+	var id = ResourceUID.create_id()
+	ResourceUID.add_id(id, test)
+	_w("plugin/adjacent/main.gd", 'const Required = preload("%s")\n' % ResourceUID.id_to_text(id))
+	export = _select([root, test])
+	_check("UID dependency restores test", export.files_to_copy.has(test), true)
+	ResourceUID.remove_id(id)
+	var scene = _w("plugin/adjacent/root.tscn", '[gd_scene load_steps=2 format=3]\n[ext_resource type="Script" path="%s" id="1"]\n' % test)
+	_check("scene reference restores test", _select([scene, test]).files_to_copy.has(test), true)
+	var hub = _w("external/test_hub.gd", 'const Subject = preload("%s")\n' % test)
+	_w("plugin/adjacent/main.gd", "var required = AdjacentHub.Subject\n")
+	export = _select([root, test], {"AdjacentHub": hub}, {}, [], [], true)
+	_check("access reduction restores local test", export.files_to_copy.has(test), true)
+	_check("access reduction excludes unused hub", export.files_to_copy.has(hub), false)
+	var bridge = _w("plugin/adjacent/bridge.gd", 'const Required = preload("helper_test.gd")\n')
+	_w("plugin/adjacent/main.gd", 'const Bridge = preload("bridge.gd")\n')
+	export = _select([root, bridge, test])
+	_check("transitive local test restored", export.files_to_copy.has(test), true)
+	var global_test = _w("plugin/adjacent/global_test.gd", "class_name AdjacentGlobal\nextends RefCounted\n")
+	_w("plugin/adjacent/main.gd", "var required = AdjacentGlobal\n")
+	export = _select([root, global_test], {"AdjacentGlobal": global_test})
+	_check("global-class dependency restores test", export.files_to_copy.has(global_test), true)
+	export = _select([root, test], {}, {}, [test])
+	_check("explicit excludes retain existing semantics", export.ignored_tests.has(test), false)
+	export = _select([root, test], {}, {}, [], [{"from": test, "to": "explicit_test.gd"}])
+	_check("explicit transfer retains a test", export.files_to_copy.has(test), true)
+
+
+static func _select(files:Array, classes:Dictionary = {}, options:Dictionary = {}, excluded:Array = [], transfers:Array = [], reduce:bool = false):
+	var export = _crawl([], classes, reduce)
+	export.export_data.ignore_tests = options.get("ignore_tests", true)
+	export.source_files = files
+	export.exclude_directories = []
+	export.exclude_file_extensions = []
+	export.exclude_files = excluded
+	export.other_transfers = transfers
+	export.get_valid_files_for_transfer()
+	export.sort_valid_files()
+	export.get_global_classes_used_in_valid_files()
+	export.get_file_dependencies()
+	export.get_global_class_export_paths()
+	export.resolve_dependency_placements()
+	return export
 
 
 static func _transfer(transfers:Array, classes:Dictionary = {}):

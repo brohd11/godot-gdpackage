@@ -19,6 +19,7 @@ const _UFile = _UtilsRemote.UFile
 const _GetFiles = _UtilsRemote.GetFiles
 const _PackageCfg = preload("uid://ddo8w07hts45v") #! resolve GDPackageSpec.Cfg
 const _VersionScanner = preload("res://addons/gdpackage/src/editor_plugins/console_command/min_version/version_scanner.gd")
+const TestFiles = preload("res://addons/gdpackage/src/class/export/test_files.gd")
 
 var export_data: _ExportData
 var reporter: _UtilsLocal.Reporter:
@@ -36,6 +37,8 @@ var exclude_files:Array
 var source_files:Array
 var other_transfers:Array
 var valid_files_for_transfer:Dictionary = {}
+var test_files = TestFiles.new()
+var ignored_tests:Dictionary = {}
 
 var virtual_files:Dictionary = {}
 
@@ -109,12 +112,17 @@ func get_backport_files(backport_target):
 
 
 func get_valid_files_for_transfer():
+	test_files.class_paths = export_data.class_list.duplicate()
+	test_files.index_classes(source_files)
 	for file in source_files:
 		if file.get_extension() == "uid" or file.get_extension() == "import":
 			continue
 		
 		var l_path = ProjectSettings.localize_path(file)
 		if _ExportFileUtils.check_ignore(l_path, self):
+			continue
+		if export_data.ignore_tests and test_files.is_test(l_path):
+			ignored_tests[l_path] = true
 			continue
 		
 		var export_path = get_export_path(l_path)
@@ -245,6 +253,9 @@ func get_file_dependencies():
 		var dependent:String = data.get(_KeysData.DEPENDENT, "")
 		var dependency_dir = data.get(_KeysData.DEPENDENCY_DIR)
 		if _UtilsRemote.UFile.is_file_in_directory(remote_path, source):
+			# Ordinary local files were already selected; a skipped test needs restoring here.
+			if ignored_tests.has(remote_path) and not files_to_copy.has(remote_path):
+				_register_copy(remote_path, remote_path, dependent)
 			continue
 		
 		if dependent != "":
@@ -331,7 +342,7 @@ func _seed_access_reduction_targets() -> void:
 			var path:String = access_reductions[file_path][expression].get(_KeysData.PATH, "")
 			if path == "" or files_to_scan_for_deps.has(path):
 				continue
-			if _UtilsRemote.UFile.is_file_in_directory(path, source):
+			if _UtilsRemote.UFile.is_file_in_directory(path, source) and not ignored_tests.has(path):
 				continue # already travelling as part of the plugin itself
 			if not file_dependencies.has(path):
 				file_dependencies[path] = {_KeysData.DEPENDENT: file_path}

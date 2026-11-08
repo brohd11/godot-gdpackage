@@ -31,7 +31,10 @@ declared dependencies at their tags. `test_require` in the export YAML adds test
 they are excluded from release dependency resolution. Generate a GitHub Actions caller with
 `gdpackage ci test_workflow <package>`.
 
-By default CI runs `*_test.gd` suites exposing static `run`, `run_test`, or `run_tests`. Packages
+By default CI discovers adjacent `*_test.gd` suites throughout the package, plus the canonical
+`_export_ignore/test` or `export_ignore/test` directory. Hidden and `.gdignore` directories are
+skipped, and framework suites are left to their own runners. Native suites expose
+`run`, `run_test`, or `run_tests`. Packages
 using another Godot CLI runner can instead configure commands in their export YAML:
 
 ```yaml
@@ -68,6 +71,14 @@ editor plugins. Tests must be self-contained. The reusable workflow follows its 
 but downloads a released GDPackage toolchain: pin `toolchain-version` when adopting new runner features.
 
 ### Setup
+
+Tests can live beside the code they exercise. Export options default to `ignore_tests: true`,
+which omits `*_test.gd` and GUT/GDUnit4-derived scripts from initial file selection. Detection
+follows custom test bases without loading the framework. Tests stay in source checkouts and CI
+workspaces. A retained file's required dependency or an explicit `other_transfers` entry can
+still bring a test into the release; its dependencies are gathered normally. Set
+`options.ignore_tests: false` to keep tests in ordinary export selection. Test scenes and fixture
+data still need ordinary export exclusions.
 
 You can open a package exporter instance from the project menu. In the instance tool menu (screwdriver and wrench), select "Plugin Init". This will prompt you to select your plugin folder. Once selected, an "_export_ignore" folder will be created in your plugin (an existing "export_ignore" folder is reused instead - both names work, and "_export_ignore" wins if a plugin has both). It holds an `export.yml` configuration file, as well as a gdscript file that has a pre and post export function. These will be called during export and can be used to do anything that may need to be done before or after export.  For example, resetting config files to default values or creating a .gdignore file manually.
 

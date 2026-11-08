@@ -20,6 +20,7 @@ const ReleaseCache = preload("res://addons/gdpackage/src/class/release/release_c
 const PackageFetcher = preload("res://addons/gdpackage/src/class/release/package_fetcher.gd")
 const VersionScanner = preload("res://addons/gdpackage/src/editor_plugins/console_command/min_version/version_scanner.gd")
 const VersionApi = VersionScanner.VersionApi
+const TestFiles = preload("res://addons/gdpackage/src/class/export/test_files.gd")
 
 const LOCK_FILE = ".export_lock.json"
 const GIT_DETAILS_FILE = ".export_git_details"
@@ -118,7 +119,7 @@ static func _export_release(plugin_name:String, refresh:bool, local:bool, tree_d
 		for e in workspace.errors:
 			_note("  " + e)
 		return false
-	var engine_err = engine_error(ws, reporter)
+	var engine_err = engine_error(ws, reporter, options.get("ignore_tests", true))
 	if engine_err != "":
 		return _fail(engine_err)
 
@@ -183,7 +184,7 @@ static func _export_release(plugin_name:String, refresh:bool, local:bool, tree_d
 ## Scans the workspace's sources (target and deps, not the toolchain) against the API index before
 ## its Godot run: an older engine fails to parse newer syntax on import and drops those classes
 ## quietly. Returns why this engine can't, or "".
-static func engine_error(ws:String, _reporter = null) -> String:
+static func engine_error(ws:String, _reporter = null, ignore_tests:bool = false) -> String:
 	var out = Reporter.or_default(_reporter)
 	var scanner = VersionScanner.new()
 	scanner.load_scripts = false
@@ -194,7 +195,12 @@ static func engine_error(ws:String, _reporter = null) -> String:
 	search.file_extensions = ["gd", "tscn", "tres"]
 	search.ignore_dir_paths = [ws.path_join(ReleaseWorkspace.TOOLCHAIN_PATH.trim_prefix("res://"))]
 	search.ignore_dir_names = ExportFileUtils.ExportIgnore.NAMES
-	var scan = scanner.scan_files(search.get_files())
+	var files = Array(search.get_files())
+	if ignore_tests:
+		var classifier = TestFiles.new()
+		classifier.index_classes(files)
+		files = files.filter(func(path): return not classifier.is_test(path))
+	var scan = scanner.scan_files(files)
 	for f in scan.findings:
 		f.location = String(f.location).trim_prefix(ws.trim_suffix("/") + "/")
 	var err = engine_check(scan.min_version, scan.findings, Engine.get_version_info())

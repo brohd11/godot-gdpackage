@@ -555,6 +555,7 @@ class KeysConfig:
 		const OVERWRITE = "overwrite"
 		const IGNORE_DEPENDENCIES = "ignore_dependencies"
 		const IGNORE_SRC = "ignore_src"
+		const IGNORE_TESTS = "ignore_tests"
 		const MOVE_GLOBAL_FILES = "move_global_files"
 		const INCLUDE_DOCS = "include_docs"
 		const INCLUDE_PROJECT_LICENSE = "include_project_license"

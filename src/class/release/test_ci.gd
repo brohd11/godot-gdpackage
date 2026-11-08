@@ -18,7 +18,6 @@ const ExportIgnore = ExportFileUtils.ExportIgnore
 const Reporter = ReleaseExport.Reporter
 const TestCommands = preload("res://addons/gdpackage/src/class/release/test_commands.gd")
 
-const TEST_DIR = "test"
 const SKIP_PREFIX = "SKIP:"
 
 ## The running test_package call's reporter; null between calls, see ReleaseExport.reporter.
@@ -61,8 +60,8 @@ static func _test_package(plugin_name:String, refresh:bool, local:bool, tree_dir
 	var selection = TestCommands.parse(config)
 	if selection.error != "":
 		return _fail(selection.error)
-	if not selection.custom and (ExportIgnore.dir_in(tree) == "" or not DirAccess.dir_exists_absolute(ExportIgnore.dir_in(tree).path_join(TEST_DIR))):
-		return _fail("%s has no %s" % [tree, " or ".join(ExportIgnore.NAMES.map(func(n): return n.path_join(TEST_DIR)))])
+	if not DirAccess.dir_exists_absolute(tree):
+		return _fail("package directory does not exist: " + tree)
 	var url = DepResolver.origin_url(tree)
 	if url == "":
 		return _fail("%s has no origin remote; it names the package, so deps requiring it resolve to it" % tree)
@@ -116,8 +115,7 @@ static func _test_package(plugin_name:String, refresh:bool, local:bool, tree_dir
 		return _print_report(report, ws)
 
 	var target_dir = ws.path_join(String(lock.target.path).trim_prefix("res://"))
-	var test_dir = ExportIgnore.dir_in(target_dir).path_join(TEST_DIR)
-	var test_res = "res://" + test_dir.trim_prefix(ws.trim_suffix("/") + "/")
+	var test_res = String(lock.target.path)
 	reporter.info("Test CI: running %s in %s" % [test_res, ws])
 	var run = ReleaseRunner.run_tests(ws, test_res)
 	var script_errors = runtime_errors(run.output)
@@ -130,7 +128,7 @@ static func _test_package(plugin_name:String, refresh:bool, local:bool, tree_dir
 		return _fail("tests did not run to the end (exit %d): %s" % [run.exit, run.result.get("error", "see output above")])
 
 	report = run.result.report
-	var ok = _print_report(report, test_dir)
+	var ok = _print_report(report, target_dir)
 	# A runtime error ends only the function it hits, so a suite can still report a pass after one.
 	if not script_errors.is_empty():
 		for e in script_errors.slice(0, 12):
