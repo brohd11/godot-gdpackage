@@ -189,10 +189,38 @@ runs:
         GODOT_VERSION: ${{ steps.pkg.outputs.godot }}
       run: |
         set -euo pipefail
-        mkdir -p ~/godot && cd ~/godot
+        install_tmp=$(mktemp -d "$RUNNER_TEMP/godot-install.XXXXXX")
+        trap 'rm -rf "$install_tmp"' EXIT
         name="Godot_v${GODOT_VERSION}_linux.x86_64"
-        curl -fsSL -o godot.zip "https://github.com/godotengine/godot-builds/releases/download/${GODOT_VERSION}/${name}.zip"
-        unzip -q godot.zip && rm godot.zip && mv "$name" godot
+        for attempt in 1 2 3; do
+          if timeout --kill-after=10s 120s gh release download "$GODOT_VERSION" \
+            --repo godotengine/godot-builds --pattern "$name.zip" --dir "$install_tmp" --clobber; then
+            break
+          else
+            download_status=$?
+          fi
+          if [ "$attempt" -eq 3 ]; then
+            echo "::error::Failed to download $name.zip from godotengine/godot-builds at $GODOT_VERSION after 3 attempts (exit $download_status)"
+            exit "$download_status"
+          fi
+          echo "::warning::Godot download attempt $attempt/3 failed (exit $download_status); retrying"
+          sleep "$((attempt * 2))"
+        done
+        unzip -tq "$install_tmp/$name.zip"
+        unzip -q "$install_tmp/$name.zip" "$name" -d "$install_tmp"
+        if [ ! -x "$install_tmp/$name" ]; then
+          echo "::error::Godot archive has no executable $name"
+          exit 1
+        fi
+        installed_version=$(timeout --kill-after=5s 15s "$install_tmp/$name" --version)
+        echo "$installed_version"
+        expected_version="${GODOT_VERSION/-/.}"
+        case "$installed_version" in
+          "$expected_version"|"$expected_version".*) ;;
+          *) echo "::error::Godot reports $installed_version; expected $expected_version"; exit 1 ;;
+        esac
+        mkdir -p "$HOME/godot"
+        install -m 755 "$install_tmp/$name" "$HOME/godot/godot"
 
     - shell: bash
       run: echo "$HOME/godot" >> "$GITHUB_PATH"
