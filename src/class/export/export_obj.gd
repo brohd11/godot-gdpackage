@@ -710,8 +710,9 @@ func export_files():
 			file_import = false
 		if replace_with == null:
 			var is_dep = false
-			# dependencies need a new uid to avoid clashes
-			if file_path in file_dep_keys or file_path in unique_files:
+			# Package-owned scripts keep their UIDs even when referenced as dependencies or globals.
+			# Bundled external copies need new UIDs to avoid clashes with their originals.
+			if (file_path in file_dep_keys and not _UFile.is_file_in_directory(file_path, source)) or file_path in unique_files:
 				is_dep = true
 				file_uid = false
 				file_import = false # should this be?

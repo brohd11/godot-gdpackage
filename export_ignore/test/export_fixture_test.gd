@@ -179,6 +179,11 @@ static func _test_rewrites() -> void:
 
 	_check("uid preload resolved to the copy", _has(dir, "src/core/consumer.gd",
 		'preload("uid://'), false)
+	for variant in _dirs:
+		for source in ["src/core/consumer.gd", "src/globals/fixture_global.gd"]:
+			_check("%s: source UID preserved %s" % [variant, source],
+				_text(_dirs[variant], source + ".uid"),
+				FileAccess.get_file_as_string("res://addons/" + PLUGIN + "/" + source + ".uid"))
 	_check("malformed absolute path rewritten to the copy", _has(dir, "src/utils_remote.gd",
 		'preload("res://addons/plugin_exporter_test/src/remote/addons/_lib/util_r/src/node/u_control.gd")'), true)
 	for variant in _dirs:

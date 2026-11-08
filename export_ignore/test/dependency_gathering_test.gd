@@ -22,6 +22,7 @@ static func run_tests() -> Dictionary:
 	_test_ignores_and_rewrites()
 	_test_classes_and_reduction()
 	_test_replacement()
+	_test_uid_sidecars()
 	_test_scan_consumers()
 	_test_destinations()
 	_test_destination_provenance()
@@ -137,6 +138,47 @@ static func _test_replacement() -> void:
 	export = _crawl([stub])
 	_check("ordinary extends keeps original script", export.files_to_copy[stub].has(Keys.REPLACE_WITH), false)
 	_check("ordinary extends gathers base", export.files_to_copy.has(base), true)
+
+
+static func _test_uid_sidecars() -> void:
+	var local = _w("plugin/uid_local.gd", "extends RefCounted\n")
+	var global = _w("plugin/uid_global.gd", "class_name PEUIDGlobal extends RefCounted\n")
+	var external = ProjectSettings.globalize_path(_w("external/uid_external.gd", "extends RefCounted\n"))
+	var base = ProjectSettings.globalize_path(_w("external/uid_base.gd", "extends RefCounted\n"))
+	var stub = _w("plugin/uid_stub.gd", '#! remote\nextends "%s"\n' % base)
+	var backport = _w("external/uid_backport.gd", "extends RefCounted\n")
+	var root = _w("plugin/uid_root.gd", 'const Local = preload("./uid_local.gd")\nconst External = preload("%s")\nvar type = PEUIDGlobal\n' % external)
+	var originals = {}
+	for path in [root, local, global, external, base, stub, backport]:
+		var uid = ResourceUID.id_to_text(ResourceUID.create_id()) + "\n"
+		var file = FileAccess.open(path + ".uid", FileAccess.WRITE)
+		file.store_string(uid)
+		file.close()
+		originals[path] = uid
+	for include_uid in [true, false]:
+		_clear_fixtures(DIR + "out/")
+		var export = _crawl([root, local, global, stub], {"PEUIDGlobal": global})
+		export.export_data.include_uid = include_uid
+		export.unique_files.append(backport)
+		export.files_to_copy[backport] = {Keys.TO: DIR + "out/uid_backport.gd"}
+		export.file_parser.set_parser_settings({})
+		export.file_parser.pre_export()
+		export.export_files()
+		var label = "uid include=%s: " % include_uid
+		_check(label + "export valid", export.export_valid, true)
+		for path in [root, local, global]:
+			var target:String = export.files_to_copy[path][Keys.TO] + ".uid"
+			_check(label + "source sidecar " + path.get_file(), FileAccess.file_exists(target), include_uid)
+			if include_uid:
+				_check(label + "source UID preserved " + path.get_file(), FileAccess.get_file_as_string(target), originals[path])
+		for path in [external, stub, backport]:
+			var target:String = export.files_to_copy[path][Keys.TO] + ".uid"
+			_check(label + "bundled sidecar " + path.get_file(), FileAccess.file_exists(target), true)
+			var uid = FileAccess.get_file_as_string(target).strip_edges()
+			_check(label + "bundled UID valid " + path.get_file(), ResourceUID.text_to_id(uid) != ResourceUID.INVALID_ID, true)
+			_check(label + "bundled UID replaced " + path.get_file(), uid != originals[path].strip_edges(), true)
+			if path == stub:
+				_check(label + "replacement base UID replaced", uid != originals[base].strip_edges(), true)
 
 
 static func _test_scan_consumers() -> void:
