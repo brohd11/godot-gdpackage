@@ -2,8 +2,8 @@
 extends EditorScript
 
 ## Tests for the release export's toolchain lookup: version pinning, release asset urls and
-## cached remote toolchains. No network - a cached toolchain is laid
-## out by hand, so resolve() never has a reason to download.
+## cached remote toolchains. Downloads are stubbed so fallback and failure diagnostics need no
+## network, and cache hits must never invoke curl.
 ##
 ##     load("res://addons/gdpackage/export_ignore/test/toolchain_test.gd").run_tests()
 
@@ -16,6 +16,17 @@ static var _failures:Array[String] = []
 static var _passed:int = 0
 
 
+class MockToolchain extends Toolchain:
+	var responses:Array[Dictionary] = []
+	var calls:Array[Array] = []
+
+	func _run_curl(args:Array) -> Dictionary:
+		calls.append(args)
+		if responses.is_empty():
+			return {"exit_code": -1, "output": "unexpected download"}
+		return responses.pop_front()
+
+
 static func run_tests() -> Dictionary:
 	_failures = []
 	_passed = 0
@@ -25,6 +36,7 @@ static func run_tests() -> Dictionary:
 	_test_pick_version()
 	_test_asset_urls()
 	_test_cached_remote(root)
+	_test_downloads(root)
 	_test_unzip(root)
 
 	ReleaseRunner.remove_dir(root)
@@ -62,9 +74,10 @@ static func _test_cached_remote(root:String) -> void:
 	_write(dir.path_join("addons/gdpackage/plugin.cfg"), '[plugin]\nversion="9.9.9"\n')
 	_write(dir.path_join("gdpackage-9.9.9.zip"), "not really a zip")
 
-	var tc = Toolchain.new()
+	var tc = MockToolchain.new()
 	var info = tc.resolve({"toolchain": "v9.9.9"}, cache_root, false)
 	_check("cached: resolved " + str(tc.errors), info.is_empty(), false)
+	_check("cached: no download", tc.calls.size(), 0)
 	if not info.is_empty():
 		_check("cached: dir", info.dir, dir.path_join("addons/gdpackage"))
 		_check("cached: source", info.source, "remote")
@@ -74,6 +87,39 @@ static func _test_cached_remote(root:String) -> void:
 	var mismatch = Toolchain.new()
 	_check("cached: wrong version rejected", mismatch.resolve({"toolchain": "9.9.9"}, cache_root, false), {})
 	_check("cached: mismatch named", mismatch.errors.size() == 1 and "is 9.9.8, expected 9.9.9" in mismatch.errors[0], true)
+
+	var refresh = MockToolchain.new()
+	_check("refresh: download required", refresh.resolve({"toolchain": "9.9.9"}, cache_root, true), {})
+	_check("refresh: both tags attempted", refresh.calls.size(), 2)
+	_check("refresh: failed cache removed", DirAccess.dir_exists_absolute(dir), false)
+
+
+static func _test_downloads(root:String) -> void:
+	var repo = "https://github.com/example/gdpackage"
+	var urls = Toolchain.asset_urls(repo, "9.9.9")
+	var zip_path = root.path_join("download/toolchain.zip")
+	var fallback = MockToolchain.new()
+	fallback.responses.assign([
+		{"exit_code": 22, "output": "curl: (22) The requested URL returned error: 404\n"},
+		{"exit_code": 0, "output": ""},
+	])
+	_check("download: bare tag succeeds", fallback._download(repo, "9.9.9", zip_path), true)
+	_check("download: both tags tried", fallback.calls.map(func(args): return args.back()), urls)
+	_check("download: successful fallback has no errors", fallback.errors, [])
+
+	var failed = MockToolchain.new()
+	failed.responses.assign([
+		{"exit_code": 22, "output": "curl: (22) The requested URL returned error: 504\n"},
+		{"exit_code": 28, "output": "curl: (28) Connection timed out\n"},
+	])
+	_write(zip_path, "partial download")
+	_check("download: failure reported", failed._download(repo, "9.9.9", zip_path), false)
+	_check("download: partial zip removed", FileAccess.file_exists(zip_path), false)
+	_check("download: one combined error", failed.errors.size(), 1)
+	var message = "\n".join(failed.errors)
+	for detail in ["gdpackage-9.9.9.zip", urls[0], urls[1], "curl exit 22", "504", "curl exit 28", "Connection timed out"]:
+		_check("download: diagnostic includes " + detail, message.contains(detail), true)
+	_check("download: does not claim release is missing", message.contains("no release"), false)
 
 
 static func _test_unzip(root:String) -> void:

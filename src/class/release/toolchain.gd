@@ -55,8 +55,6 @@ func _resolve_remote(version:String, cache_root:String, refresh:bool) -> Diction
 			ReleaseRunner.remove_dir(dir)
 		DirAccess.make_dir_recursive_absolute(dir)
 		if not _download(_repo_url(), version, zip_path):
-			errors.append("no release %s for %s - publish it, or pin '%s' to a released version" % [
-				ASSET % version, version, CONFIG_KEY])
 			ReleaseRunner.remove_dir(dir)
 			return {}
 		var err = ReleaseRunner.unzip(zip_path, dir)
@@ -77,12 +75,23 @@ func _checked(plugin_dir:String, version:String, source:String, id:String) -> Di
 
 
 func _download(repo_url:String, version:String, zip_path:String) -> bool:
+	var failures:Array[String] = []
 	for url in asset_urls(repo_url, version):
-		var output = []
-		if OS.execute("curl", ["-fsSL", "-o", zip_path, url], output, true) == 0:
+		var result = _run_curl(["-fsSL", "--retry", "2", "--retry-delay", "1",
+			"--connect-timeout", "10", "--max-time", "30", "-o", zip_path, url])
+		if result.exit_code == 0:
 			return true
+		var detail:String = result.output.strip_edges()
+		failures.append("%s (curl exit %d)%s" % [url, result.exit_code, ": " + detail if detail != "" else ""])
 	DirAccess.remove_absolute(zip_path)
+	errors.append("could not download %s for toolchain %s:\n  %s" % [ASSET % version, version, "\n  ".join(failures)])
 	return false
+
+
+func _run_curl(args:Array) -> Dictionary:
+	var output = []
+	var code = OS.execute("curl", args, output, true)
+	return {"exit_code": code, "output": "".join(output)}
 
 
 static func _repo_url() -> String:

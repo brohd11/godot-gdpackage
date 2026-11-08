@@ -236,6 +236,13 @@ runs:
         toolchain_dir=addons/gdpackage
         [ -d "$WS/$toolchain_dir" ] || toolchain_dir=addons/package_exporter
         echo "TOOLCHAIN_DIR=$toolchain_dir" >> "$GITHUB_ENV"
+        # The release CLI resolves this same version again. Seed its cache from the API download
+        # so that lookup does not depend on a second download through the browser asset URL.
+        toolchain_name=$(basename "$toolchain_dir")
+        toolchain_cache="${XDG_CACHE_HOME:-$HOME/.cache}/$toolchain_name/toolchains/$toolchain_name-$v"
+        mkdir -p "$toolchain_cache"
+        cp "$zip" "$toolchain_cache/$(basename "$zip")"
+        unzip -qo "$zip" -d "$toolchain_cache"
         if [ "$MOVED" = "true" ]; then
           # Joins at its install path, .git included - the export fetches it by tag from origin.
           mkdir -p "$WS/$(dirname "$PKG_PATH")"
