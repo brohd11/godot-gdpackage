@@ -15,6 +15,7 @@ static func run_tests() -> Dictionary:
 	_failures = []
 	_passed = 0
 	_test_check_tags()
+	_test_dependency_graph()
 	var output:Array[String] = ["require_check: %d passed, %d failed" % [_passed, _failures.size()]]
 	for failure in _failures:
 		output.append("  FAIL  " + failure)
@@ -56,6 +57,54 @@ static func _test_check_tags() -> void:
 	var text = RequireCheck.format(result)
 	_check("format marks failures", "FAIL build   a/missing@v2" in text and "ok   build   a/ok@v1.0.0" in text, true)
 	_check("no cfg is an error", RequireCheck.check_tags(root.path_join("ok/nope"), f, {}).errors.size(), 1)
+	_remove(root)
+
+
+static func _test_dependency_graph() -> void:
+	var root = ProjectSettings.globalize_path(ROOT)
+	var dir = root.path_join("graph")
+	var cfg = '[package]\nversion="1"\nurl="https://github.com/me/a"\nrequire=["me/c@0.2.0", "me/b@v1"]\n'
+	_write(dir.path_join("package.cfg"), cfg)
+	var f = DepResolverTest.FakeFetcher.new()
+	f.add("me/b", "v1", {"package.cfg": '[package]\npath="addons/b"\nrequire=["me/c@v0.2.1", "me/a@v1"]\n'})
+	f.add("me/c", "v0.2.0", {"package.cfg": '[package]\npath="addons/c"\n'})
+	f.add("me/c", "v0.2.1", {"package.cfg": '[package]\npath="addons/c"\n'})
+	var result = RequireCheck.check_tags(dir, f, {})
+	_check("graph: resolves without a root checkout or root tag", result.errors, [])
+	_check("graph: fetchable direct rows remain ok", result.rows.all(func(row): return row.ok), true)
+	_check("graph: duplicate build and test declarations warn once", result.warnings.size(), 1)
+	var text = RequireCheck.format(result)
+	_check("graph: warning names declaration and chain " + text,
+		"WARN me/a@worktree declares me/c@0.2.0" in text and "me/a@worktree -> me/b@v1 -> me/c@v0.2.1" in text, true)
+
+	# Without identity metadata, the directory still names the root for diagnostics.
+	f.add("me/b", "v1", {"package.cfg": '[package]\npath="addons/b"\nrequire=["me/c@v0.2.1"]\n'})
+	_write(dir.path_join("package.cfg"), cfg.replace('url="https://github.com/me/a"\n', ""))
+	result = RequireCheck.check_tags(dir, f, {})
+	_check("graph: no origin or url needed", [result.errors, result.warnings.size()], [[], 1])
+
+	for key in ["compile_require", "test_require"]:
+		_write(dir.path_join("package.cfg"), '[package]\nrequire=["me/c@v0.2.0"]\n')
+		_write(dir.path_join("export_ignore/plugin_export.yml"), '%s: ["me/b@v1"]\n' % key)
+		result = RequireCheck.check_tags(dir, f, {})
+		_check("graph: %s participates" % key, [result.errors, result.warnings.size()], [[], 1])
+
+	_write(dir.path_join("package.cfg"), cfg)
+	DirAccess.remove_absolute(dir.path_join("export_ignore/plugin_export.yml"))
+	f.add("me/b", "v1", {"package.cfg": '[package]\npath="addons/b"\nrequire=["me/missing@v1"]\n'})
+	result = RequireCheck.check_tags(dir, f, {})
+	_check("graph: transitive missing tag fails while direct rows pass",
+		result.rows.all(func(row): return row.ok) and not result.errors.is_empty() and "me/missing" in str(result.errors), true)
+	_check("graph: invalid graph has no warnings", result.warnings, [])
+
+	f.add("me/b", "v1", {"package.cfg": '[package]\npath="addons/b"\nrequire=["me/c@v2.0.0"]\n'})
+	f.add("me/c", "v2.0.0", {"package.cfg": '[package]\npath="addons/c"\n'})
+	result = RequireCheck.check_tags(dir, f, {})
+	_check("graph: incompatible majors fail", "share a major line" in str(result.errors), true)
+
+	f.add("me/b", "v1", {})
+	result = RequireCheck.check_tags(dir, f, {})
+	_check("graph: fetched tree without a package fails", result.errors.is_empty(), false)
 	_remove(root)
 
 

@@ -74,6 +74,9 @@ static func run_tests() -> Dictionary:
 	_test_compare_tags()
 	_test_mvs()
 	_test_major_lines()
+	_test_understated_requirements()
+	_test_understated_subtrees()
+	_test_understated_selected_versions()
 	_test_tag_v_toggle()
 	_test_failures()
 	_test_cycle()
@@ -248,6 +251,79 @@ static func _test_major_lines() -> void:
 	var lock2 = r2.resolve(t2, "v1", "res://addons/t")
 	_check("major: outvoted requirement ignored " + str(r2.errors), lock2.is_empty(), false)
 	_check("major: outvoted selection", _dep(lock2, "github.com/me/u").get("tag"), "v2.0.0")
+
+
+static func _warning_package(f:FakeFetcher, name:String, tag:String, requires:Array) -> String:
+	return f.add("me/" + name, tag, {"package.cfg": '[package]\npath="addons/%s"\n' % name, EX: _ex(requires)})
+
+
+static func _test_understated_requirements() -> void:
+	for case in [["v0.2.0", true], ["v0.2.1", false], ["v0.3.0", false]]:
+		var f = FakeFetcher.new()
+		var url = _warning_package(f, "a", "v1", ["me/c@" + case[0], "me/b@v1", "me/c@" + case[0], "me/c@" + case[0].trim_prefix("v")])
+		_warning_package(f, "b", "v1", ["me/c@v0.2.1"])
+		_warning_package(f, "c", case[0], [])
+		_warning_package(f, "c", "v0.2.1", [])
+		var r = DepResolver.new(f)
+		var lock = r.resolve(url, "v1", "res://addons/a")
+		_check("understated %s: resolves %s" % [case[0], r.errors], not lock.is_empty(), true)
+		_check("understated %s: warning count" % case[0], r.warnings.size(), 1 if case[1] else 0)
+		if case[1]:
+			_check("understated: higher tag selected", _dep(lock, "github.com/me/c").get("tag"), "v0.2.1")
+			var warning = "\n".join(r.warnings)
+			_check("understated: declaration, owner and chain " + warning,
+				"me/a@v1 declares me/c@v0.2.0" in warning and "me/a@v1 -> me/b@v1 -> me/c@v0.2.1" in warning and "at least v0.2.1" in warning, true)
+			_check("understated: warnings outside lock", lock.has("warnings"), false)
+			_warning_package(f, "a", "v1", ["me/c@v0.2.1", "me/b@v1"])
+			_check("understated: resolver can be reused", r.resolve(url, "v1", "res://addons/a").is_empty(), false)
+			_check("understated: warnings reset between calls", r.warnings, [])
+			_check("understated: failed resolution resets warnings", r.resolve(url, "v9", "res://addons/a"), {})
+			_check("understated: failure has no stale warnings", r.warnings, [])
+
+
+static func _test_understated_subtrees() -> void:
+	var f = FakeFetcher.new()
+	var url = _warning_package(f, "a", "v1", ["me/b@v1", "me/c@v0.3.0"])
+	_warning_package(f, "b", "v1", ["me/c@v0.2.0"])
+	_warning_package(f, "c", "v0.2.0", [])
+	_warning_package(f, "c", "v0.2.1", [])
+	_warning_package(f, "c", "v0.3.0", [])
+	var r = DepResolver.new(f)
+	_check("subtree: parent upgrade resolves", r.resolve(url, "v1", "res://addons/a").is_empty(), false)
+	_check("subtree: parent upgrade doesn't warn for b", r.warnings, [])
+
+	_warning_package(f, "a", "v1", ["me/b@v1", "me/d@v1"])
+	_warning_package(f, "d", "v1", ["me/c@v0.3.0"])
+	_check("subtree: sibling upgrade resolves", r.resolve(url, "v1", "res://addons/a").is_empty(), false)
+	_check("subtree: unrelated branch doesn't warn for b", r.warnings, [])
+
+	_warning_package(f, "b", "v1", ["me/c@v0.2.0", "me/e@v1"])
+	_warning_package(f, "e", "v1", ["me/f@v1", "me/b@v1"])
+	_warning_package(f, "f", "v1", ["me/c@v0.2.1", "me/e@v1"])
+	_check("subtree: nested cycles resolve", r.resolve(url, "v1", "res://addons/a").is_empty(), false)
+	_check("subtree: one nested owner warns", r.warnings.size(), 1)
+	var warning = "\n".join(r.warnings)
+	_check("subtree: own minimum, not globally selected tag " + warning,
+		"me/b@v1 declares me/c@v0.2.0" in warning and "me/b@v1 -> me/e@v1 -> me/f@v1 -> me/c@v0.2.1" in warning and not "v0.3.0" in warning, true)
+
+
+static func _test_understated_selected_versions() -> void:
+	var f = FakeFetcher.new()
+	var url = _warning_package(f, "a", "v1", ["me/b@v1.0", "me/d@v1"])
+	_warning_package(f, "b", "v1.0", ["me/c@v0.2.0", "me/e@v1"])
+	_warning_package(f, "b", "v1.1", ["me/c@v0.2.1"])
+	_warning_package(f, "c", "v0.2.0", [])
+	_warning_package(f, "c", "v0.2.1", [])
+	_warning_package(f, "d", "v1", ["me/b@v1.1"])
+	_warning_package(f, "e", "v1", ["me/c@v0.2.1"])
+	var r = DepResolver.new(f)
+	var lock = r.resolve(url, "v1", "res://addons/a")
+	_check("selected warnings: resolves", not lock.is_empty(), true)
+	_check("selected warnings: old version's dependency pruned", _dep(lock, "github.com/me/e"), {})
+	_check("selected warnings: only current owner's declaration warns", r.warnings.size(), 1)
+	var warning = "\n".join(r.warnings)
+	_check("selected warnings: excludes outvoted declaration " + warning,
+		"me/a@v1 declares me/b@v1.0" in warning and not "declares me/c" in warning, true)
 
 
 static func _test_tag_v_toggle() -> void:
@@ -485,6 +561,11 @@ static func _test_resolve_tree() -> void:
 		[DepResolver.TREE_TAG, "tree", "res://addons/_lib/t"])
 	_check("tree: deps from the tree's requires, MVS as usual", lock.get("deps", []).map(func(e): return [e.repo_id, e.tag]),
 		[["github.com/me/l", "v1.0.0"], ["github.com/me/u", "v1.2.0"]])
+	_check("tree: sufficient direct minimum doesn't warn", r.warnings, [])
+	FileAccess.open(dir.path_join(EX), FileAccess.WRITE).store_string(_ex(["me/u@v1.0.0", "me/l@v1.0.0"]))
+	lock = r.resolve_tree(t, dir, "res://addons/_lib/t")
+	_check("tree: understated requirement resolves", lock.is_empty(), false)
+	_check("tree: warning uses the working tree requirements", r.warnings.size() == 1 and "me/t@worktree declares me/u@v1.0.0" in r.warnings[0], true)
 
 	FileAccess.open(dir.path_join(EX), FileAccess.WRITE).store_string(_ex(["me/u@v1.0.0", "me/l@v1.0.0", "me/x@v2.0.0"]))
 	f.add("me/x", "v2.0.0", {"version.cfg": '[plugin]\npath="addons/_lib/x"\n', EX: _ex(["me/u@v2.0.0"])})
@@ -527,6 +608,11 @@ static func _test_test_require() -> void:
 	lock = r.resolve_tree(t, dir, "res://addons/t")
 	_check("test_require defaults to @require; deps' test_require ignored " + str(r.errors), lock.get("deps", []).map(func(e): return [e.repo_id, e.get("test", false)]),
 		[["github.com/me/lib", false], ["github.com/me/u", true]])
+	FileAccess.open(dir.path_join(EX), FileAccess.WRITE).store_string('test_require: ["@require", "me/lib@v1"]\n')
+	f.add("me/lib", "v1", {"package.cfg": '[package]\npath="addons/lib"\nrequire=["me/u@v1.1.0"]\n'})
+	lock = r.resolve_tree(t, dir, "res://addons/t")
+	_check("test_require: test-only branch raises shared dep", _dep(lock, "github.com/me/u").get("tag"), "v1.1.0")
+	_check("test_require: test-only branch warns", r.warnings.size() == 1 and "me/lib@v1 -> me/u@v1.1.0" in r.warnings[0], true)
 	r = DepResolver.new(f)
 	var release_lock = r.resolve(f.add("me/r", "v1", {"version.cfg": '[plugin]\n', EX: 'export_root: "x"\ntest_require: ["me/u@v1.0.0"]\n'}), "v1", "res://addons/r")
 	_check("release resolve ignores test_require", release_lock.get("deps", null), [])

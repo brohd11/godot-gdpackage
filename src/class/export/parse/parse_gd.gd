@@ -8,6 +8,7 @@ const OUT_OF_PLUGIN_MSG = \
  File: \"%s\", in \"%s\""
 
 var path_regex:RegEx
+var runtime_load_regex:RegEx
 var const_name_regex:RegEx
 
 func _init() -> void:
@@ -16,6 +17,8 @@ func _init() -> void:
 	path_regex = RegEx.new()
 	var all_string_paths_pattern = "[\"'](.*?)[\"']"
 	path_regex.compile(all_string_paths_pattern)
+	runtime_load_regex = RegEx.new()
+	runtime_load_regex.compile("\\bload\\s*\\(\\s*([\"'])([^\"'\\n]*)\\1")
 	
 	const_name_regex = UtilsRemote.URegex.get_const_name()
 
@@ -502,6 +505,9 @@ func _update_paths(line:String):
 	var current_parse_file = export_obj.file_parser.current_file_path_parsing
 	var comment_index = line.find("#")
 	var matches = path_regex.search_all(line)
+	var runtime_paths = {}
+	for call in runtime_load_regex.search_all(line):
+		runtime_paths[call.get_start(2)] = true
 	for i in range(matches.size() - 1, -1, -1):
 		var _match:RegExMatch = matches[i]
 		var start = _match.get_start(1)
@@ -542,7 +548,9 @@ func _update_paths(line:String):
 		if new_path == null:
 			new_path = old_path
 		
-		new_path = export_obj.get_rel_or_absolute_path(new_path)
+		# Runtime load() resolves from res://, unlike script-relative preload() and extends.
+		if not runtime_paths.has(start):
+			new_path = export_obj.get_rel_or_absolute_path(new_path)
 		line = line.substr(0, start) + new_path + line.substr(end)
 	
 	return line

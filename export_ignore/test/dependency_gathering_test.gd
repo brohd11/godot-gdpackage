@@ -81,6 +81,11 @@ static func _test_ignores_and_rewrites() -> void:
 		_check("ignored path untouched relative=%s" % relative, parser._update_paths(ignored_line), ignored_line)
 		_check("unignored path rewritten relative=%s" % relative,
 			parser._update_paths('const Other = preload("%s")' % leaf).contains(leaf), false)
+	export.use_relative_paths = true
+	var target = export.adjusted_remote_paths[leaf]
+	var mixed = 'const P = preload("%s"); var a = load("%s"); var b = ResourceLoader.load("%s")' % [leaf, leaf, leaf]
+	_check("runtime loads stay absolute beside a relative preload", parser._update_paths(mixed),
+		'const P = preload("%s"); var a = load("%s"); var b = ResourceLoader.load("%s")' % [export.get_rel_or_absolute_path(target), target, target])
 	_w("plugin/ignored.gd", '#! ignore-remote\nconst Leaf = preload("%s")\n' % leaf)
 	_check("header does not disable file", _crawl([root]).files_to_copy.has(leaf), true)
 

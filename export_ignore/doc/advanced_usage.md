@@ -234,6 +234,12 @@ gdpackage export --release --local my_plugin
    on. When two plugins ask for different tags of one repo, the highest wins (Go's minimal
    version selection). Every requirement needs an `@tag`; an untagged one fails the export and
    prints the chain that asked for it.
+   Within a compatible major line, a lower explicit requirement produces a warning when another
+   dependency of that package requires a higher version. For example, A requiring C@0.2.0 and B,
+   where B requires C@0.2.1, selects C@0.2.1 and warns that A should raise its C requirement.
+   Every selected package is checked against its own dependency subtree; a version raised only
+   by its parent or an unrelated branch does not warn. Incompatible major lines still fail;
+   v0 and v1 share one compatibility line.
 2. **Fetch.** Repos are mirrored under the OS cache dir (`gdpackage/repos`). A tag already
    mirrored is never re-fetched. `--refresh` checks every cached tag against its remote and fails
    if one was moved.
@@ -292,26 +298,33 @@ place it:
 When a package holds several addon folders, only the one whose cfg `url=` names the repo is used.
 A `path=`/`dir=` in the chosen cfg always wins over the derived location.
 
-To find out what to require, run `gdpackage require my_plugin`. It runs the export crawl
-without writing anything and lists the packages the export pulls in (no tags). A package is the
+To find out what to require, run `gdpackage require check --all my_plugin`. It runs the export crawl
+without writing anything and lists the packages the export pulls in. A package is the
 nearest folder with a `plugin.cfg` or `package.cfg` (or a legacy `addon.cfg`/`version.cfg`), so every
 file of one release counts once. Its identity is the git `origin` when the folder is a checkout, or the
 cfg `url=` for a package installed from a release zip. Packages are grouped by the package whose
 export config should list them, and each is marked `declared (build)`, `declared (compile)` or
 `MISSING`. A package with no export config is flagged, since it declares nothing.
 
-`gdpackage require --self my_plugin` prints only that plugin's own list, one `owner/repo@tag`
+`gdpackage require check my_plugin` prints only that plugin's own list, one `owner/repo@tag`
 per line and nothing else, for piping.
 
-`gdpackage require update my_plugin` writes that list into the plugin's own `build_require`,
-in the config it already has - only the target's, never a package it depends on. A tag is `v` plus
+`gdpackage require check --tags my_plugin` checks declared build, compile and test requirements
+at their actual tags, then resolves their full dependency graph. Missing tags, invalid packages
+and incompatible graphs fail the check. Understated requirements produce `WARN` lines without
+failing it; the same warnings appear during release exports and test CI. The target needs a
+package cfg but does not need its own Git origin or tag. Requirements remain minimums: the
+highest required version is selected, and warnings do not rewrite declarations. A package that
+only uses C indirectly through B does not need to declare C itself.
+
+`gdpackage require update my_plugin` writes that list into the plugin's own cfg `require=`;
+`--export-config` writes `build_require` instead. Only the target's list is changed. A tag is `v` plus
 the required package's cfg `version=`; when that tag isn't in the package's checkout yet you get a
 warning, since tagging comes after the update, and a package with no version to pin is an error that
 writes nothing at all. Entries the config already lists keep their tag, so a deliberate older pin
 survives; `--overwrite` re-pins them (a leading host and the `/source` marker are kept), and
 `--prune` drops the ones the crawl no longer finds. A package already under `compile_require` is
-left to it. Only the `build_require` block is rewritten - comments and key order elsewhere in the
-config are untouched, and `plugin.cfg` is never written.
+left to it. Comments and key order elsewhere in the selected file are untouched.
 
 `--local` is for trying a release before pushing anything. Every repo with a checkout in this
 project is fetched from that checkout instead of its remote; repos without one (a checkout counts

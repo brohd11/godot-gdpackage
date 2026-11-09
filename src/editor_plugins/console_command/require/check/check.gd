@@ -9,7 +9,8 @@ const _HELP = \
 "List the packages a plugin's export pulls in, as its own require list: one require@tag per line,
 the tag being each package's cfg version=. Runs the export crawl only.
   --tags     check the requires it declares (cfg require, compile_require, test_require) can be
-             fetched at their tags, as a release or test CI build would - an unpushed tag fails here
+             fetched and resolved as a build would; warn when a declaration understates a dependency's
+             minimum. Missing tags, invalid packages and incompatible dependency graphs fail here
   --all      the full walk: every package referenced, grouped by the package whose require list it
              belongs in, marked declared or MISSING
   --verbose  with the list or --all: every reference behind each package, as file:line, kind,
@@ -31,7 +32,7 @@ static func get_self_command_data() -> Dictionary:
 
 func _get_flags() -> Dictionary:
 	var options = Options.new()
-	options.add_option("--tags", {&"help": "Check the declared requires can be fetched at their tags."})
+	options.add_option("--tags", {&"help": "Resolve declared requires at their tags and warn about understated requirements."})
 	options.add_option("--all", {&"help": "Walk every dependency, grouped, with MISSING markers."})
 	options.add_option("--verbose", {&"help": "List where each package is referenced (file:line)."})
 	return options.get_options()

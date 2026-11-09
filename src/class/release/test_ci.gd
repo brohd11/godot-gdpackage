@@ -79,6 +79,8 @@ static func _test_package(plugin_name:String, refresh:bool, local:bool, tree_dir
 			cache.local_urls[local_url] = true
 	var resolver = DepResolver.new(fetcher, dev_repos, overrides)
 	var lock = resolver.resolve_tree(url, tree, dev_dir)
+	for warning in resolver.warnings:
+		reporter.warn(warning)
 	if lock.is_empty():
 		for e in resolver.errors:
 			_note("  " + e)

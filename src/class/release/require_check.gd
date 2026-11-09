@@ -2,7 +2,8 @@
 extends RefCounted
 ## Checks a package's declared requires the way a build fetches them: the cfg's require plus its
 ## export config's build/compile/test_require, each looked up at its tag through PackageFetcher, so
-## an unpushed tag or a /release without one matching asset fails here instead of in CI.
+## an unpushed tag or a /release without one matching asset fails here instead of in CI. The full
+## graph also checks compatibility and warns about understated requirements.
 
 const DepResolver = preload("res://addons/gdpackage/src/class/release/dep_resolver.gd")
 const RepoCache = preload("res://addons/gdpackage/src/class/release/repo_cache.gd")
@@ -10,11 +11,11 @@ const ReleaseCache = preload("res://addons/gdpackage/src/class/release/release_c
 const PackageFetcher = preload("res://addons/gdpackage/src/class/release/package_fetcher.gd")
 
 
-## {rows: [{spec, key, tag, ok, reason, note}], errors}. `key` is where the spec came from (build,
+## {rows: [{spec, key, tag, ok, reason, note}], warnings, errors}. `key` is where the spec came from (build,
 ## compile, test); `tag` the one that resolved; `note` says when a checkout in this project is past
 ## the declared tag. `fetcher` is a PackageFetcher (or a test's fake); a real one when null.
 static func check_tags(package_dir:String, fetcher = null, dev_repos = null) -> Dictionary:
-	var out = {"rows": [], "errors": []}
+	var out = {"rows": [], "warnings": [], "errors": []}
 	var cfg_path = DepResolver.PackageCfg.find(package_dir)
 	if cfg_path == "":
 		out.errors.append("%s has no package cfg (%s)" % [package_dir, "/".join(DepResolver.CFG_NAMES)])
@@ -57,6 +58,16 @@ static func check_tags(package_dir:String, fetcher = null, dev_repos = null) -> 
 			if version != "" and DepResolver.compare_tags("v" + version.trim_prefix("v"), dep.tag) > 0:
 				row.note = "checkout is at v" + version.trim_prefix("v")
 		out.rows.append(row)
+	if out.errors.is_empty() and out.rows.all(func(row): return row.ok):
+		var root_id = ""
+		var git = package_dir.path_join(".git")
+		if DirAccess.dir_exists_absolute(git) or FileAccess.file_exists(git):
+			root_id = DepResolver.repo_id_from_url(DepResolver.origin_url(package_dir))
+		if root_id == "":
+			root_id = DepResolver.repo_id_from_url(DepResolver.unquote(DepResolver.PackageCfg.section(cfg_text).get("url", "")))
+		resolver.resolve_requirements(declared.requires, root_id if root_id != "" else package_dir, package_dir)
+		out.errors.append_array(resolver.errors)
+		out.warnings.append_array(resolver.warnings)
 	return out
 
 
@@ -72,6 +83,8 @@ static func format(result:Dictionary) -> String:
 		lines.append(line)
 	if lines.is_empty():
 		lines.append("No requires declared.")
+	for warning in result.get("warnings", []):
+		lines.append("WARN " + warning)
 	return "\n".join(lines)
 
 

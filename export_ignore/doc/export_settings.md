@@ -36,7 +36,7 @@
 these settings are passed to parsers. You can overide on a per export basis using "parser_overide_settings" in each export. This is the exact same data structure
 
 ##### general - applies to all extensions
- - use_relative_paths - Instead of absolute paths, uses relative paths from current file.
+ - use_relative_paths - Uses paths relative to the current file for preloads and other script-relative references. Literal runtime `load()` paths stay absolute because Godot resolves them from the project root.
  - backport_target - target minor version for backport as int
 
 ##### parse_gd

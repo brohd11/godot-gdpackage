@@ -41,6 +41,7 @@ var fetcher
 var dev_paths:Dictionary = {} # repo_id -> res:// dir of a checkout in this project
 var url_overrides:Dictionary = {} # repo_id -> clone url, e.g. a file:// checkout for --local
 var errors:Array[String] = []
+var warnings:Array[String] = []
 
 var _packages:Dictionary = {} # "kind|url|tag" -> {info, src, dest} or {error}
 var _cfg_texts:Dictionary = {} # "id|dir" -> cfg text
@@ -286,10 +287,7 @@ static func major_line(tag:String) -> int:
 ## `target_url` must be the canonical origin: ids come from it, so deps naming the target still
 ## match it even when url_overrides fetches it from somewhere else. The target is always source.
 func resolve(target_url:String, version:String, target_path:String) -> Dictionary:
-	errors.clear()
-	_packages.clear()
-	_requires_cache.clear()
-	_assets.clear()
+	_reset()
 	var root_id = repo_id_from_url(target_url)
 	var root_url = url_overrides.get(root_id, target_url)
 	var root_tag = _find_tag(root_url, version, KIND_SOURCE, target_url)
@@ -318,10 +316,7 @@ func resolve(target_url:String, version:String, target_path:String) -> Dictionar
 ## requires at their tags: what test CI runs. Deps resolve exactly as in resolve(). The target
 ## entry has tag TREE_TAG, source "tree" and no sha; the caller knows the checkout's HEAD.
 func resolve_tree(target_url:String, tree_dir:String, target_path:String) -> Dictionary:
-	errors.clear()
-	_packages.clear()
-	_requires_cache.clear()
-	_assets.clear()
+	_reset()
 	var root_id = repo_id_from_url(target_url)
 	var cfg_text = ""
 	for nm in CFG_NAMES:
@@ -340,17 +335,39 @@ func resolve_tree(target_url:String, tree_dir:String, target_path:String) -> Dic
 		_error("%s: %s" % [tree_dir, requires.error])
 		return {}
 
-	# Seeded so _explore/_prune treat the tree like any fetched root.
-	var info = {"id": "", "url": target_url, "tag": TREE_TAG, "kind": KIND_SOURCE}
-	var root_pkg = {"info": info, "src": "", "dest": target_path}
-	_packages["%s|%s|%s|" % [KIND_SOURCE, target_url, TREE_TAG]] = root_pkg
-	_requires_cache["|"] = requires
+	var root_pkg = _seed_tree(target_url, target_path, requires.requires)
 	var deps = _resolve_deps([root_id, target_url, TREE_TAG, KIND_SOURCE, target_url], target_path)
 	if deps == null:
 		return {}
 	var target = _entry(root_id, root_pkg, false)
 	target.source = "tree"
 	return {"target": target, "deps": deps}
+
+
+## Resolves already-parsed requirements without fetching the root or requiring a Git origin.
+## Returns sorted dependency entries, or null with errors filled; warnings do not fail resolution.
+func resolve_requirements(requires:Array, target_id:String, target_path:String):
+	_reset()
+	_seed_tree("", target_path, requires)
+	return _resolve_deps([target_id, "", TREE_TAG, KIND_SOURCE, ""], target_path)
+
+
+func _reset() -> void:
+	errors.clear()
+	warnings.clear()
+	_packages.clear()
+	_cfg_texts.clear()
+	_requires_cache.clear()
+	_assets.clear()
+
+
+func _seed_tree(url:String, path:String, requires:Array) -> Dictionary:
+	# Seeded so _explore/_prune treat the tree like any fetched root.
+	var info = {"id": "", "url": url, "tag": TREE_TAG, "kind": KIND_SOURCE}
+	var pkg = {"info": info, "src": "", "dest": path}
+	_packages["%s|%s|%s|" % [KIND_SOURCE, url, TREE_TAG]] = pkg
+	_requires_cache["|"] = {"requires": requires, "error": ""}
+	return pkg
 
 
 ## Sorted dep entries for a root whose own package is already known, or null with `errors` filled.
@@ -379,6 +396,7 @@ func _resolve_deps(root:Array, target_path:String):
 		deps.append(entry)
 	if not errors.is_empty():
 		return null
+	_warn_understated(root, pruned.selected, pruned.edges)
 	deps.sort_custom(func(a, b): return a.repo_id < b.repo_id)
 	return deps
 
@@ -432,14 +450,14 @@ func _explore(root:Array, root_path:String) -> Dictionary:
 	return required
 
 
-## {selected, verify, test_only}: the repos reachable when every repo is taken at its selected tag
+## {selected, verify, test_only, edges}: the repos reachable when every repo is taken at its selected tag
 ## (so a requirement only an outvoted version made isn't bundled), which of them the compile check
 ## needs, and which only test_require reaches. A compile_require marks its target, and everything
 ## that target needs is needed too. Major lines are checked here for the same reason: an outvoted
 ## version's requirements don't ship.
 func _prune(root:Array, root_path:String, required:Dictionary) -> Dictionary:
 	var selected = {}
-	var edges = [] # [from id, to id, compile, test]
+	var edges = [] # [from id, to id, compile, test, declared tag]
 	var stack = [root]
 	while not stack.is_empty():
 		var node = stack.pop_back()
@@ -447,7 +465,7 @@ func _prune(root:Array, root_path:String, required:Dictionary) -> Dictionary:
 			var dep:Dep = req.dep
 			if dep.repo_id == root[0] or not required.has(dep.repo_id):
 				continue
-			edges.append([node[0], dep.repo_id, req.compile, req.get("test", false)])
+			edges.append([node[0], dep.repo_id, req.compile, req.get("test", false), dep.tag])
 			var sel = required[dep.repo_id]
 			_check_major_line(node, dep, sel)
 			if selected.has(dep.repo_id):
@@ -481,7 +499,59 @@ func _prune(root:Array, root_path:String, required:Dictionary) -> Dictionary:
 	for id in selected:
 		if not shipped.has(id):
 			test_only[id] = true
-	return {"selected": selected, "verify": verify, "test_only": test_only}
+	return {"selected": selected, "verify": verify, "test_only": test_only, "edges": edges}
+
+
+## Only paths through another direct dependency count: a parent raising the global selection
+## says nothing about this package's own minimum. Outvoted versions never enter these edges.
+func _warn_understated(root:Array, selected:Dictionary, edges:Array) -> void:
+	var graph = {}
+	for edge in edges:
+		if not graph.has(edge[0]):
+			graph[edge[0]] = []
+		graph[edge[0]].append(edge)
+	var owners = graph.keys()
+	owners.sort()
+	for owner in owners:
+		var direct = {}
+		for edge in graph[owner]:
+			if not direct.has(edge[1]):
+				direct[edge[1]] = []
+			if not direct[edge[1]].any(func(tag): return tag == edge[4] or compare_tags(tag, edge[4]) == 0):
+				direct[edge[1]].append(edge[4])
+		var targets = direct.keys()
+		targets.sort()
+		var owner_tag = root[2] if owner == root[0] else selected[owner].tag
+		var owner_name = _requirement_name(owner, owner_tag)
+		for target in targets:
+			var queue = []
+			var visited = {owner: true}
+			for sibling in targets:
+				if sibling != target and sibling != owner:
+					visited[sibling] = true
+					queue.append([sibling, [owner_name, _requirement_name(sibling, selected[sibling].tag)]])
+			var minimum = ""
+			var chain = []
+			while not queue.is_empty():
+				var step = queue.pop_front()
+				for edge in graph.get(step[0], []):
+					if edge[1] == owner:
+						continue
+					var path = step[1] + [_requirement_name(edge[1], edge[4])]
+					if edge[1] == target and (minimum == "" or compare_tags(edge[4], minimum) > 0):
+						minimum = edge[4]
+						chain = path
+					if not visited.has(edge[1]):
+						visited[edge[1]] = true
+						queue.append([edge[1], step[1] + [_requirement_name(edge[1], selected[edge[1]].tag)]])
+			for tag in direct[target]:
+				if minimum != "" and compare_tags(minimum, tag) > 0:
+					warnings.append("%s declares %s, but %s requires at least %s; raise the declaration to at least %s." % [
+						owner_name, _requirement_name(target, tag), " -> ".join(chain), minimum, minimum])
+
+
+static func _requirement_name(id:String, tag:String) -> String:
+	return "%s@%s" % [id.trim_prefix(DEFAULT_HOST + "/"), tag]
 
 
 func _check_major_line(node:Array, dep:Dep, sel:Dictionary) -> void:
