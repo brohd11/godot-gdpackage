@@ -270,30 +270,45 @@ func show_contents() -> void:
 	_update_nav()
 
 
-func _show_doc(index:int) -> void:
+## [param anchor] is a heading id to open the doc at, empty for the top.
+func _show_doc(index:int, anchor:String = "") -> void:
 	if index < 0 or index >= _docs.size():
 		return
 	var doc:Dictionary = _docs[index]
 	_external_path = ""
 	_current = index
-	_show_page(doc[DocIndex.KEY_PATH], doc[DocIndex.KEY_TITLE])
+	_show_page(doc[DocIndex.KEY_PATH], doc[DocIndex.KEY_TITLE], anchor)
 
 
 ## A doc the index does not hold, reached by following a link out of one that it does.
-func _show_external(path:String) -> void:
+func _show_external(path:String, anchor:String = "") -> void:
 	_external_path = path
 	_current = _PAGE_EXTERNAL
-	_show_page(path, DocIndex.title_for(path))
+	_show_page(path, DocIndex.title_for(path), anchor)
 
 
-func _show_page(path:String, title:String) -> void:
+func _show_page(path:String, title:String, anchor:String = "") -> void:
 	_toc.hide()
 	_view.show()
 	_view.set_file(path)
 	_title_label.text = title
 	_update_nav()
 	_scroll.set_deferred("scroll_vertical", 0)
+	if anchor != "":
+		_scroll_to_anchor(anchor)
 	doc_opened.emit(path)
+
+
+## Scrolls the heading [param anchor] names to the top of the page. An unknown one is ignored.
+func _scroll_to_anchor(anchor:String) -> void:
+	var heading = _view.anchor_control(anchor)
+	if heading == null:
+		return
+	# Label heights only settle once the page has been laid out at its real width.
+	await get_tree().process_frame
+	await get_tree().process_frame
+	if is_instance_valid(heading) and heading.is_visible_in_tree():
+		_scroll.scroll_vertical += roundi(heading.global_position.y - _scroll.global_position.y)
 
 
 ## Contents as one bbcode block: the depth-first order already reads as a tree once each entry is
@@ -353,16 +368,17 @@ func _on_link_activated(meta:String) -> void:
 		OS.shell_open(meta)
 		return
 
-	# Anchors are not resolved yet, but a link carrying one still opens its doc.
 	var target = meta.get_slice("#", 0)
+	var anchor = meta.substr(target.length() + 1)
 	if target == "":
+		_scroll_to_anchor(anchor)
 		return
 	if not target.contains("://") and not target.begins_with("/"):
 		target = _current_dir().path_join(target).simplify_path()
 
 	var index = _index_of(target)
 	if index != -1:
-		_show_doc(index)
+		_show_doc(index, anchor)
 		return
 
 	if not FileAccess.file_exists(target):
@@ -371,7 +387,7 @@ func _on_link_activated(meta:String) -> void:
 
 	# A doc outside the index still opens; the contents button is how you get back.
 	if target.get_extension().to_lower() == "md":
-		_show_external(target)
+		_show_external(target, anchor)
 		return
 
 	# Anything else is a project file the reader is being pointed at, not something to render.

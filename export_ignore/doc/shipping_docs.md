@@ -61,7 +61,9 @@ Links:
 
 Markdown:
 
-- Headings, emphasis, lists, quotes, links, rules, images and fenced code are supported.
+- Headings, emphasis, strikethrough, nested and task lists, tables, quotes and `> [!NOTE]` alerts, links (inline, reference, bare URLs), rules, images and fenced code are supported. Raw HTML is shown as text.
+- A link's `#heading-id` scrolls to that heading, in the same doc or another. Ids follow GitHub's rule: lowercase, punctuation dropped, spaces to hyphens.
+- Inline code, links, quotes and table headers take their colors from the editor theme, including its accent color.
 - Code fences render as read-only `CodeEdit`s. GDScript is highlighted out of the box; `highlighter_provider` takes a `(lang:String) -> SyntaxHighlighter` callable for anything else.
 - Heading sizes are ratios of the editor's font size, so the view follows the editor scale.
 
