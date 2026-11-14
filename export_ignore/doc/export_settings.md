@@ -1,69 +1,148 @@
+# Export settings
+
+Configure exports in `export.yml` beside the package’s documentation and tests in
+its export-ignore folder. See [Setup](setup.md#configuration-and-output) for filename
+and folder precedence, and [Commands](commands.md) for export commands.
 
 ## Main Settings
- - export_root - root of export can be local or global scope, inside or outside project
- - plugin_folder - appended to export_root, by default it uses the plugin version, so all different version exports can exist in this folder
- - pre_script - optional script whose `pre_export()` runs before export; `""` skips it
- - post_script - optional script whose `post_export()` runs after export; `""` skips it. Both should `extends GDPackage.ExportScript`, whose `_configure(export_data)` runs first and can be overridden to read more of the export
- - exports - array of export objects dictionaries
- - options - dictionary of options
+
+- `export_root` - root of export can be local or global scope, inside or outside project
+- `plugin_folder` - appended to export_root, by default it uses the plugin version, so all different
+  version exports can exist in this folder
+- `pre_script` - optional script whose `pre_export()` runs before export; `""` skips it
+- `post_script` - optional script whose `post_export()` runs after export; `""` skips it. Both
+  should `extends GDPackage.ExportScript`, whose `_configure(export_data)` runs first and can be
+  overridden to read more of the export
+- `exports` - array of export dictionaries
+- `options` - dictionary of options
+- `build_require` - dependencies available during a release build; defaults to `"@require"`, the
+  package cfg's `require=` list
+- `compile_require` - dependencies also installed beside the export for verification; defaults to
+  `[]`
+- `test_require` - test dependencies for the root package's CI run; defaults to `"@require"` and is
+  excluded from release resolution
+- `exported_require` - dependencies written into the exported cfg's `require=` for installers;
+  defaults to `[]`
+- `test` - optional custom runner configuration; `test.commands` must be a nonempty array of command
+  mappings. See [Testing](testing.md#gut-gdunit4-and-custom-runners) for fields and examples
+
+Requirement keys accept a spec or a list of specs. See [Releases](releases.md#build-requirements)
+for defaults, `"@require"`, and dependency kinds.
 
 ### exports
- - source - source location of the plugin
- - exclude - directories, file_extensions, and files to ignore on export
- - remote_dir - where all out of plugin files will be recreated
- - export_name - package folder under export_root + plugin_folder, zipped as a whole. Defaults to the last segment of plugin_folder
- - export_folder - install path relative to res://, e.g. `addons/_lib/my_lib`. Recreated inside the package, so it extracts straight into a project. Any path relative to res:// (no `{{version}}` templates); defaults to source. A path different from source renames the plugin and rewrites its paths to match
- - other_transfers - other files to transfer into plugin on export. Each entry:
-   - to - destination, relative to source unless it already starts with it. A file for a single-file `from`, a directory otherwise
-   - from - a file, an array of files, or a directory. Omitted with a `to` ending in `.gdignore` to write an empty one
-   - recursive - bool, defaults false. For a directory `from`, includes subdirectories, keeping their structure under `to`
-   - ignore_deps - bool, defaults false. Files are copied and their paths rewritten, but never scanned for dependencies or global classes. For optional integrations that name classes from plugins that may be absent: ship them under a `.gdignore` so they don't compile until loaded
-   - custom_tree_message - text appended to the file in the export tree view
-   - Two sources resolving to the same destination abort the export
- - ignore_dependencies - do not export any dependencies for the files
- - parser_overide_settings - overide settings per export for the file parser
- 
+
+- `source` - source location of the plugin
+- `exclude` - directories, file_extensions, and files to ignore on export
+- `remote_dir` - where all out of plugin files will be recreated
+- `export_name` - package folder under export_root + plugin_folder, zipped as a whole. Defaults to
+  the last segment of plugin_folder
+- `export_folder` - install path relative to res://, e.g. `addons/_lib/my_lib`. Recreated inside the
+  package, so it extracts straight into a project. Any path relative to res:// (no `{{version}}`
+  templates); defaults to source. A path different from source renames the plugin and rewrites its
+  paths to match
+- `other_transfers` - other files to transfer into plugin on export. Each entry:
+  - `to` - destination, relative to source unless it already starts with it. A file for a
+    single-file `from`, a directory otherwise
+  - `from` - a file, an array of files, or a directory. Omitted with a `to` ending in `.gdignore` to
+    write an empty one
+  - `recursive` - bool, defaults false. For a directory `from`, includes subdirectories, keeping
+    their structure under `to`
+  - `ignore_deps` - bool, defaults false. Files are copied and their paths rewritten, but never
+    scanned for dependencies or global classes. For optional integrations that name classes from
+    plugins that may be absent: ship them under a `.gdignore` so they don't compile until loaded
+  - `custom_tree_message` - text appended to the file in the export tree view
+  - Two sources resolving to the same destination abort the export
+- `ignore_dependencies` - do not export any dependencies for the files
+- `parser_overide_settings` - override settings per export for the file parser
+
 ### options
- - include_import - bool
- - include_uid - bool
- - ignore_tests - bool, defaults true. Omits `*_test.gd` and scripts inheriting from GUT or GDUnit4 test bases from initial export selection. Required dependencies and explicit transfers still include those files. Set false to retain tests. This filters separate GDScript test files; scenes, fixture data, and C# files use the normal exclusion settings.
- - overwrite - bool, erases the contents of export_root + plugin_folder before export, if false, it will abort if any file already exists
- - include_docs - bool, defaults true. Copies the doc folder beside this config (export_ignore/doc) into the exported plugin as `.doc`, preserving its structure. No dependency crawl, the files are copied verbatim without uid or import sidecars. Dot-prefixed so Godot never imports them and they stay out of a game export, while DocViewer can still read them.
- - include_project_license - bool, defaults false. Licenses are gathered by matching every copied file against the closest LICENSE above it, so a nested library keeps its own. The project root (`res://LICENSE`) is held out of that matching - it contains everything, so it would otherwise claim every file no other license covers. Turn this on for a plugin that has no LICENSE of its own and takes the project's; it ships at the export root. Ignored when the plugin does have one.
- - parser_settings - Dictionary of settings for file parser. Applied to all exports unless overiden
+
+- `include_import` - bool, defaults true. Includes import sidecars
+- `include_uid` - bool, defaults true. Includes UID sidecars
+- `ignore_tests` - bool, defaults true. See [Testing](testing.md#excluding-tests-from-exports).
+  Omits `*_test.gd` and scripts inheriting from GUT or GDUnit4 test bases from initial export
+  selection. Required dependencies and explicit transfers still include those files. Set false to
+  retain tests. This filters separate GDScript test files; scenes, fixture data, and C# files use
+  the normal exclusion settings.
+- `overwrite` - bool, erases the contents of export_root + plugin_folder before export, if false, it
+  will abort if any file already exists
+- `include_docs` - bool, defaults true. Copies the `doc/` folder beside this config into the
+  exported plugin as `.doc`, preserving its structure. No dependency crawl, the files are copied
+  verbatim without `.uid` or `.import` sidecars. See [Shipping documentation](shipping_docs.md).
+  Dot-prefixed so Godot never imports them and they stay out of a game export, while DocViewer can
+  still read them.
+- `include_project_license` - bool, defaults false. Licenses are gathered by matching every copied
+  file against the closest LICENSE above it, so a nested library keeps its own. The project root
+  (`res://LICENSE`) is held out of that matching - it contains everything, so it would otherwise
+  claim every file no other license covers. Turn this on for a plugin that has no LICENSE of its own
+  and takes the project's; it ships at the export root. Ignored when the plugin does have one.
+- `use_tag_in_cfg` - bool. Uses Git describe to update the exported cfg version; new configs set
+  true, while an omitted key defaults to false
+- `include_min_version` - bool, defaults true. Writes the scanned minimum Godot version into the
+  exported cfg when the API index is available
+- `toolchain` - released GDPackage version used for isolated builds; defaults to the development
+  GDPackage version. See [Toolchains](releases.md#toolchain-and-lock-file)
+- `parser_settings` - Dictionary of settings for file parser. Applied to all exports unless
+  overridden
 
 #### parser_settings
-these settings are passed to parsers. You can overide on a per export basis using "parser_overide_settings" in each export. This is the exact same data structure
+
+These settings are passed to the file parsers. Each export can override them using
+`parser_overide_settings`, with the same structure. The key intentionally retains its
+existing spelling. General keys beside `parse_*` blocks apply to each parser and take
+precedence over the same key inside a block.
 
 ##### general - applies to all extensions
- - use_relative_paths - Uses paths relative to the current file for preloads and other script-relative references. Literal runtime `load()` paths stay absolute because Godot resolves them from the project root.
- - backport_target - target minor version for backport as int
+
+- `use_relative_paths` - Uses paths relative to the current file for preloads and other
+  script-relative references. Literal runtime `load()` paths stay absolute because Godot resolves
+  them from the project root.
+- `backport_target` - Godot 4 minor version as an integer, e.g. `3` for 4.3.x; default `100`
+  disables backports. See [Backporting](optimization.md#backport)
 
 ##### parse_gd
- - replace_editor_interface - replaces 'EditorInterface' direct singleton access with 'Engine.get_singleton(&"EditorInterface")'
- - class_rename_ignore - Array of class_name to not strip and preload
- - reduce_access_paths - bool, default true. Rewrites dotted const chains to direct preloads, so a script ships with what it needs and not the container it went through: `ALibRuntime.Utils.UFile` becomes `Utils_UFile` with `const Utils_UFile = preload("...")` added to the script, unless the script already has a const for that file. A plain value is inlined: `const MY_INT = GlobalClass.MY_INT` becomes `const MY_INT = 3`, for a const that is a single literal with no type hint. Chains are followed through aliases (`const UFile = UtilsRemote.UFile`) and stop at the deepest segment that names a script file, so an inner class or enum on the end is kept (`A.B.UProfile.TimeFunction` -> `B_UProfile.TimeFunction`). A head with no other use is then dropped.
-   - A hub inside the plugin's source ships whole regardless, so a local const pointing at one is left as written.
-   - A hub outside the source is skipped when every mention of it reduces. One bare use or method call keeps it, as does a subclass or another file still reaching through it.
-   - A file containing a `#! dependency` tag is never skipped, nor is one a chain crosses, so the tag still fires. A const line carrying the tag is never removed.
-   - Code that reads a const dynamically (`get("UtilsRemote")`, `get_script_constant_map()`) cannot be seen; put `#! ignore-remote` on the declaration to keep it, or set this to false.
- - backport_string_renames - dictionary, key is the method to replace, value is a dictionary with key "replace":"replace_as", "min_ver": backport_target as int
+
+- `replace_editor_interface` - replaces 'EditorInterface' direct singleton access with
+  'Engine.get_singleton(&"EditorInterface")'
+- `class_rename_ignore` - Array of class_name to not strip and preload
+- `reduce_access_paths` - bool, default true. Rewrites dotted const chains to direct preloads, so a
+  script ships with what it needs and not the container it went through: `ALibRuntime.Utils.UFile`
+  becomes `Utils_UFile` with `const Utils_UFile = preload("...")` added to the script, unless the
+  script already has a const for that file. A plain value is inlined: `const MY_INT =
+  GlobalClass.MY_INT` becomes `const MY_INT = 3`, for a const that is a single literal with no type
+  hint. Chains are followed through aliases (`const UFile = UtilsRemote.UFile`) and stop at the
+  deepest segment that names a script file, so an inner class or enum on the end is kept
+  (`A.B.UProfile.TimeFunction` -> `B_UProfile.TimeFunction`). A head with no other use is then
+  dropped.
+  - A hub inside the plugin's source ships whole regardless, so a local const pointing at one is
+    left as written.
+  - A hub outside the source is skipped when every mention of it reduces. One bare use or method
+    call keeps it, as does a subclass or another file still reaching through it.
+  - A file containing a `#! dependency` tag is never skipped, nor is one a chain crosses, so the tag
+    still fires. A const line carrying the tag is never removed.
+  - Code that reads a const dynamically (`get("UtilsRemote")`, `get_script_constant_map()`) cannot
+    be seen; put `#! ignore-remote` on the declaration to keep it, or set this to false.
+- `backport_string_renames` - dictionary, key is the method to replace, value is a dictionary with
+  key "replace":"replace_as", "min_ver": backport_target as int
 
 ##### parse_cs
- - namespace_rename - Dictionary with keys "namespace":"rename_as"
+
+- `namespace_rename` - Dictionary with keys "namespace":"rename_as"
 
 
 ### GDScript optimizer
 
-`plugin_init` seeds the following block in each new `export.yml`. Existing files
-without it use the same defaults; omit individual keys to inherit their defaults.
+`init plugin` seeds the following block in each new `export.yml`, with optimization
+disabled. Existing configs that omit the optimizer block or its `enabled` key default
+to enabled; other omitted keys inherit the defaults shown below. See
+[Optimization](optimization.md) for struct and inline examples and backport guidance.
 
 ```yaml
 options:
   parser_settings:
     parse_gd:
       optimizer:
-        enabled: true
+        enabled: false
         struct_mode: tagged # auto | tagged | off
         inline_mode: tagged # auto | tagged | off
         aggressive: false
@@ -82,4 +161,5 @@ reference/Variant types and relaxes inline conversions/lifetimes. Struct usage c
 Scalar replacement and typed-local field reads are included in struct optimization;
 there is no field-read cast strategy. `#! struct; off` and `#! inline; off` exclude definitions.
 Only explicit `#! inline; substitute` permits unchecked effectful arguments.
-See the shared optimizer README for supported syntax and exact eligibility rules.
+See the [shared optimizer documentation](https://github.com/brohd11/godot-gdscript-optimizer)
+for supported syntax and exact eligibility rules.

@@ -1,148 +1,79 @@
 # GDPackage
 
-GDPackage authors, tests and releases Godot packages (plugins and libraries);
-[gdaddon](https://github.com/brohd11/gdaddon) installs them. Formerly Package Exporter
-(`godot-package-exporter`), renamed in 0.11.0.
+GDPackage is a plugin and tool for working with GDScript "packages". A package is a set of files that can declare other packages as dependencies. These can be used during CI testing or building releases.
 
-This plugin is used to create release packages for your plugins.
-
-[Youtube Walkthrough](https://youtu.be/G0ZlF8FJ94U)
-
-The main feature is to get any global classes used in your plugin and remove the class_name, then declare said class in any script that uses it, as a preload. This allows you to work in your development repo with global class names for convenience, but distribute the plugin with only the classes the user will use in the global space. Classes to preload can be [customized](./export_ignore/doc/export_settings.md).
-
-The other aspect of this is that the global class can be outside of the plugin. It would then be copied into your plugin on export. This allows you to keep shared classes in a central folder/submodule, but use the classes as normal.
-
-In the image below, you can see how the exporter itself is exported. The main logic lives in the gdpackage folder, it pulls utility classes from _lib folder, and then pulls the editor_console plugin as a sub plugin.
+Companion tool [gdaddon](https://github.com/brohd11/gdaddon) uses the same package format to install a package and dependencies into your project, for releases or dev project setup.
 
 
-<img width="1161" height="955" alt="exporter-example-git" src="https://github.com/user-attachments/assets/d391a7b0-84dc-416e-a221-6a5fa798d9ee" />
+## Purpose
 
+My main motivation for creating this was to use shared libraries between plugins without needing to maintain a copy of the code in every repository.
 
-This will also work with preloaded classes if you want to limit global classes in your dev repo. See [here](./export_ignore/doc/advanced_usage.md) for more details.
+For a plugin to function properly while organizing like this, you need to either:
+1. Have a user download any shared libraries (friction)
+2. Maintain a copy of your libraries in your plugin
 
-All global class or "#! remote" files will be scanned, and any global classes used, preload/loaded files used within will be copied as well, and then scanned recursively.
+Instead, this allows you to `require` a repo as a dependency in your package config file. Which the plugin can use to create a release package with all the used files bundled in.
 
-**Note**: on export a new copy of the files is created. Any plugins using the same classes will technically be a different class. If the classes are not self contained, meaning multiple plugins would need to interact with the same instance of the class, you must account for this.
+## Export/Release
 
-### Test CI
+The standard export process does a couple of things:
+- Checks every GDScript, Tscn and Tres file for used files, recursively
+- Only used files are bundled
+- Global Classes have their class_name stripped and are instead preloaded in every user of the file. You can set which files to keep global in export settings
 
-`gdpackage ci run_test <package>` tests the working tree in an isolated project against its
-declared dependencies at their tags. `test_require` in the export YAML adds test-only dependencies;
-they are excluded from release dependency resolution. Generate a GitHub Actions caller with
-`gdpackage ci test_workflow <package>`.
+This process is ideal for plugins, allowing you to build with global classes in your plugin development repo, but distribute without polluting the global namespace.
 
-By default CI discovers adjacent `*_test.gd` suites throughout the package, plus the canonical
-`_export_ignore/test` or `export_ignore/test` directory. Hidden and `.gdignore` directories are
-skipped, and framework suites are left to their own runners. Native suites expose
-`run`, `run_test`, or `run_tests`. Packages
-using another Godot CLI runner can instead configure commands in their export YAML:
+The "release" export (CI compatible) does a bit more:
+- Downloads every required package, recursively
+- Performs the standard export
+- Compile checks the result
+- Release the packaged release
 
-```yaml
-test_require:
-  - "@require"
-  - "bitwes/Gut@v9.7.1"
-  - "godot-gdunit-labs/gdUnit4@v6.2.3"
-test:
-  commands:
-    - name: gut
-      script: res://addons/gut/gut_cmdln.gd
-      args: ["-gdir=res://addons/my_plugin/_export_ignore/test/gut", "-ginclude_subdirs", "-gexit"]
-    - name: gdunit4
-      script: res://addons/gdUnit4/bin/GdUnitCmdTool.gd
-      args: ["-a", "res://addons/my_plugin/_export_ignore/test/gdunit4", "--ignoreHeadlessMode"]
-      timeout: 600
-```
+There is a template CI release workflow that points at this repo, which runs the release on every tagged "v*" push.
 
-Commands replace native suite discovery. GDPackage imports dependencies, then runs every command
-with the current Godot executable and `--headless --path <workspace> --script <script>`. `args` is
-an argument array passed unchanged, without a shell or an implicit `--`. Scripts using
-`OS.get_cmdline_user_args()` should include `--` themselves. `name` defaults to the script path;
-`timeout` defaults to 600 seconds per command. Empty command lists are errors.
+## Testing
 
-Only exit zero passes. Failures include the command output and exit status; remaining commands
-still run. The CLI's JSON report represents each command as a suite. Frameworks own test discovery
-and assertion handling: a command that finds no tests may still return zero. Check framework
-reports when proving coverage. GUT's `.gutconfig.json` and GDUnit's saved runner configuration are
-optional when directories and options are passed explicitly. GDUnit4 6.2.3 requires
-`--ignoreHeadlessMode` for non-UI tests; UI input tests need a display and are outside this runner.
+There is also a template CI test workflow. It will run your tests in a project with all declared dependencies present.
+This allows you to use your own test formats, or you can require GUT or GDUnit in `export.yaml.test_require` to use them instead.
 
-The temporary project supplies no game autoloads or input mappings, and does not enable framework
-editor plugins. Tests must be self-contained. The reusable workflow follows its selected Git ref,
-but downloads a released GDPackage toolchain: pin `toolchain-version` when adopting new runner features.
+## Package Format
 
-### Setup
+A package is a folder with a `package.cfg` file (or `plugin.cfg`, the files are treated the same). It also typically has an _export_ignore/ folder where the `export.yml` file is located. You can also store things here that are not intended for a release like extended documentation, test fixtures, etc.
 
-Tests can live beside the code they exercise. Export options default to `ignore_tests: true`,
-which omits `*_test.gd` and GUT/GDUnit4-derived scripts from initial file selection. Detection
-follows custom test bases without loading the framework. Tests stay in source checkouts and CI
-workspaces. A retained file's required dependency or an explicit `other_transfers` entry can
-still bring a test into the release; its dependencies are gathered normally. Set
-`options.ignore_tests: false` to keep tests in ordinary export selection. Test scenes and fixture
-data still need ordinary export exclusions.
+An example of a [plugin.cfg](./plugin.cfg) that declares dependencies.
 
-You can open a package exporter instance from the project menu. In the instance tool menu (screwdriver and wrench), select "Plugin Init". This will prompt you to select your plugin folder. Once selected, an "_export_ignore" folder will be created in your plugin (an existing "export_ignore" folder is reused instead - both names work, and "_export_ignore" wins if a plugin has both). It holds an `export.yml` configuration file, as well as a gdscript file that has a pre and post export function. These will be called during export and can be used to do anything that may need to be done before or after export.  For example, resetting config files to default values or creating a .gdignore file manually.
+## Quick start
 
-The default export location is "_export_ignore/exports". The folder itself is never copied into an export, whatever the exclude list says. A .gdignore file is created in "exports" so that the files are not imported into your project.
+Using [Editor Console](https://github.com/brohd11/godot-editor-console) plugin is suggested, it provides easy access to gdpackage commands in the editor.
 
-Alternatively, you can run this setup from the [editor console plugin](https://github.com/brohd11/Godot-Editor-Console) that is bundled with this plugin. With or without the GUI open, run: `gdpackage init plugin my_plugin_folder`
-
-With the setup complete, you can click "Read" in the GUI tool menu. This will create a tree that displays all the files that will be exported including the files outside of the plugin. These will be labeled with the file's relationship to the plugin.
- - remote file - global class or "#! remote" files
- - dependency - file found in a remote file when scanned
-
-Console command: `gdpackage open gui my_plugin_folder` will open a GUI instance and read the export file.
-
-### Export
-
-You can export through the GUI by clicking "Export" in the tool menu.
-
-Console command: `gdpackage export my_plugin_folder`
-
-
-### Package targets
-
-Existing-package commands (`export`, `init plugin`, `init license`, `open gui`, `open export_dir`,
-`ci ...`, `require ...` and `min_version`) accept paths relative to `res://addons/`,
-explicit `res://` paths, or absolute filesystem paths inside the current project.
-For example:
+Enable GDPackage in **Project Settings -> Plugins**. For an existing plugin at
+`res://addons/my_plugin`, you can initialize, open the gui, and export:
 
 ```text
-gdpackage export _lib/brohd
-gdpackage init plugin res://lib/my_package
-gdpackage export res://lib/my_package
-gdpackage export --release --local res://lib/my_package
+# "my_plugin" is a relative path from res://addons/. Absolute paths are accepted too
+
+gdpackage init plugin my_plugin
+gdpackage open gui my_plugin
+gdpackage export my_plugin
 ```
 
-Autocomplete recursively finds folders under `addons/` containing a package cfg, suggesting
-their addon-relative paths. Export commands suggest configured packages; init suggests packages
-without an export config. Packages elsewhere can be addressed explicitly. `new_plugin` continues
-to scaffold editor plugins under `addons/`.
+The `init` command creates `_export_ignore/export.yml`. You can review the exported files in the GUI; exports go under that folder's `exports/` directory
+by default. See [Setup](export_ignore/doc/setup.md) for package creation and GUI instructions.
 
-A package cfg is the first of `plugin.cfg` or `package.cfg` (then legacy `addon.cfg`, `version.cfg`)
-in the folder, the same order gdaddon uses. Package keys (`version`, `path`, `url`, `require`, ...)
-are read key by key from `[package]`, then legacy `[addon]`, then `[plugin]`, so a `plugin.cfg` keeps
-Godot's own keys beside them. `init package <folder>` writes `package.cfg` with a `[package]`
-section; `--name=plugin` picks `plugin.cfg`.
+## Other plugins
+- [Namespace](https://github.com/brohd11/godot-namespace.git) recognizes the package format and will build it's global classes within your package. 
 
-New configs use `export.yml`. Legacy `plugin_export.yml`, `plugin_export.yaml`, and
-`plugin_export.json` still work. `_export_ignore` takes precedence over `export_ignore`;
-within either folder, `export.yml` takes precedence over legacy filenames.
+## Documentation
 
-### GDScript optimization
+- [Setup and exporting](export_ignore/doc/setup.md)
+- [Commands](export_ignore/doc/commands.md)
+- [Testing and test CI](export_ignore/doc/testing.md)
+- [Dependencies and tags](export_ignore/doc/dependencies.md)
+- [Optimization and compatibility](export_ignore/doc/optimization.md) - **Experimental**
+- [Releases and release CI](export_ignore/doc/releases.md)
+- [Shipping documentation](export_ignore/doc/shipping_docs.md)
+- [Export settings reference](export_ignore/doc/export_settings.md)
 
-Exports use the shared GDScript optimizer before packaging rewrites. Tagged `#! struct`
-classes and `#! inline` static functions are optimized by default, with scalar replacement
-and typed field reads enabled. `plugin_init` seeds the settings in `export.yml`.
-Set `options.parser_settings.parse_gd.optimizer.enabled: false` to export an unoptimized
-baseline, or override individual options per export entry. Reference types remain opt-in.
-See [optimizer settings](export_ignore/doc/export_settings.md#gdscript-optimizer).
+[YouTube walkthrough](https://youtu.be/G0ZlF8FJ94U)
 
-Validation:
-
-```sh
-godot --headless --path . --script res://addons/gdpackage/export_ignore/test/run_headless.gd
-python3 addons/gdpackage/export_ignore/test/optimizer_export_smoke.py --godot /path/to/godot
-```
-
-The smoke test exports the fixture plugin with optimizer and packaging variants, then
-executes their struct and inline workloads in isolated projects and compares results.
