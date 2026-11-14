@@ -2,9 +2,7 @@
 
 ## Native suite setup
 
-Name native suites `*_test.gd` and expose a static `run`, `run_test`, or `run_tests`
-entry point returning a dictionary. `result` is an integer failure count (`0` passes),
-and `output` is an array of report lines:
+A native suite is a `*_test.gd` file with a static `run`, `run_test`, or `run_tests` entry point returning a dictionary. `result` is the failure count (`0` passes) and `output` is an array of report lines:
 
 ```gdscript
 static func run_tests() -> Dictionary:
@@ -14,23 +12,16 @@ static func run_tests() -> Dictionary:
 	return {"result": failures, "output": output}
 ```
 
-The runner also accepts instance entry methods and legacy `success` booleans.
-Suites can await frames. A script that cannot load or returns a non-dictionary fails;
-files without an entry point are reported as invalid. Native CI fails when no suites run.
+- Instance entry methods and a `success` bool in place of `result` are also accepted.
+- Suites can await frames.
+- A script that cannot load, or returns a non-dictionary, fails. Files without an entry point are reported as invalid.
+- CI fails when no suites run.
 
-Keep suites, fixtures, and runners in the package's `_export_ignore/test/` or
-`export_ignore/test/` folder for a development-only layout. Adjacent suites are also
-supported; use the exclusion rules below to keep fixtures out of releases.
+Keep suites, fixtures, and runners in the package's `_export_ignore/test/` (or `export_ignore/test/`) folder and they never reach a release. Suites beside the code they test also work, see [Excluding tests from exports](#excluding-tests-from-exports).
 
 ## Test CI
 
-`gdpackage ci run_test <package>` tests the working tree in an isolated project against its
-declared dependencies at their tags. The package needs a Git `origin` to identify it,
-but its working tree does not need a release tag. `test_require` in the export YAML
-adds test-only dependencies; they are excluded from release dependency resolution.
-An omitted `test_require` uses the package cfg's `require` list. Use `"@require"`
-alongside extra test dependencies to retain that list, or `[]` to declare none.
-See [Releases](releases.md#build-requirements) for the build and compile requirements.
+`gdpackage ci run_test <package>` tests the working tree in an isolated project, against its declared dependencies at their tags.
 
 ```text
 gdpackage ci run_test --verbose my_plugin
@@ -38,18 +29,16 @@ gdpackage ci run_test --local my_plugin
 gdpackage ci run_test --refresh my_plugin
 ```
 
-`--local` fetches dependency tags from matching checkouts in the project; dependencies
-still use committed, tagged files. `--refresh` rechecks cached tags against remotes.
-
-By default CI discovers adjacent `*_test.gd` suites throughout the package, plus the canonical
-`_export_ignore/test` or `export_ignore/test` directory. Hidden and `.gdignore` directories are
-skipped, and framework suites are left to their own runners. Native suites expose
-`run`, `run_test`, or `run_tests`. Packages
-using another Godot CLI runner can instead configure commands in their export YAML.
+- The package needs a Git `origin` to identify it. Its working tree does not need a release tag.
+- `--local` takes dependency tags from matching checkouts in the project. Only committed, tagged files are used.
+- `--refresh` rechecks cached tags against their remotes.
+- `test_require` in `export.yml` lists the test dependencies. Omitted, it uses the package cfg's `require=` list. Include `"@require"` to keep that list alongside extra entries, or use `[]` for none. Test requirements are left out of release resolution. See [Build requirements](releases.md#build-requirements) for the other keys.
+- Suites are discovered throughout the package, plus the export-ignore `test` folder. Hidden and `.gdignore` directories are skipped, and framework suites are left to their own runners.
+- The temporary project has no game autoloads or input mappings, and enables no framework editor plugins. Tests must be self-contained.
 
 ## GUT, GDUnit4, and custom runners
 
-For example, configure framework dependencies and their CLI scripts:
+A package using another Godot CLI runner sets commands in `export.yml`. Commands replace native suite discovery.
 
 ```yaml
 test_require:
@@ -67,23 +56,21 @@ test:
       timeout: 600
 ```
 
-Commands replace native suite discovery. GDPackage imports dependencies, then runs every command
-with the current Godot executable and `--headless --path <workspace> --script <script>`. `args` is
-an argument array passed unchanged, without a shell or an implicit `--`. Scripts using
-`OS.get_cmdline_user_args()` should include `--` themselves. `name` defaults to the script path;
-`timeout` defaults to 600 seconds per command. Empty command lists are errors.
-`script` must be a `res://` path inside the workspace, `args` must contain strings,
-and an explicit `timeout` must be a positive number of seconds.
+Dependencies are imported, then each command runs with the current Godot executable as `--headless --path <workspace> --script <script>` followed by its `args`.
 
-Only exit zero passes. Failures include the command output and exit status; remaining commands
-still run. The CLI's JSON report represents each command as a suite. Frameworks own test discovery
-and assertion handling: a command that finds no tests may still return zero. Check framework
-reports when proving coverage. GUT's `.gutconfig.json` and GDUnit's saved runner configuration are
-optional when directories and options are passed explicitly. GDUnit4 6.2.3 requires
-`--ignoreHeadlessMode` for non-UI tests; UI input tests need a display and are outside this runner.
+- `script` - a `res://` path inside the workspace.
+- `args` - array of strings, passed unchanged with no shell and no implicit `--`. Scripts using `OS.get_cmdline_user_args()` need `--` in the list.
+- `name` - defaults to the script path.
+- `timeout` - positive number of seconds, default 600.
+- An empty `commands` list is an error.
 
-The temporary project supplies no game autoloads or input mappings, and does not enable framework
-editor plugins. Tests must be self-contained.
+Results:
+
+- Only exit code zero passes. A failure includes the command output and exit status, and the remaining commands still run.
+- Each command is one suite in the JSON report.
+- The framework owns test discovery and assertions. A command that finds no tests may still exit zero, so check the framework's own report.
+- GUT's `.gutconfig.json` and GDUnit's saved runner configuration are optional when directories and options are passed explicitly.
+- GDUnit4 6.2.3 requires `--ignoreHeadlessMode` for non-UI tests. UI input tests need a display and are not supported.
 
 ## GitHub Actions
 
@@ -93,41 +80,31 @@ Generate a caller workflow from the editor console:
 gdpackage ci test_workflow my_plugin
 ```
 
-This writes `.github/workflows/test.yml` at the package repository root, running on
-branch pushes, pull requests, and manual dispatch. Existing workflow files are preserved.
-If the package is below its repository root, pass `--allow-project-root`; the generator
-sets `package-dir` so only that package is tested.
+- Writes `.github/workflows/test.yml` at the package repository root, running on branch pushes, pull requests, and manual dispatch. An existing file is not overwritten.
+- For a package below its repository root, pass `--allow-project-root`. `package-dir` is set so only that package is tested.
+- `godot-versions` is set to the running editor's Godot build. Edit it to a JSON array of builds for a matrix.
+- The reusable workflow follows its selected Git ref, but downloads a released GDPackage toolchain. Pin `toolchain-version` when adopting new runner features.
+- `install-path` and `package-dir` override package layout detection.
+- For dependencies in private repositories, pass a `deps-token` secret. See [Private dependencies](releases.md#private-dependencies).
 
-The generated workflow selects the running editor's Godot build. Edit `godot-versions`
-to provide a JSON array of builds for a matrix. The reusable workflow follows its
-selected Git ref, but downloads a released GDPackage toolchain; pin `toolchain-version`
-when adopting new runner features. `install-path` and `package-dir` can override
-package layout detection. See [Commands](commands.md#headless-entry-points) for the
-headless entry used by CI.
-
-For dependencies in private repositories, pass a `deps-token` secret; see
-[Releases](releases.md#private-dependencies).
+CI uses the [headless entry point](commands.md#headless-entry-points).
 
 ## Excluding tests from exports
 
-Tests can live beside the code they exercise. Export options default to `ignore_tests: true`,
-which omits `*_test.gd` and GUT/GDUnit4-derived scripts from initial file selection. Detection
-follows custom test bases without loading the framework. Tests stay in source checkouts and CI
-workspaces. A retained file's required dependency or an explicit `other_transfers` entry can
-still bring a test into the release; its dependencies are gathered normally. Set
-`options.ignore_tests: false` to keep tests in ordinary export selection. Test scenes and fixture
-data still need ordinary export exclusions.
+`options.ignore_tests` defaults to true, so tests can live beside the code they exercise.
+
+- `*_test.gd` files and GUT/GDUnit4-derived scripts are left out of the initial file selection. Custom test bases are followed, without loading the framework.
+- A test can still be exported when a kept file depends on it, or through an explicit `other_transfers` entry. Its dependencies are gathered normally.
+- Test scenes and fixture data need ordinary export exclusions.
+- Set `ignore_tests: false` to treat tests like any other file.
 
 ## GDPackage development checks
 
-From this development project's root, run GDPackage's own suites and optimizer smoke test:
+From this development project's root, run GDPackage's own suites and the optimizer smoke test:
 
 ```sh
 godot --headless --path . --script res://addons/gdpackage/export_ignore/test/run_headless.gd
 python3 addons/gdpackage/export_ignore/test/optimizer_export_smoke.py --godot /path/to/godot
 ```
 
-The smoke test exports the fixture plugin with optimizer and packaging variants,
-executes their struct and inline workloads in isolated projects, and compares results.
-These commands require the development checkout and its test fixtures; the release
-package excludes them.
+The smoke test exports the fixture plugin with optimizer and packaging variants, runs their struct and inline workloads in isolated projects, and compares results. Both need the development checkout and its fixtures, which the release package excludes.
