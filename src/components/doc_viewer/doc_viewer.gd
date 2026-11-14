@@ -20,13 +20,9 @@ const _PAGE_CONTENTS = -1
 ## discard the index it was followed from.
 const _PAGE_EXTERNAL = -2
 
-## Shared between every packaged copy of this script, so neither can change: the submenu's node
-## name under Project > Tools, and the meta on it holding the one docs window.
+## Node name of the submenu under Project > Tools. Every packaged copy of this script looks it
+## up by this name, so it cannot change.
 const _DOCS_MENU_NAME = "Docs"
-const _META_WINDOW = &"doc_window"
-
-## Names this copy registered. Per copy on purpose - it is how a copy tells its items from another's.
-static var _registered:Dictionary = {}
 
 signal doc_opened(path:String)
 
@@ -85,14 +81,17 @@ static func register(plugin_name:String, path:String) -> bool:
 	var tools = _find_tools_menu()
 	if tools == null:
 		return false
-	_register_in(tools, plugin_name, path)
+	_get_docs_menu(tools, true).register_doc(plugin_name, _make_viewer.bind(path))
 	return true
 
 
 static func unregister(plugin_name:String) -> void:
 	var tools = _find_tools_menu()
-	if tools != null:
-		_unregister_in(tools, plugin_name)
+	if tools == null:
+		return
+	var menu = _get_docs_menu(tools, false)
+	if menu != null:
+		menu.unregister_doc(plugin_name)
 
 
 ## The Tools popup has no stable name, so it is picked out by the editor handler it is wired to.
@@ -108,108 +107,24 @@ static func _find_tools_menu() -> PopupMenu:
 	return null
 
 
-static func _get_docs_menu(tools:PopupMenu, create:bool) -> PopupMenu:
-	var menu = tools.get_node_or_null(_DOCS_MENU_NAME) as PopupMenu
-	if menu == null and create:
-		menu = PopupMenu.new()
-		menu.name = _DOCS_MENU_NAME
-		tools.add_submenu_node_item(_DOCS_MENU_NAME, menu)
+## Untyped on purpose: the node may be another plugin's copy of DocsMenu, so it is only ever
+## called by method name.
+static func _get_docs_menu(tools:PopupMenu, create:bool) -> Node:
+	var menu = tools.get_node_or_null(_DOCS_MENU_NAME)
+	if menu != null and menu.has_method(&"register_doc"):
+		return menu
+	if not create:
+		return null
+	menu = DocsMenu.new()
+	tools.add_submenu_node_item(_DOCS_MENU_NAME, menu)
 	return menu
 
 
-static func _register_in(tools:PopupMenu, plugin_name:String, path:String) -> void:
-	var menu = _get_docs_menu(tools, true)
-	_remove_item(menu, plugin_name)
-	menu.add_item(plugin_name)
-	menu.set_item_metadata(menu.item_count - 1, _open_tab.bind(menu, plugin_name, path))
-	_registered[plugin_name] = true
-
-	var handler = _on_docs_index_pressed.bind(menu)
-	if not menu.index_pressed.is_connected(handler):
-		menu.index_pressed.connect(handler)
-
-
-static func _unregister_in(tools:PopupMenu, plugin_name:String) -> void:
-	_registered.erase(plugin_name)
-	var menu = _get_docs_menu(tools, false)
-	if menu == null:
-		return
-	_remove_item(menu, plugin_name)
-
-	var window = _get_window(menu)
-	if window != null:
-		var tab = window.get_child(0).get_node_or_null(plugin_name)
-		if tab != null:
-			tab.queue_free()
-
-	var handler = _on_docs_index_pressed.bind(menu)
-	if _registered.is_empty() and menu.index_pressed.is_connected(handler):
-		menu.index_pressed.disconnect(handler)
-
-	if menu.item_count > 0:
-		return
-	for i in range(tools.item_count):
-		if tools.get_item_submenu_node(i) == menu:
-			tools.remove_item(i)
-			break
-	if window != null:
-		window.queue_free()
-	# Removed now, not just queued: a plugin reload registers again in the same frame.
-	tools.remove_child(menu)
-	menu.queue_free()
-	tools.reset_size()
-
-
-static func _remove_item(menu:PopupMenu, plugin_name:String) -> void:
-	for i in range(menu.item_count):
-		if menu.get_item_text(i) == plugin_name:
-			menu.remove_item(i)
-			return
-
-
-## Every copy with an item here is connected, so each answers only for the items it added.
-static func _on_docs_index_pressed(index:int, menu:PopupMenu) -> void:
-	if not _registered.has(menu.get_item_text(index)):
-		return
-	var callback = menu.get_item_metadata(index)
-	if callback is Callable and callback.is_valid():
-		callback.call()
-
-
-## One window for every plugin's docs, a tab each, so a doc already open is focused, not rebuilt.
-static func _open_tab(menu:PopupMenu, plugin_name:String, path:String) -> void:
-	var window = _get_window(menu)
-	if window == null:
-		var parent = _default_parent()
-		if parent == null:
-			return
-		window = Window.new()
-		window.title = "Documentation"
-		window.close_requested.connect(window.queue_free)
-		var new_tabs = TabContainer.new()
-		window.add_child(new_tabs)
-		parent.add_child(window)
-		new_tabs.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-		window.popup_centered(_WINDOW_SIZE * _ui_scale())
-		menu.set_meta(_META_WINDOW, window)
-
-	var tabs:TabContainer = window.get_child(0)
-	var viewer = tabs.get_node_or_null(plugin_name)
-	if viewer == null:
-		viewer = new()
-		viewer.docs_path = path
-		tabs.add_child(viewer)
-		# After add_child: _init names every viewer "Docs", and the tab title is the node name.
-		viewer.name = plugin_name
-	tabs.current_tab = viewer.get_index()
-	window.grab_focus()
-
-
-static func _get_window(menu:PopupMenu) -> Window:
-	var window = menu.get_meta(_META_WINDOW, null)
-	if not is_instance_valid(window) or window.is_queued_for_deletion():
-		return null
-	return window
+## Handed to the menu as the item's factory, so each tab is built by its own plugin's copy.
+static func _make_viewer(path:String) -> Control:
+	var viewer = new()
+	viewer.docs_path = path
+	return viewer
 
 
 static func _default_parent() -> Node:
@@ -484,3 +399,80 @@ func _index_of(path:String) -> int:
 		if _docs[i][DocIndex.KEY_PATH] == path:
 			return i
 	return -1
+
+
+## The Project > Tools > Docs submenu, shared by every plugin that registers. All state sits on
+## the node - its items are the registry - so an editor script reload cannot orphan them the way
+## it would a static. One window holds every plugin's docs, a tab each.
+class DocsMenu extends PopupMenu:
+	var _window:Window
+
+	func _init() -> void:
+		name = _DOCS_MENU_NAME
+		index_pressed.connect(_on_index_pressed)
+
+	## [param factory] takes nothing and returns the Control to show in the plugin's tab.
+	func register_doc(plugin_name:String, factory:Callable) -> void:
+		_remove_item(plugin_name)
+		add_item(plugin_name)
+		set_item_metadata(item_count - 1, factory)
+
+	func unregister_doc(plugin_name:String) -> void:
+		_remove_item(plugin_name)
+		var tabs = _get_tabs()
+		if tabs != null and tabs.has_node(plugin_name):
+			tabs.get_node(plugin_name).queue_free()
+		if item_count > 0:
+			return
+
+		if is_instance_valid(_window):
+			_window.queue_free()
+		var tools = get_parent() as PopupMenu
+		if tools != null:
+			for i in range(tools.item_count):
+				if tools.get_item_submenu_node(i) == self:
+					tools.remove_item(i)
+					break
+			# Removed now, not just queued: a plugin reload registers again in the same frame.
+			tools.remove_child(self)
+			tools.reset_size()
+		queue_free()
+
+	func _remove_item(plugin_name:String) -> void:
+		for i in range(item_count):
+			if get_item_text(i) == plugin_name:
+				remove_item(i)
+				return
+
+	func _on_index_pressed(index:int) -> void:
+		var plugin_name = get_item_text(index)
+		var factory = get_item_metadata(index)
+		var tabs = _get_tabs()
+		if tabs == null:
+			tabs = _open_window()
+		var tab = tabs.get_node_or_null(plugin_name)
+		if tab == null:
+			if not (factory is Callable and factory.is_valid()):
+				return
+			tab = factory.call()
+			tabs.add_child(tab)
+			# After add_child: the viewer names itself in _init, and the tab title is the node name.
+			tab.name = plugin_name
+		tabs.current_tab = tab.get_index()
+		_window.grab_focus()
+
+	func _get_tabs() -> TabContainer:
+		if not is_instance_valid(_window) or _window.is_queued_for_deletion():
+			return null
+		return _window.get_child(0)
+
+	func _open_window() -> TabContainer:
+		_window = Window.new()
+		_window.title = "Documentation"
+		_window.close_requested.connect(_window.queue_free)
+		var tabs = TabContainer.new()
+		_window.add_child(tabs)
+		EditorInterface.get_base_control().add_child(_window)
+		tabs.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		_window.popup_centered(_WINDOW_SIZE * EditorInterface.get_editor_scale())
+		return tabs

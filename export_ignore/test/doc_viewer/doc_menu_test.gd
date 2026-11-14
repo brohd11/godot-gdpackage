@@ -36,50 +36,52 @@ static func _test_register() -> void:
 	var tools = PopupMenu.new()
 	tools.add_item("Existing")
 
-	DocViewer._register_in(tools, "Alpha", "res://addons/alpha/")
-	var menu = DocViewer._get_docs_menu(tools, false)
-	_check("register: submenu created", menu != null, true)
+	var menu = DocViewer._get_docs_menu(tools, true)
+	menu.register_doc("Alpha", DocViewer._make_viewer.bind("res://addons/alpha/"))
 	_check("register: submenu item added", tools.item_count, 2)
 	_check("register: item points at the submenu", tools.get_item_submenu_node(1) == menu, true)
 	_check("register: plugin item", menu.get_item_text(0), "Alpha")
-	_check("register: metadata is callable", menu.get_item_metadata(0) is Callable, true)
+	_check("register: submenu found again, not rebuilt", DocViewer._get_docs_menu(tools, true) == menu, true)
 
-	DocViewer._register_in(tools, "Beta", "res://addons/beta/")
+	var viewer = menu.get_item_metadata(0).call()
+	_check("register: factory builds that plugin's viewer", viewer.docs_path, "res://addons/alpha/")
+	viewer.free()
+
+	menu.register_doc("Beta", DocViewer._make_viewer.bind("res://addons/beta/"))
 	_check("register: second plugin shares the submenu", tools.item_count, 2)
 	_check("register: second item", menu.item_count, 2)
 
-	DocViewer._register_in(tools, "Alpha", "res://addons/alpha/")
+	menu.register_doc("Alpha", DocViewer._make_viewer.bind("res://addons/alpha/"))
 	_check("register: same name is not duplicated", menu.item_count, 2)
-	_check("register: handler connected once", menu.index_pressed.get_connections().size(), 1)
+	_check("register: one handler", menu.index_pressed.get_connections().size(), 1)
 
-	DocViewer._unregister_in(tools, "Alpha")
-	DocViewer._unregister_in(tools, "Beta")
+	menu.unregister_doc("Alpha")
+	menu.unregister_doc("Beta")
 	tools.free()
 
 
 static func _test_unregister() -> void:
 	var tools = PopupMenu.new()
 	tools.add_item("Existing")
-	DocViewer._register_in(tools, "Alpha", "res://addons/alpha/")
-	DocViewer._register_in(tools, "Beta", "res://addons/beta/")
-	var menu = DocViewer._get_docs_menu(tools, false)
+	var menu = DocViewer._get_docs_menu(tools, true)
+	menu.register_doc("Alpha", DocViewer._make_viewer.bind("res://addons/alpha/"))
+	menu.register_doc("Beta", DocViewer._make_viewer.bind("res://addons/beta/"))
 
-	DocViewer._unregister_in(tools, "Alpha")
+	menu.unregister_doc("Alpha")
 	_check("unregister: item removed", menu.item_count, 1)
 	_check("unregister: submenu kept while in use", DocViewer._get_docs_menu(tools, false) == menu, true)
-	_check("unregister: handler kept while in use", menu.index_pressed.get_connections().size(), 1)
 
-	DocViewer._unregister_in(tools, "Missing")
+	menu.unregister_doc("Missing")
 	_check("unregister: unknown name is a no-op", menu.item_count, 1)
 
-	DocViewer._unregister_in(tools, "Beta")
+	menu.unregister_doc("Beta")
 	_check("unregister: last one removes the submenu", DocViewer._get_docs_menu(tools, false), null)
 	_check("unregister: and its item", tools.item_count, 1)
 
 	# A plugin reload unregisters and registers in the same frame.
-	DocViewer._register_in(tools, "Alpha", "res://addons/alpha/")
-	_check("re-register: fresh submenu", DocViewer._get_docs_menu(tools, false) != null, true)
-	DocViewer._unregister_in(tools, "Alpha")
+	var fresh = DocViewer._get_docs_menu(tools, true)
+	_check("re-register: fresh submenu", fresh != null and fresh != menu, true)
+	fresh.unregister_doc("Alpha")
 	tools.free()
 
 
