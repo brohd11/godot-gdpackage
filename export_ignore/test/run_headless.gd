@@ -27,6 +27,7 @@ const SUITES:PackedStringArray = [
 	"res://addons/gdpackage/export_ignore/test/release_engine_test.gd",
 	"res://addons/gdpackage/export_ignore/test/doc_viewer/markdown_parser_test.gd",
 	"res://addons/gdpackage/export_ignore/test/doc_viewer/doc_index_test.gd",
+	"res://addons/gdpackage/export_ignore/test/doc_viewer/doc_menu_test.gd",
 ]
 
 func _init() -> void:

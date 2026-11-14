@@ -19,6 +19,24 @@ func _on_help_pressed() -> void:
 
 `open()` puts the viewer in its own window, which frees itself when closed. To embed it instead, instance it as a normal Control and set `docs_path`.
 
+### Tools menu
+
+To skip building an entry point, register the plugin under **Project > Tools > Docs** instead:
+
+``` gdscript
+func _enter_tree() -> void:
+	DocViewer.register("My Plugin", "res://addons/my_plugin/")
+
+func _exit_tree() -> void:
+	DocViewer.unregister("My Plugin")
+```
+
+- The `Docs` submenu is created by the first plugin to register and removed with the last.
+- Every registered plugin shares one window, a tab each. Picking a plugin whose docs are already open focuses its tab.
+- The name is the menu item and the tab title, so it has to be unique among plugins.
+
+### Finding the docs
+
 Given a directory, it looks for docs in this order:
 
 1. `<addon>/.doc` - a released plugin

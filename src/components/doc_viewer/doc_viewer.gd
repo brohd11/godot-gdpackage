@@ -20,6 +20,14 @@ const _PAGE_CONTENTS = -1
 ## discard the index it was followed from.
 const _PAGE_EXTERNAL = -2
 
+## Shared between every packaged copy of this script, so neither can change: the submenu's node
+## name under Project > Tools, and the meta on it holding the one docs window.
+const _DOCS_MENU_NAME = "Docs"
+const _META_WINDOW = &"doc_window"
+
+## Names this copy registered. Per copy on purpose - it is how a copy tells its items from another's.
+static var _registered:Dictionary = {}
+
 signal doc_opened(path:String)
 
 ## Addon directory, a doc directory, or a single file.
@@ -68,6 +76,139 @@ static func open(path:String, parent:Node = null) -> Window:
 	parent.add_child(window)
 	viewer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	window.popup_centered(_WINDOW_SIZE * _ui_scale())
+	return window
+
+
+## Lists the plugin under Project > Tools > Docs. [param path] is anything docs_path takes; the
+## addon directory works for both a released plugin and a dev checkout. False outside the editor.
+static func register(plugin_name:String, path:String) -> bool:
+	var tools = _find_tools_menu()
+	if tools == null:
+		return false
+	_register_in(tools, plugin_name, path)
+	return true
+
+
+static func unregister(plugin_name:String) -> void:
+	var tools = _find_tools_menu()
+	if tools != null:
+		_unregister_in(tools, plugin_name)
+
+
+## The Tools popup has no stable name, so it is picked out by the editor handler it is wired to.
+static func _find_tools_menu() -> PopupMenu:
+	if not Engine.is_editor_hint():
+		return null
+	for bar in EditorInterface.get_base_control().find_children("*", "MenuBar", true, false):
+		for menu in bar.find_children("*", "PopupMenu", true, false):
+			for data in menu.get_signal_connection_list(&"index_pressed"):
+				if String((data.callable as Callable).get_method()).ends_with("::_tool_menu_option"):
+					return menu
+	push_warning("DocViewer: could not find the Project > Tools menu.")
+	return null
+
+
+static func _get_docs_menu(tools:PopupMenu, create:bool) -> PopupMenu:
+	var menu = tools.get_node_or_null(_DOCS_MENU_NAME) as PopupMenu
+	if menu == null and create:
+		menu = PopupMenu.new()
+		menu.name = _DOCS_MENU_NAME
+		tools.add_submenu_node_item(_DOCS_MENU_NAME, menu)
+	return menu
+
+
+static func _register_in(tools:PopupMenu, plugin_name:String, path:String) -> void:
+	var menu = _get_docs_menu(tools, true)
+	_remove_item(menu, plugin_name)
+	menu.add_item(plugin_name)
+	menu.set_item_metadata(menu.item_count - 1, _open_tab.bind(menu, plugin_name, path))
+	_registered[plugin_name] = true
+
+	var handler = _on_docs_index_pressed.bind(menu)
+	if not menu.index_pressed.is_connected(handler):
+		menu.index_pressed.connect(handler)
+
+
+static func _unregister_in(tools:PopupMenu, plugin_name:String) -> void:
+	_registered.erase(plugin_name)
+	var menu = _get_docs_menu(tools, false)
+	if menu == null:
+		return
+	_remove_item(menu, plugin_name)
+
+	var window = _get_window(menu)
+	if window != null:
+		var tab = window.get_child(0).get_node_or_null(plugin_name)
+		if tab != null:
+			tab.queue_free()
+
+	var handler = _on_docs_index_pressed.bind(menu)
+	if _registered.is_empty() and menu.index_pressed.is_connected(handler):
+		menu.index_pressed.disconnect(handler)
+
+	if menu.item_count > 0:
+		return
+	for i in range(tools.item_count):
+		if tools.get_item_submenu_node(i) == menu:
+			tools.remove_item(i)
+			break
+	if window != null:
+		window.queue_free()
+	# Removed now, not just queued: a plugin reload registers again in the same frame.
+	tools.remove_child(menu)
+	menu.queue_free()
+	tools.reset_size()
+
+
+static func _remove_item(menu:PopupMenu, plugin_name:String) -> void:
+	for i in range(menu.item_count):
+		if menu.get_item_text(i) == plugin_name:
+			menu.remove_item(i)
+			return
+
+
+## Every copy with an item here is connected, so each answers only for the items it added.
+static func _on_docs_index_pressed(index:int, menu:PopupMenu) -> void:
+	if not _registered.has(menu.get_item_text(index)):
+		return
+	var callback = menu.get_item_metadata(index)
+	if callback is Callable and callback.is_valid():
+		callback.call()
+
+
+## One window for every plugin's docs, a tab each, so a doc already open is focused, not rebuilt.
+static func _open_tab(menu:PopupMenu, plugin_name:String, path:String) -> void:
+	var window = _get_window(menu)
+	if window == null:
+		var parent = _default_parent()
+		if parent == null:
+			return
+		window = Window.new()
+		window.title = "Documentation"
+		window.close_requested.connect(window.queue_free)
+		var new_tabs = TabContainer.new()
+		window.add_child(new_tabs)
+		parent.add_child(window)
+		new_tabs.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		window.popup_centered(_WINDOW_SIZE * _ui_scale())
+		menu.set_meta(_META_WINDOW, window)
+
+	var tabs:TabContainer = window.get_child(0)
+	var viewer = tabs.get_node_or_null(plugin_name)
+	if viewer == null:
+		viewer = new()
+		viewer.docs_path = path
+		tabs.add_child(viewer)
+		# After add_child: _init names every viewer "Docs", and the tab title is the node name.
+		viewer.name = plugin_name
+	tabs.current_tab = viewer.get_index()
+	window.grab_focus()
+
+
+static func _get_window(menu:PopupMenu) -> Window:
+	var window = menu.get_meta(_META_WINDOW, null)
+	if not is_instance_valid(window) or window.is_queued_for_deletion():
+		return null
 	return window
 
 

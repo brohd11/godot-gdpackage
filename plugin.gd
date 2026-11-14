@@ -7,6 +7,7 @@ const GUI = preload("res://addons/gdpackage/src/gui/gui.gd")
 const COMMENT_TAGS = ["#! remote", "#! ignore-remote", "#! dependency", "#! singleton-module", "#! strip-cast"]
 const SHOW_TOOL_MENU_ITEM = &"plugin/gdpackage/show_tool_menu_item"
 
+const DocViewer = preload("res://addons/gdpackage/src/components/doc_viewer/doc_viewer.gd")
 const UtilsRemote = preload("res://addons/gdpackage/src/class/utils_remote.gd")
 
 const ConsoleCommand = preload("res://addons/gdpackage/src/editor_plugins/console_command/console_command.gd")
@@ -47,12 +48,15 @@ func _enter_tree() -> void:
 	if ed_settings.get_setting(SHOW_TOOL_MENU_ITEM):
 		add_tool_menu_item("GDPackage", _on_tool_menu_pressed)
 	
+	DocViewer.register(_get_plugin_name(), get_script().resource_path.get_base_dir())
+	
 	_register_singletons.call_deferred()
 
 func _exit_tree() -> void:
 	remove_context_menu_plugin(context_plugin_inst)
 	
 	remove_tool_menu_item("GDPackage")
+	DocViewer.unregister(_get_plugin_name())
 	
 	FileSystemSingleton.unregister_node(self)
 	
