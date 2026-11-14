@@ -1,6 +1,6 @@
 # Shared setup for GDPackage's reusable workflows: reads the package cfg checked out at pkg/,
 # installs Godot, restores the caches, and assembles a project in $WS around a released
-# gdpackage. Callers check out to pkg/ and set WS and GH_TOKEN on the job.
+# gdpackage. Callers check out to pkg/ (persist-credentials: false) and set WS and GH_TOKEN on the job.
 name: gdpackage-setup
 description: Godot + a released gdpackage in $WS, for a package checked out at pkg/.
 
@@ -23,6 +23,9 @@ inputs:
   publish:
     description: With release, publishing requires a tag push.
     default: "false"
+  token:
+    description: Token git fetches github.com repos with - the package's deps, and its own tags; one that reads private deps makes them usable.
+    default: ${{ github.token }}
 
 outputs:
   version:
@@ -231,6 +234,21 @@ runs:
         path: ~/.cache/gdpackage
         key: gdpackage-${{ github.repository }}-${{ steps.pkg.outputs.godot }}-${{ hashFiles(format('{0}/*.cfg', steps.pkg.outputs.rel), format('{0}/_export_ignore/*', steps.pkg.outputs.rel), format('{0}/export_ignore/*.yml', steps.pkg.outputs.rel)) }}
         restore-keys: gdpackage-${{ github.repository }}-${{ steps.pkg.outputs.godot }}-
+
+    # Global, not the checkout's own: dep mirrors live in the cache, and a release build moves pkg/.
+    - name: Git auth
+      shell: bash
+      env:
+        TOKEN: ${{ inputs.token }}
+      run: |
+        set -euo pipefail
+        [ -n "$TOKEN" ] || exit 0
+        basic=$(printf 'x-access-token:%s' "$TOKEN" | base64 | tr -d '\n')
+        echo "::add-mask::$basic"
+        git config --global "http.https://github.com/.extraheader" "AUTHORIZATION: basic $basic"
+        # ssh-style url= values would skip the header.
+        git config --global --add "url.https://github.com/.insteadOf" "git@github.com:"
+        git config --global --add "url.https://github.com/.insteadOf" "ssh://git@github.com/"
 
     - name: Assemble project
       shell: bash

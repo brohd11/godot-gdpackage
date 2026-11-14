@@ -91,7 +91,8 @@ it: the release's single uploaded asset, or the tag's source when nothing was up
 has no release). Several uploads fail as ambiguous. `owner/repo/source@v1.0.0` always takes the
 tag's source. A host can lead the spec (`gitlab.com/owner/repo`); only a first segment containing a
 dot is read as a host. Releases are looked up through the GitHub API, which allows 60 requests an
-hour without a token; set `GITHUB_TOKEN` to raise that. Assets are cached per tag.
+hour without a token; set `GITHUB_TOKEN` (or `GH_TOKEN`) to raise that. With a token, assets download
+through the API, which is what a private repository needs. Assets are cached per tag.
 
 ## Where a dependency installs
 
@@ -194,3 +195,26 @@ The reusable workflow's `publish: false` builds and verifies without publishing.
 
 See [Commands](commands.md#headless-entry-points) for the headless release entry point
 and [Testing](testing.md#github-actions) for the test workflow.
+
+### Private dependencies
+
+The workflows fetch with the calling repository's own token, which reads that repository
+only: a private package with public dependencies works as is. To depend on other private
+repositories, create a token that can read them (a fine-grained personal access token with
+*Contents: read* on those repositories, plus the package's own when it is private), store
+it as a secret, and pass it from the caller job:
+
+```yaml
+jobs:
+  release:
+    uses: brohd11/godot-gdpackage/.github/workflows/package-release.yml@main
+    secrets:
+      deps-token: ${{ secrets.GDPACKAGE_DEPS_TOKEN }}
+```
+
+The test workflow takes the same secret. The token is only used to fetch from github.com;
+publishing still uses the repository's own token. Pull requests from forks receive no
+secrets, so their runs can't reach private dependencies. Released zips of a private
+dependency (`/release`) need a toolchain newer than 0.12.0; source dependencies work with any.
+
+Outside CI, private dependencies are fetched with your own Git credentials.

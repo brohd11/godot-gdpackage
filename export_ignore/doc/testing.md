@@ -105,6 +105,9 @@ when adopting new runner features. `install-path` and `package-dir` can override
 package layout detection. See [Commands](commands.md#headless-entry-points) for the
 headless entry used by CI.
 
+For dependencies in private repositories, pass a `deps-token` secret; see
+[Releases](releases.md#private-dependencies).
+
 ## Excluding tests from exports
 
 Tests can live beside the code they exercise. Export options default to `ignore_tests: true`,

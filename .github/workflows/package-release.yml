@@ -29,23 +29,32 @@ on:
         description: Attach the zips to the tag's release; false builds and verifies only.
         type: boolean
         default: true
+    secrets:
+      deps-token:
+        description: Token that can read private dependency repos (a fine-grained PAT with Contents read); empty uses the caller's own token.
+        required: false
 
 jobs:
   release:
     runs-on: ubuntu-latest
     env:
       GH_TOKEN: ${{ github.token }}
+      # What the toolchain's release lookups read; gh keeps GH_TOKEN, so publishing uses the repo's own.
+      GITHUB_TOKEN: ${{ secrets.deps-token || github.token }}
       WS: ${{ github.workspace }}/ws
     steps:
       - uses: actions/checkout@v7
         with:
           path: pkg
           fetch-depth: 0
+          # The setup action authenticates git globally; a second header here would clash with it.
+          persist-credentials: false
 
       # Pinned with the workflow: callers use @main, so both move together.
       - uses: brohd11/godot-gdpackage/.github/actions/setup@main
         id: pkg
         with:
+          token: ${{ secrets.deps-token || github.token }}
           godot-version: ${{ inputs.godot-version }}
           toolchain-version: ${{ inputs.toolchain-version }}
           install-path: ${{ inputs.install-path }}

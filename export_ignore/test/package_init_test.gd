@@ -91,6 +91,7 @@ static func _test_release_workflow() -> void:
 	_check("builds on the editor's Godot", 'godot-version: "%s"' % PluginInit.godot_build_name() in text, true)
 	_check("manual runs are dry runs", ["workflow_dispatch:" in text, "publish: ${{ github.event_name == 'push' }}" in text], [true, true])
 	_check("no package-dir at the package root", "package-dir:" in text, false)
+	_check("private deps are opt-in", ["# secrets:" in text, "\n    secrets:" in text], [true, false])
 	FileAccess.open(path, FileAccess.WRITE).store_string("edited")
 	notes.clear()
 	_check("existing not overwritten", [PluginInit.write_release_workflow(dir, notes), FileAccess.get_file_as_string(path)], ["", "edited"])

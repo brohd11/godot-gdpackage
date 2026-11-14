@@ -24,6 +24,7 @@ static func run_tests() -> Dictionary:
 	ReleaseRunner.remove_dir(root)
 
 	_test_auto_asset()
+	_test_download_args()
 	_test_non_github(root)
 	_test_cached_release(root)
 	_test_recent_no_release(root)
@@ -41,21 +42,33 @@ func _run() -> void: # EditorScript entry, for running this from the editor
 
 
 static func _test_auto_asset() -> void:
-	var one = {"tag_name": "v1", "assets": [{"name": "a.zip", "browser_download_url": "https://x/a.zip"}]}
-	_check("one upload is picked", ReleaseCache.auto_asset(one), {"name": "a.zip", "url": "https://x/a.zip"})
+	var one = {"tag_name": "v1", "assets": [{"name": "a.zip", "browser_download_url": "https://x/a.zip", "url": "https://api/1"}]}
+	_check("one upload is picked", ReleaseCache.auto_asset(one), {"name": "a.zip", "url": "https://x/a.zip", "api_url": "https://api/1"})
 	_check("no uploads means source", ReleaseCache.auto_asset({"tag_name": "v1", "assets": []}), {})
 	var two = ReleaseCache.auto_asset({"tag_name": "v1", "assets": [{"name": "a.zip"}, {"name": "a-backport.zip"}]})
 	_check("two uploads are ambiguous", two.has("error") and "a-backport.zip" in two.error, true)
 	var sidecar = {"tag_name": "v1", "assets": [{"name": "a.zip.sha256"}, {"name": "a.zip", "browser_download_url": "https://x/a.zip"}, {"name": "a.zip.SIG"}]}
-	_check("checksum and signature sidecars don't count", ReleaseCache.auto_asset(sidecar), {"name": "a.zip", "url": "https://x/a.zip"})
+	_check("checksum and signature sidecars don't count", ReleaseCache.auto_asset(sidecar), {"name": "a.zip", "url": "https://x/a.zip", "api_url": ""})
 	var several = {"tag_name": "v1", "assets": [{"name": "p-linux.zip", "browser_download_url": "https://x/l"}, {"name": "p-macos.zip"}, {"name": "p-linux.zip.sha256"}]}
-	_check("pin by name", ReleaseCache.auto_asset(several, "p-linux.zip"), {"name": "p-linux.zip", "url": "https://x/l"})
+	_check("pin by name", ReleaseCache.auto_asset(several, "p-linux.zip"), {"name": "p-linux.zip", "url": "https://x/l", "api_url": ""})
 	_check("pin by glob", ReleaseCache.auto_asset(several, "*-linux*").get("name"), "p-linux.zip")
 	var many = ReleaseCache.auto_asset(several, "p-*.zip")
 	_check("glob matching several lists them", many.has("error") and "p-macos.zip" in many.error and not "sha256" in many.error, true)
 	var none = ReleaseCache.auto_asset(several, "*.tar.gz")
 	_check("glob matching none lists the assets", none.has("error") and "p-linux.zip" in none.error, true)
 	_check("unpinned several suggests a pin", "<asset glob>" in ReleaseCache.auto_asset(several).get("error", ""), true)
+
+
+## A token switches the download to the API asset, the only url a private repo serves.
+static func _test_download_args() -> void:
+	var pick = {"name": "a.zip", "url": "https://x/a.zip", "api_url": "https://api/1"}
+	_check("no token: browser url", ReleaseCache.download_args(pick, "/d", ""), ["-fsSL", "-o", "/d", "https://x/a.zip"])
+	var authed = ReleaseCache.download_args(pick, "/d", "tok")
+	_check("token: API asset, authorized", [authed.back(), "Authorization: Bearer tok" in authed, "Accept: application/octet-stream" in authed],
+		["https://api/1", true, true])
+	_check("token: browser url never requested", "https://x/a.zip" in authed, false)
+	pick.api_url = ""
+	_check("token without an API url: browser url", ReleaseCache.download_args(pick, "/d", "tok"), ["-fsSL", "-o", "/d", "https://x/a.zip"])
 
 
 static func _test_non_github(root:String) -> void:

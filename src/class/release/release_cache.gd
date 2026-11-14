@@ -28,7 +28,7 @@ func _init(cache_root:String = "", refresh_assets:bool = false) -> void:
 const SIDECAR_EXTENSIONS = ["sha256", "sha512", "sha1", "md5", "sig", "asc", "minisig"]
 
 
-## The asset to install from GitHub release JSON: {name, url} for the single upload, {} when there
+## The asset to install from GitHub release JSON: {name, url, api_url} for the single upload, {} when there
 ## are none (install the source), or {error} when several uploads leave no automatic choice.
 ## Sidecars (SIDECAR_EXTENSIONS) don't count, so a zip with its .sha256 is still a single upload.
 ## `pattern` (a spec's `:<asset>` glob) narrows the uploads to the one it must match.
@@ -40,17 +40,37 @@ static func auto_asset(release:Dictionary, pattern:String = "") -> Dictionary:
 	if pattern != "":
 		var matched = uploads.filter(func(a): return str(a.get("name", "")).match(pattern))
 		if matched.size() == 1:
-			return {"name": str(matched[0].get("name", "")), "url": str(matched[0].get("browser_download_url", ""))}
+			return _picked(matched[0])
 		if matched.is_empty():
 			return {"error": "release %s has no asset matching '%s' (%s)" % [tag, pattern, ", ".join(names) if not names.is_empty() else "no uploads"]}
 		return {"error": "'%s' matches %d assets of release %s (%s); narrow the pattern" % [
 			pattern, matched.size(), tag, ", ".join(matched.map(func(a): return str(a.get("name", ""))))]}
 	if uploads.size() == 1:
-		return {"name": str(uploads[0].get("name", "")), "url": str(uploads[0].get("browser_download_url", ""))}
+		return _picked(uploads[0])
 	if uploads.is_empty():
 		return {}
 	return {"error": "release %s has %d uploaded assets (%s), so there is no automatic pick; pin one with /release@%s:<asset glob>, or drop /release to build from source" % [
 		tag, uploads.size(), ", ".join(names), tag]}
+
+
+static func _picked(asset:Dictionary) -> Dictionary:
+	return {"name": str(asset.get("name", "")), "url": str(asset.get("browser_download_url", "")),
+		"api_url": str(asset.get("url", ""))}
+
+
+## GITHUB_TOKEN, else gh's GH_TOKEN; "" when neither is set.
+static func token() -> String:
+	var found = OS.get_environment("GITHUB_TOKEN")
+	return found if found != "" else OS.get_environment("GH_TOKEN")
+
+
+## curl args that download `pick` to `dest`. A private repo's browser url answers 404 even with
+## a token, so with one the asset comes from the API instead.
+static func download_args(pick:Dictionary, dest:String, auth_token:String = token()) -> Array:
+	var args = ["-fsSL", "-o", dest]
+	if auth_token == "" or pick.get("api_url", "") == "":
+		return args + [pick.url]
+	return args + ["-H", "Accept: application/octet-stream", "-H", "Authorization: Bearer " + auth_token, pick.api_url]
 
 
 func release_dir(repo_url:String, tag:String) -> String:
@@ -91,7 +111,7 @@ func lookup(repo_url:String, tag:String, pattern:String = "") -> Dictionary:
 	if refresh or not FileAccess.file_exists(asset_path):
 		var previous = FileAccess.get_sha256(asset_path) if FileAccess.file_exists(asset_path) else ""
 		var part = asset_path + ".part"
-		if not _curl(["-fsSL", "-o", part, pick.url]):
+		if not _curl(download_args(pick, part)):
 			DirAccess.remove_absolute(part)
 			last_error = "download of %s failed" % pick.url
 			return {"state": "error"}
@@ -141,9 +161,9 @@ func files(repo_url:String, tag:String, asset:String) -> Array:
 func _fetch_release(owner_repo:String, tag:String, json_path:String) -> String:
 	DirAccess.make_dir_recursive_absolute(json_path.get_base_dir())
 	var args = ["-sS", "-L", "-o", json_path, "-w", "%{http_code}", "-H", "Accept: application/vnd.github+json"]
-	var token = OS.get_environment("GITHUB_TOKEN")
-	if token != "":
-		args.append_array(["-H", "Authorization: Bearer " + token])
+	var auth_token = token()
+	if auth_token != "":
+		args.append_array(["-H", "Authorization: Bearer " + auth_token])
 	args.append(API_URL % [owner_repo, tag.uri_encode()])
 	var output = []
 	var code = OS.execute("curl", args, output, true)

@@ -260,7 +260,10 @@ jobs:
       # Builds and verifies on this Godot; it must run everything the package and its deps use.
       godot-version: "%s"
       publish: ${{ github.event_name == \'push\' }}
-%s    permissions:
+%s    # For private dependencies: a token that can read them, kept as a secret of this repo.
+    # secrets:
+    #   deps-token: ${{ secrets.GDPACKAGE_DEPS_TOKEN }}
+    permissions:
       contents: write
 '
 
@@ -278,7 +281,10 @@ jobs:
     uses: brohd11/godot-gdpackage/.github/workflows/package-test.yml@%s
     with:
       godot-versions: \'["%s"]\'
-%s'
+%s    # For private dependencies: a token that can read them, kept as a secret of this repo.
+    # secrets:
+    #   deps-token: ${{ secrets.GDPACKAGE_DEPS_TOKEN }}
+'
 
 	const PACKAGE_DIR_TEXT = \
 '      # The package\'s folder in this repo, since the repo isn\'t the package itself.
