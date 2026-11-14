@@ -1,0 +1,87 @@
+# Release notes for GDPackage's reusable release workflow: git-cliff over the package's
+# conventional commits, with the repo's own cliff.toml or the one beside this file. Never fails
+# the job; a placeholder stands in when generation does. Needs GH_TOKEN and a full-history checkout.
+name: gdpackage-release-notes
+description: Writes a package's release notes with git-cliff and outputs the file.
+
+inputs:
+  dir:
+    description: The package's checkout, absolute - the repo root or a folder inside it.
+    required: true
+  version:
+    description: The package cfg's version=; names the tag when the run isn't a tag push.
+    required: true
+  git-cliff-version:
+    description: git-cliff release to run.
+    default: "v2.14.2"
+
+outputs:
+  file:
+    description: The notes, markdown.
+    value: ${{ steps.notes.outputs.file }}
+
+runs:
+  using: composite
+  steps:
+    - name: Generate release notes
+      id: notes
+      shell: bash
+      env:
+        DIR: ${{ inputs.dir }}
+        VERSION: ${{ inputs.version }}
+        CLIFF_VERSION: ${{ inputs.git-cliff-version }}
+        DEFAULT_CONFIG: ${{ github.action_path }}/cliff.toml
+      run: |
+        set -uo pipefail
+        notes="$RUNNER_TEMP/release-notes.md"
+        generate() {
+          local root prefix tag from range config bin
+          root=$(git -C "$DIR" rev-parse --show-toplevel) || return 1
+          prefix=$(git -C "$DIR" rev-parse --show-prefix) || return 1
+
+          tag=""
+          if [ "$GITHUB_REF_TYPE" = "tag" ]; then
+            tag="$GITHUB_REF_NAME"
+          else
+            # A dry run builds the tag matching version=, so the notes are that tag's.
+            for t in "v$VERSION" "$VERSION"; do
+              if git -C "$root" rev-parse -q --verify "refs/tags/$t" > /dev/null; then tag="$t"; break; fi
+            done
+          fi
+          [ -n "$tag" ] || { echo "no tag for version $VERSION"; return 1; }
+
+          # A prerelease (a tag with a -suffix) covers changes since the previous tag; a full
+          # release since the previous full release, folding in the prereleases between.
+          local describe=(git -C "$root" describe --tags --abbrev=0 --match 'v[0-9]*' --match '[0-9]*')
+          local args=(--strip header)
+          if [[ "$tag" == *-* ]]; then
+            from=$("${describe[@]}" "$tag^" 2> /dev/null) || from=""
+          else
+            from=$("${describe[@]}" --exclude '*-*' "$tag^" 2> /dev/null) || from=""
+            args+=(--ignore-tags -)
+          fi
+          # No earlier tag: from the root commit, as git-cliff only takes a from..to range.
+          [ -n "$from" ] || from=$(git -C "$root" rev-list --max-parents=0 "$tag" | tail -1)
+          range="$from..$tag"
+
+          config="$DEFAULT_CONFIG"
+          [ ! -f "$root/cliff.toml" ] || config="$root/cliff.toml"
+          # A package below the repo root (a whole-project repo) lists only its own commits.
+          [ -z "$prefix" ] || args+=(--include-path "$prefix**")
+
+          gh release download "$CLIFF_VERSION" -R orhun/git-cliff \
+            -p 'git-cliff-*-x86_64-unknown-linux-gnu.tar.gz' -D "$RUNNER_TEMP/git-cliff" --clobber || return 1
+          tar -xzf "$RUNNER_TEMP"/git-cliff/*.tar.gz -C "$RUNNER_TEMP/git-cliff" || return 1
+          bin=$(find "$RUNNER_TEMP/git-cliff" -type f -name git-cliff | head -1)
+          [ -n "$bin" ] || { echo "no git-cliff binary in the $CLIFF_VERSION archive"; return 1; }
+
+          echo "git-cliff $range (config: $config)"
+          "$bin" --config "$config" --repository "$root" "${args[@]}" -o "$notes" "$range" || return 1
+          [ -s "$notes" ]
+        }
+        if ! generate; then
+          echo "::warning::git-cliff failed; publishing without generated notes"
+          echo "Release notes could not be generated." > "$notes"
+        fi
+        { echo "## Release notes"; echo; cat "$notes"; } >> "$GITHUB_STEP_SUMMARY"
+        echo "file=$notes" >> "$GITHUB_OUTPUT"

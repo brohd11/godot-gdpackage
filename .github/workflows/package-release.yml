@@ -29,6 +29,10 @@ on:
         description: Attach the zips to the tag's release; false builds and verifies only.
         type: boolean
         default: true
+      release-notes:
+        description: Write the release's notes with git-cliff from conventional commits, using the repo's cliff.toml or else GDPackage's.
+        type: boolean
+        default: false
     secrets:
       deps-token:
         description: Token that can read private dependency repos (a fine-grained PAT with Contents read); empty uses the caller's own token.
@@ -106,17 +110,31 @@ jobs:
             ${{ env.WS }}/**/*-unverified/**
           if-no-files-found: ignore
 
+      # Also on a dry run, where the notes only reach the run summary.
+      - name: Release notes
+        if: inputs.release-notes
+        id: notes
+        uses: brohd11/godot-gdpackage/.github/actions/release-notes@main
+        with:
+          # dir is the checkout before setup moved it into $WS.
+          dir: ${{ steps.pkg.outputs.moved == 'true' && format('{0}/{1}', env.WS, steps.pkg.outputs.path) || steps.pkg.outputs.dir }}
+          version: ${{ steps.pkg.outputs.version }}
+
       - name: Publish
         if: inputs.publish
         shell: bash
         env:
           ZIPS: ${{ steps.export.outputs.zips }}
+          NOTES: ${{ steps.notes.outputs.file }}
         run: |
           set -euo pipefail
           mapfile -t files < <(jq -r '.[]' <<< "$ZIPS")
           [ "${#files[@]}" -gt 0 ] || { echo "::error::the export reported no zips"; exit 1; }
+          # An existing release keeps the notes it has.
+          notes=()
+          [ -z "$NOTES" ] || notes=(--notes-file "$NOTES")
           if gh release view "$GITHUB_REF_NAME" -R "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
             gh release upload "$GITHUB_REF_NAME" "${files[@]}" --clobber -R "$GITHUB_REPOSITORY"
           else
-            gh release create "$GITHUB_REF_NAME" "${files[@]}" --verify-tag --title "$GITHUB_REF_NAME" -R "$GITHUB_REPOSITORY"
+            gh release create "$GITHUB_REF_NAME" "${files[@]}" --verify-tag --title "$GITHUB_REF_NAME" "${notes[@]}" -R "$GITHUB_REPOSITORY"
           fi

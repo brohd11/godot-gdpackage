@@ -196,6 +196,29 @@ The reusable workflow's `publish: false` builds and verifies without publishing.
 See [Commands](commands.md#headless-entry-points) for the headless release entry point
 and [Testing](testing.md#github-actions) for the test workflow.
 
+### Release notes
+
+The reusable workflow can write the release's notes from conventional commit messages with
+[git-cliff](https://git-cliff.org). It is off by default; turn it on in the caller:
+
+```yaml
+jobs:
+  release:
+    uses: brohd11/godot-gdpackage/.github/workflows/package-release.yml@main
+    with:
+      release-notes: true
+```
+
+- A `cliff.toml` at the repository root is used when there is one; otherwise GDPackage's
+  default, which lists breaking changes, `feat`, `fix` and `perf` commits and skips the rest.
+- A tag with a `-suffix` (`v1.2.0-beta.1`) covers the changes since the previous tag. Any other
+  tag covers the changes since the previous tag without a suffix, so it includes its pre-releases.
+- For a package below the repository root, only commits touching its folder are listed.
+- The notes are set when the workflow creates the release. A release that already exists
+  for the tag keeps its own.
+- A manual dispatch shows the notes in the run summary without publishing them.
+- If generation fails the release is still published, with a placeholder note.
+
 ### Private dependencies
 
 The workflows fetch with the calling repository's own token, which reads that repository

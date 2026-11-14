@@ -12,5 +12,6 @@ jobs:
     with:
       godot-version: "4.7-stable"
       publish: ${{ github.event_name == 'push' }}
+      release-notes: true
     permissions:
       contents: write
