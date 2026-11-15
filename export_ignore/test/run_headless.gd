@@ -28,9 +28,15 @@ const SUITES:PackedStringArray = [
 	"res://addons/gdpackage/export_ignore/test/doc_viewer/markdown_parser_test.gd",
 	"res://addons/gdpackage/export_ignore/test/doc_viewer/doc_index_test.gd",
 	"res://addons/gdpackage/export_ignore/test/doc_viewer/doc_menu_test.gd",
+	"res://addons/gdpackage/export_ignore/test/doc_viewer/doc_viewer_history_test.gd",
 ]
 
-func _init() -> void:
+## Deferred: suites that host nodes need root in the tree, and it only enters after _initialize.
+func _initialize() -> void:
+	_run_suites.call_deferred()
+
+
+func _run_suites() -> void:
 	var success = true
 	var output:Array[String] = []
 

@@ -13,12 +13,25 @@ const MarkdownView = preload("res://addons/gdpackage/src/components/doc_viewer/m
 const CONTENTS_TITLE = "Contents"
 const EMPTY_MESSAGE = "No documentation found."
 
-const _WINDOW_SIZE = Vector2i(900, 720)
+## Wide enough at editor scale 1 for the contents sidebar to show.
+const _WINDOW_SIZE = Vector2i(1150, 760)
 ## Negative page ids, so every doc keeps its own position in the flat list as its id.
 const _PAGE_CONTENTS = -1
 ## A doc reached by link that the index does not hold, kept apart so following one does not
 ## discard the index it was followed from.
 const _PAGE_EXTERNAL = -2
+
+## Sidebar width, and the narrowest page worth showing beside it, in the same units as max_columns.
+const _SIDEBAR_COLUMNS = 28
+const _MIN_CONTENT_COLUMNS = 60
+## Frames a scroll waits, since label heights only settle once the page is laid out at its real width.
+const _SCROLL_SETTLE_FRAMES = 2
+
+## History location keys. PATH is only used by external pages.
+const _LOC_PAGE = "page"
+const _LOC_PATH = "path"
+const _LOC_ANCHOR = "anchor"
+const _LOC_SCROLL = "scroll"
 
 ## Node name of the submenu under Project > Tools. Every packaged copy of this script looks it
 ## up by this name, so it cannot change.
@@ -32,15 +45,32 @@ var docs_path:String = "":
 ## Optional (lang:String) -> SyntaxHighlighter, handed straight to the markdown view.
 var highlighter_provider:Callable:
 	set = set_highlighter_provider
+## Widest the page gets, in widths of "0" in the theme font (CSS "ch"), so it scales with the editor.
+var max_columns:int = 100:
+	set = set_max_columns
 
 var _docs:Array = []
 var _doc_dir:String = ""
 var _current:int = _PAGE_CONTENTS
 var _external_path:String = ""
 
+var _back:Array[Dictionary] = []
+var _forward:Array[Dictionary] = []
+## Still on the contents page reload() opened. The window may not have its real size yet, so the
+## first resize wide enough for the sidebar swaps in the first doc instead.
+var _landing:bool = false
+var _pending_scroll:Dictionary = {}
+var _pending_frames:int = 0
+
+var _back_button:Button
+var _forward_button:Button
 var _title_label:Label
 var _contents_button:Button
+var _sidebar:ScrollContainer
+var _sidebar_rule:VSeparator
+var _side_toc:RichTextLabel
 var _scroll:ScrollContainer
+var _column:ColumnContainer
 var _toc:RichTextLabel
 var _view:MarkdownView
 var _footer:HBoxContainer
@@ -50,6 +80,7 @@ var _next_button:Button
 
 func _init() -> void:
 	name = "Docs"
+	set_process(false)
 
 
 ## Opens the viewer in its own window, which frees itself when closed. Returns the window, or
@@ -143,10 +174,11 @@ func _ready() -> void:
 	var header = HBoxContainer.new()
 	add_child(header)
 
-	_contents_button = Button.new()
-	header.add_child(_contents_button)
-	_contents_button.text = "☰ " + CONTENTS_TITLE
-	_contents_button.focus_mode = Control.FOCUS_NONE
+	_back_button = _new_header_button(header, &"Back", "<", "Back (Alt+Left)")
+	_back_button.pressed.connect(go_back)
+	_forward_button = _new_header_button(header, &"Forward", ">", "Forward (Alt+Right)")
+	_forward_button.pressed.connect(go_forward)
+	_contents_button = _new_header_button(header, &"", "☰ " + CONTENTS_TITLE, "")
 	_contents_button.pressed.connect(show_contents)
 
 	_title_label = Label.new()
@@ -156,29 +188,41 @@ func _ready() -> void:
 
 	add_child(HSeparator.new())
 
+	var body = HBoxContainer.new()
+	add_child(body)
+	body.size_flags_vertical = Control.SIZE_EXPAND_FILL
+
+	_sidebar = ScrollContainer.new()
+	body.add_child(_sidebar)
+	_sidebar.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	var side_margin = _new_margin()
+	_sidebar.add_child(side_margin)
+	side_margin.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_side_toc = _new_toc()
+	side_margin.add_child(_side_toc)
+
+	_sidebar_rule = VSeparator.new()
+	body.add_child(_sidebar_rule)
+
+	# Full width so its scrollbar stays at the window edge; only the page inside is held narrow.
 	_scroll = ScrollContainer.new()
-	add_child(_scroll)
+	body.add_child(_scroll)
 	_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
 
-	var margin = MarginContainer.new()
-	_scroll.add_child(margin)
-	margin.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	for side in ["left", "right", "top", "bottom"]:
-		margin.add_theme_constant_override("margin_" + side, roundi(8 * _ui_scale()))
+	_column = ColumnContainer.new()
+	_scroll.add_child(_column)
+	_column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+
+	var margin = _new_margin()
+	_column.add_child(margin)
 
 	var page = VBoxContainer.new()
 	margin.add_child(page)
 	page.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 
-	_toc = RichTextLabel.new()
+	_toc = _new_toc()
 	page.add_child(_toc)
-	_toc.bbcode_enabled = true
-	_toc.fit_content = true
-	_toc.selection_enabled = true
-	_toc.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_toc.meta_clicked.connect(_on_link_activated)
 
 	_view = MarkdownView.new()
 	page.add_child(_view)
@@ -192,16 +236,100 @@ func _ready() -> void:
 	_prev_button = Button.new()
 	_footer.add_child(_prev_button)
 	_prev_button.focus_mode = Control.FOCUS_NONE
-	_prev_button.pressed.connect(func(): _show_doc(_current - 1))
+	_prev_button.pressed.connect(func(): _go(_loc(_current - 1)))
 
 	_footer.add_spacer(false)
 
 	_next_button = Button.new()
 	_footer.add_child(_next_button)
 	_next_button.focus_mode = Control.FOCUS_NONE
-	_next_button.pressed.connect(func(): _show_doc(_current + 1))
+	_next_button.pressed.connect(func(): _go(_loc(_current + 1)))
 
+	_update_metrics()
 	reload()
+
+
+func _new_header_button(parent:Control, icon_name:StringName, text:String, tooltip:String) -> Button:
+	var button = Button.new()
+	parent.add_child(button)
+	button.focus_mode = Control.FOCUS_NONE
+	button.tooltip_text = tooltip
+	# Editor icon where there is an editor theme to take one from, the text everywhere else.
+	if icon_name != &"" and Engine.is_editor_hint():
+		button.icon = EditorInterface.get_editor_theme().get_icon(icon_name, &"EditorIcons")
+	else:
+		button.text = text
+	return button
+
+
+func _new_margin() -> MarginContainer:
+	var margin = MarginContainer.new()
+	for side in ["left", "right", "top", "bottom"]:
+		margin.add_theme_constant_override("margin_" + side, roundi(8 * _ui_scale()))
+	return margin
+
+
+func _new_toc() -> RichTextLabel:
+	var toc = RichTextLabel.new()
+	toc.bbcode_enabled = true
+	toc.fit_content = true
+	toc.selection_enabled = true
+	toc.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	toc.meta_clicked.connect(_on_link_activated)
+	return toc
+
+
+func _notification(what:int) -> void:
+	if not is_node_ready():
+		return
+	match what:
+		NOTIFICATION_THEME_CHANGED:
+			_update_metrics()
+			_update_nav()
+		NOTIFICATION_RESIZED:
+			if _landing and _docs.size() > 1 and _is_wide():
+				_open(_loc(0))
+			else:
+				_update_nav()
+
+
+func _process(_delta:float) -> void:
+	_pending_frames -= 1
+	if _pending_frames > 0:
+		return
+	set_process(false)
+	var anchor:String = _pending_scroll.get(_LOC_ANCHOR, "")
+	if anchor == "":
+		_scroll.scroll_vertical = _pending_scroll.get(_LOC_SCROLL, 0)
+		return
+	var heading = _view.anchor_control(anchor)
+	if heading != null and heading.is_visible_in_tree():
+		_scroll.scroll_vertical += roundi(heading.global_position.y - _scroll.global_position.y)
+
+
+## Mouse side buttons and Alt+arrows step through history, only while the pointer is over the
+## viewer - the script editor binds Alt+arrows too, and the viewer can sit in the main window.
+func _input(event:InputEvent) -> void:
+	var step := 0
+	var mouse = event as InputEventMouseButton
+	var key = event as InputEventKey
+	if mouse != null and mouse.pressed:
+		if mouse.button_index == MOUSE_BUTTON_XBUTTON1:
+			step = -1
+		elif mouse.button_index == MOUSE_BUTTON_XBUTTON2:
+			step = 1
+	elif key != null and key.pressed and key.alt_pressed and not (key.shift_pressed or key.ctrl_pressed or key.meta_pressed):
+		if key.keycode == KEY_LEFT:
+			step = -1
+		elif key.keycode == KEY_RIGHT:
+			step = 1
+	if step == 0 or not is_visible_in_tree() or not get_global_rect().has_point(get_global_mouse_position()):
+		return
+	if step < 0:
+		go_back()
+	else:
+		go_forward()
+	get_viewport().set_input_as_handled()
 
 
 func set_docs_path(value:String) -> void:
@@ -216,29 +344,30 @@ func set_highlighter_provider(value:Callable) -> void:
 		_view.highlighter_provider = value
 
 
+func set_max_columns(value:int) -> void:
+	max_columns = value
+	if is_node_ready():
+		_update_metrics()
+
+
 ## Shows one file as the whole viewer - no folder scan, no contents page.
 func display(path:String) -> void:
 	docs_path = path
 
-func clear(): # maybe modify show_contents to reduce this duplication
-	_current = _PAGE_CONTENTS
-	_external_path = ""
-	_view.hide()
-	_view.clear()
-	_toc.show()
-	_toc.text = EMPTY_MESSAGE
-	_title_label.text = CONTENTS_TITLE
-	_update_nav()
-	pass
+
+## Empties the viewer, leaving docs_path as it is.
+func clear() -> void:
+	_reset()
+	if is_node_ready():
+		_open(_loc(_PAGE_CONTENTS))
+
 
 ## Rescans the doc folder and returns to whichever page makes sense for what was found.
 func reload() -> void:
 	# Nothing to draw into yet - _ready calls this again once the controls exist.
 	if not is_node_ready():
 		return
-	_docs = []
-	_doc_dir = ""
-	_external_path = ""
+	_reset()
 
 	if _is_file(docs_path):
 		# A file path is the whole index, so nothing is scanned or guessed at.
@@ -253,82 +382,130 @@ func reload() -> void:
 			if readme != "":
 				_docs = DocIndex.single(readme)
 
-	if _docs.size() == 1:
-		_show_doc(0)
+	# The sidebar already lists every doc, so there is no contents page to land on beside it.
+	if _docs.size() == 1 or (_docs.size() > 1 and _is_wide()):
+		_open(_loc(0))
 	else:
-		show_contents()
+		_open(_loc(_PAGE_CONTENTS))
+		_landing = _docs.size() > 1
 
 
 func show_contents() -> void:
+	_go(_loc(_PAGE_CONTENTS))
+
+
+func go_back() -> void:
+	if _back.is_empty():
+		return
+	_forward.append(_here())
+	_open(_back.pop_back())
+
+
+func go_forward() -> void:
+	if _forward.is_empty():
+		return
+	_back.append(_here())
+	_open(_forward.pop_back())
+
+
+func _reset() -> void:
+	_docs = []
+	_doc_dir = ""
 	_current = _PAGE_CONTENTS
 	_external_path = ""
-	_view.hide()
-	_view.clear()
-	_toc.show()
-	_toc.text = _build_contents()
-	_title_label.text = CONTENTS_TITLE
-	_update_nav()
+	_back.clear()
+	_forward.clear()
+	_landing = false
 
 
-## [param anchor] is a heading id to open the doc at, empty for the top.
-func _show_doc(index:int, anchor:String = "") -> void:
-	if index < 0 or index >= _docs.size():
+## [param anchor] is a heading id to open the page at; without one it opens at [param scroll].
+func _loc(page:int, path:String = "", anchor:String = "", scroll:int = 0) -> Dictionary:
+	return {_LOC_PAGE: page, _LOC_PATH: path, _LOC_ANCHOR: anchor, _LOC_SCROLL: scroll}
+
+
+func _here() -> Dictionary:
+	return _loc(_current, _external_path, "", _scroll.scroll_vertical)
+
+
+func _can_open(loc:Dictionary) -> bool:
+	var page:int = loc[_LOC_PAGE]
+	return page == _PAGE_CONTENTS or page == _PAGE_EXTERNAL or (page >= 0 and page < _docs.size())
+
+
+## Every navigation the reader makes goes through here, so each one can be stepped back from.
+func _go(loc:Dictionary) -> void:
+	if not _can_open(loc):
 		return
-	var doc:Dictionary = _docs[index]
-	_external_path = ""
-	_current = index
-	_show_page(doc[DocIndex.KEY_PATH], doc[DocIndex.KEY_TITLE], anchor)
+	_back.append(_here())
+	_forward.clear()
+	_open(loc)
 
 
-## A doc the index does not hold, reached by following a link out of one that it does.
-func _show_external(path:String, anchor:String = "") -> void:
+## Shows [param loc] without touching history.
+func _open(loc:Dictionary) -> void:
+	if not _can_open(loc):
+		return
+	_landing = false
+	var page:int = loc[_LOC_PAGE]
+	var path:String = loc[_LOC_PATH]
+	# Same page, e.g. an in-page anchor or stepping back from one: scroll it, don't re-render it.
+	var same = page != _PAGE_CONTENTS and page == _current and path == _external_path and _view.visible
+	_current = page
 	_external_path = path
-	_current = _PAGE_EXTERNAL
-	_show_page(path, DocIndex.title_for(path), anchor)
 
+	if page == _PAGE_CONTENTS:
+		_view.hide()
+		_view.clear()
+		_toc.show()
+		_toc.text = _build_contents()
+		_title_label.text = CONTENTS_TITLE
+	elif not same:
+		var external = page == _PAGE_EXTERNAL
+		var file = path if external else String(_docs[page][DocIndex.KEY_PATH])
+		_toc.hide()
+		_view.show()
+		_view.set_file(file)
+		_title_label.text = DocIndex.title_for(file) if external else _docs[page][DocIndex.KEY_TITLE]
+		_scroll.scroll_vertical = 0
+		doc_opened.emit(file)
 
-func _show_page(path:String, title:String, anchor:String = "") -> void:
-	_toc.hide()
-	_view.show()
-	_view.set_file(path)
-	_title_label.text = title
 	_update_nav()
-	_scroll.set_deferred("scroll_vertical", 0)
-	if anchor != "":
-		_scroll_to_anchor(anchor)
-	doc_opened.emit(path)
+	_scroll_to(loc[_LOC_ANCHOR], loc[_LOC_SCROLL])
 
 
-## Scrolls the heading [param anchor] names to the top of the page. An unknown one is ignored.
-func _scroll_to_anchor(anchor:String) -> void:
-	var heading = _view.anchor_control(anchor)
-	if heading == null:
-		return
-	# Label heights only settle once the page has been laid out at its real width.
-	await get_tree().process_frame
-	await get_tree().process_frame
-	if is_instance_valid(heading) and heading.is_visible_in_tree():
-		_scroll.scroll_vertical += roundi(heading.global_position.y - _scroll.global_position.y)
+## Scrolls once the page has laid out, to the heading [param anchor] names or else to [param offset].
+## A later call replaces a pending one, and an unknown anchor is ignored.
+func _scroll_to(anchor:String, offset:int) -> void:
+	if anchor == "":
+		_scroll.scroll_vertical = offset
+	_pending_scroll = {_LOC_ANCHOR: anchor, _LOC_SCROLL: offset}
+	_pending_frames = _SCROLL_SETTLE_FRAMES
+	set_process(is_inside_tree())
 
 
 ## Contents as one bbcode block: the depth-first order already reads as a tree once each entry is
 ## indented by its depth, with a bold row wherever the walk enters a new directory.
-func _build_contents() -> String:
+## [param highlight] is the doc to mark as the current page.
+func _build_contents(highlight:int = _PAGE_CONTENTS) -> String:
 	if _docs.is_empty():
 		return EMPTY_MESSAGE
 
 	var lines:Array[String] = []
 	var current_dir:PackedStringArray = []
-	for doc in _docs:
+	for i in range(_docs.size()):
+		var doc:Dictionary = _docs[i]
 		var segments = String(doc[DocIndex.KEY_REL]).get_base_dir().split("/", false)
 		if segments != current_dir:
 			var shared := 0
 			while shared < segments.size() and shared < current_dir.size() and segments[shared] == current_dir[shared]:
 				shared += 1
-			for i in range(shared, segments.size()):
-				lines.append(_indented("[b]%s[/b]" % segments[i].capitalize(), i))
+			for j in range(shared, segments.size()):
+				lines.append(_indented("[b]%s[/b]" % segments[j].capitalize(), j))
 			current_dir = segments
-		var link = "[url=%s]%s[/url]" % [doc[DocIndex.KEY_PATH], doc[DocIndex.KEY_TITLE]]
+		var title:String = doc[DocIndex.KEY_TITLE]
+		if i == highlight:
+			title = "[b]%s[/b]" % title
+		var link = "[url=%s]%s[/url]" % [doc[DocIndex.KEY_PATH], title]
 		lines.append(_indented(link, doc[DocIndex.KEY_DEPTH]))
 
 	return "\n".join(lines)
@@ -341,11 +518,42 @@ func _indented(text:String, depth:int) -> String:
 	return "[indent]".repeat(depth) + text + "[/indent]".repeat(depth)
 
 
+## Width of "0" in the theme font, the unit max_columns and the sidebar are measured in.
+func _char_width() -> float:
+	var font = get_theme_default_font()
+	if font != null:
+		var width = font.get_string_size("0", HORIZONTAL_ALIGNMENT_LEFT, -1, get_theme_default_font_size()).x
+		if width > 0:
+			return width
+	return 8.0 * _ui_scale()
+
+
+func _update_metrics() -> void:
+	var char_width = _char_width()
+	_column.max_width = max_columns * char_width
+	_sidebar.custom_minimum_size.x = _SIDEBAR_COLUMNS * char_width
+
+
+func _is_wide() -> bool:
+	return size.x >= (_SIDEBAR_COLUMNS + _MIN_CONTENT_COLUMNS) * _char_width()
+
+
 func _update_nav() -> void:
+	_back_button.disabled = _back.is_empty()
+	_forward_button.disabled = _forward.is_empty()
+
 	# One doc means there is nothing to navigate between and no contents worth showing.
 	var multiple = _docs.size() > 1
+	# Never beside the contents page, which would list every doc twice.
+	var sidebar = multiple and _current != _PAGE_CONTENTS and _is_wide()
+	_sidebar.visible = sidebar
+	_sidebar_rule.visible = sidebar
+	if sidebar:
+		var text = _build_contents(_current)
+		if _side_toc.text != text: # resizes land here too, and a re-parse is not free
+			_side_toc.text = text
+	_contents_button.visible = multiple and not sidebar and _current != _PAGE_CONTENTS
 	_footer.visible = multiple
-	_contents_button.visible = multiple and _current != _PAGE_CONTENTS
 
 	if not multiple:
 		return
@@ -371,23 +579,23 @@ func _on_link_activated(meta:String) -> void:
 	var target = meta.get_slice("#", 0)
 	var anchor = meta.substr(target.length() + 1)
 	if target == "":
-		_scroll_to_anchor(anchor)
+		_go(_loc(_current, _external_path, anchor))
 		return
 	if not target.contains("://") and not target.begins_with("/"):
 		target = _current_dir().path_join(target).simplify_path()
 
 	var index = _index_of(target)
 	if index != -1:
-		_show_doc(index, anchor)
+		_go(_loc(index, "", anchor))
 		return
 
 	if not FileAccess.file_exists(target):
 		push_warning("DocViewer: unresolved link '%s'" % meta)
 		return
 
-	# A doc outside the index still opens; the contents button is how you get back.
+	# A doc outside the index still opens, as a page of its own in the history.
 	if target.get_extension().to_lower() == "md":
-		_show_external(target, anchor)
+		_go(_loc(_PAGE_EXTERNAL, target, anchor))
 		return
 
 	# Anything else is a project file the reader is being pointed at, not something to render.
@@ -415,6 +623,30 @@ func _index_of(path:String) -> int:
 		if _docs[i][DocIndex.KEY_PATH] == path:
 			return i
 	return -1
+
+
+## Holds its children to [member max_width] (0 for no limit), centered in the width it is given.
+class ColumnContainer extends Container:
+	var max_width:float = 0.0:
+		set(value):
+			max_width = value
+			queue_sort()
+
+	func _notification(what:int) -> void:
+		if what != NOTIFICATION_SORT_CHILDREN:
+			return
+		var width = size.x if max_width <= 0.0 else minf(size.x, max_width)
+		var rect = Rect2(floorf((size.x - width) / 2.0), 0.0, width, size.y)
+		for child in get_children():
+			if child is Control and child.visible:
+				fit_child_in_rect(child, rect)
+
+	func _get_minimum_size() -> Vector2:
+		var result = Vector2.ZERO
+		for child in get_children():
+			if child is Control and child.visible:
+				result = result.max(child.get_combined_minimum_size())
+		return result
 
 
 ## The Project > Tools > Docs submenu, shared by every plugin that registers. All state sits on
