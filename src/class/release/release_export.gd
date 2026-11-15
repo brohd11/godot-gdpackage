@@ -37,12 +37,13 @@ static var zips:Array[String] = []
 ## `local` fetches every repo checked out in this project from that checkout rather than its
 ## remote - still by tag, so nothing uncommitted gets in, but nothing has to be pushed either.
 ## `tree_dir` is the checkout to read cfg, config and origin from when it isn't at the install path,
-## as when CI releases gdpackage with a released one installed there.
-static func export_release(plugin_name:String, refresh:bool = false, local:bool = false, _reporter = null, tree_dir:String = "") -> bool:
+## as when CI releases gdpackage with a released one installed there. `local_toolchain` exports
+## this project's gdpackage and runs the export with it instead of the released one (editor only).
+static func export_release(plugin_name:String, refresh:bool = false, local:bool = false, _reporter = null, tree_dir:String = "", local_toolchain:bool = false) -> bool:
 	reporter = Reporter.or_default(_reporter)
 	zips.clear()
 	var started = Time.get_ticks_msec()
-	var ok = _export_release(plugin_name, refresh, local, tree_dir)
+	var ok = _export_release(plugin_name, refresh, local, tree_dir, local_toolchain)
 	var seconds = (Time.get_ticks_msec() - started) / 1000.0
 	if ok:
 		reporter.note("'%s' [color=25c225]release exported and verified[/color] (%.1fs)" % [plugin_name, seconds])
@@ -52,7 +53,7 @@ static func export_release(plugin_name:String, refresh:bool = false, local:bool 
 	return ok
 
 
-static func _export_release(plugin_name:String, refresh:bool, local:bool, tree_dir:String) -> bool:
+static func _export_release(plugin_name:String, refresh:bool, local:bool, tree_dir:String, local_toolchain:bool) -> bool:
 	var dev_dir = ExportPaths.resolve_target(plugin_name) # the install path
 	if dev_dir == "":
 		return _fail("Invalid package target (expected a path inside this project): " + plugin_name)
@@ -102,7 +103,7 @@ static func _export_release(plugin_name:String, refresh:bool, local:bool, tree_d
 	var toolchain = ""
 	if lock.target.path != ReleaseWorkspace.TOOLCHAIN_PATH:
 		var tc = Toolchain.new()
-		var info = tc.resolve(options, cache.root, refresh)
+		var info = tc.resolve(options, cache.root, refresh, local_toolchain, reporter)
 		if info.is_empty():
 			for e in tc.errors:
 				_note("  " + e)

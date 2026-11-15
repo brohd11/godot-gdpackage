@@ -28,12 +28,12 @@ static var report:Dictionary = {}
 
 ## `local` fetches deps checked out in this project from those checkouts, still by tag. `tree_dir`
 ## is the checkout to test when it isn't at the package's install path, as when CI tests
-## gdpackage with a released one already installed there.
-static func test_package(plugin_name:String, refresh:bool = false, local:bool = false, tree_dir:String = "", _reporter = null) -> bool:
+## gdpackage with a released one already installed there. `local_toolchain`: see ReleaseExport.
+static func test_package(plugin_name:String, refresh:bool = false, local:bool = false, tree_dir:String = "", _reporter = null, local_toolchain:bool = false) -> bool:
 	reporter = Reporter.or_default(_reporter)
 	report = {}
 	var started = Time.get_ticks_msec()
-	var ok = _test_package(plugin_name, refresh, local, tree_dir)
+	var ok = _test_package(plugin_name, refresh, local, tree_dir, local_toolchain)
 	var seconds = (Time.get_ticks_msec() - started) / 1000.0
 	var suites = ""
 	if not report.get("suites", []).is_empty():
@@ -46,7 +46,7 @@ static func test_package(plugin_name:String, refresh:bool = false, local:bool = 
 	return ok
 
 
-static func _test_package(plugin_name:String, refresh:bool, local:bool, tree_dir:String) -> bool:
+static func _test_package(plugin_name:String, refresh:bool, local:bool, tree_dir:String, local_toolchain:bool) -> bool:
 	var dev_dir = ExportPaths.resolve_target(plugin_name) # the install path
 	if dev_dir == "":
 		return _fail("Invalid package target (expected a path inside this project): " + plugin_name)
@@ -91,7 +91,7 @@ static func _test_package(plugin_name:String, refresh:bool, local:bool, tree_dir
 	var toolchain = ""
 	if lock.target.path != ReleaseWorkspace.TOOLCHAIN_PATH:
 		var tc = Toolchain.new()
-		var info = tc.resolve(options, cache.root, refresh)
+		var info = tc.resolve(options, cache.root, refresh, local_toolchain, reporter)
 		if info.is_empty():
 			for e in tc.errors:
 				_note("  " + e)

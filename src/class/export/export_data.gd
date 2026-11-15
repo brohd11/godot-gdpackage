@@ -140,7 +140,8 @@ func _init(export_config_path, _reporter = null):
 		export_obj.source_files = _UtilsRemote.GetFiles.scan(export_obj.source)
 		export_obj.export_dir_path = full_export_path.path_join(export_obj.export_name).path_join(export_obj.export_folder)
 		export_obj.other_transfers = export.get(KeysConfig.Export.OTHER_TRANSFERS, [])
-		if ignore_src and DirAccess.dir_exists_absolute(plugin_folder.path_join("src")): # TEST to hide the files of src, but leave globals available
+		# Hides src/ in the release; should_move_global() has already pulled globals out of it.
+		if ignore_src and DirAccess.dir_exists_absolute(export_obj.source.path_join("src")):
 			export_obj.other_transfers.append({"to": "src/.gdignore"})
 		export_obj.ignore_dependencies = export.get(KeysConfig.Options.IGNORE_DEPENDENCIES, false)
 		

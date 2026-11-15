@@ -5,11 +5,12 @@ const PECommandUtils = preload("res://addons/gdpackage/src/editor_plugins/consol
 
 const _HELP = \
 "Export the selected plugin
-Usage: gdpackage export [--verbose] [--release [--local] [--refresh]] <plugin_name>"
+Usage: gdpackage export [--verbose] [--release [--local] [--local-toolchain] [--refresh]] <plugin_name>"
 
 var release_flag := false
 var refresh_flag := false
 var local_flag := false
+var local_toolchain_flag := false
 var verbose_flag := false
 
 static func get_command_name() -> String:
@@ -38,6 +39,9 @@ func _get_flags() -> Dictionary:
 	options.add_option("--local", {
 		&"help": "With --release: fetch tags from this project's checkouts instead of remotes (no push needed)."
 	})
+	options.add_option("--local-toolchain", {
+		&"help": "With --release: export this project's gdpackage and use it as the toolchain instead of the released zip (editor only)."
+	})
 	return options.get_options()
 
 func _process_flag(flag:String):
@@ -47,6 +51,8 @@ func _process_flag(flag:String):
 		refresh_flag = true
 	elif flag == "--local":
 		local_flag = true
+	elif flag == "--local-toolchain":
+		local_toolchain_flag = true
 	elif flag == "--verbose":
 		verbose_flag = true
 
@@ -55,7 +61,7 @@ func _execute(ctx:Context):
 	var reporter = PECommandUtils.console_reporter(ctx, verbose_flag)
 	var success
 	if release_flag:
-		success = PluginExporter.export_release(plugin_name, refresh_flag, local_flag, reporter)
+		success = PluginExporter.export_release(plugin_name, refresh_flag, local_flag, reporter, local_toolchain_flag)
 	else:
 		success = PluginExporter.export(plugin_name, reporter)
 	return ExitCode.OK if success else ExitCode.FAIL

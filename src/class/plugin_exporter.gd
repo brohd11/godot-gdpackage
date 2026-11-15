@@ -23,8 +23,8 @@ static func export(plugin_name:String, reporter = null):
 ## Pinned export: deps resolved to tags, exported from a workspace of those tags, then compile
 ## checked. `refresh` re-checks cached tags against their remotes; `local` fetches from this
 ## project's checkouts instead, so tags needn't be pushed.
-static func export_release(plugin_name:String, refresh:=false, local:=false, reporter = null) -> bool:
-	return load("res://addons/gdpackage/src/class/release/release_export.gd").export_release(plugin_name, refresh, local, reporter)
+static func export_release(plugin_name:String, refresh:=false, local:=false, reporter = null, local_toolchain:=false) -> bool:
+	return load("res://addons/gdpackage/src/class/release/release_export.gd").export_release(plugin_name, refresh, local, reporter, "", local_toolchain)
 
 static func new_plugin(plugin_name:String):
 	PluginExporterStatic.new_plugin(plugin_name)
@@ -42,8 +42,8 @@ static func add_test_workflow(target:String, allow_project_root:bool = false) ->
 	return PluginInit.add_test_workflow(target, allow_project_root)
 
 ## Test CI locally: the package's suites against its requires at their tags, in a workspace.
-static func test_package(target:String, refresh:bool = false, local:bool = false, reporter = null) -> bool:
-	return load("res://addons/gdpackage/src/class/release/test_ci.gd").test_package(target, refresh, local, "", reporter)
+static func test_package(target:String, refresh:bool = false, local:bool = false, reporter = null, local_toolchain:bool = false) -> bool:
+	return load("res://addons/gdpackage/src/class/release/test_ci.gd").test_package(target, refresh, local, "", reporter, local_toolchain)
 
 static func gui_open(plugin_name:String):
 	var export_file_path = UtilsLocal.ExportFileUtils.get_export_config_path(plugin_name)

@@ -2,8 +2,13 @@
 extends RefCounted
 ## The released gdpackage a release export runs in its workspace - Go's toolchain, in effect.
 ## Its version is `toolchain` in the export config's options, or the dev exporter's version when
-## unset. Always the GitHub release zip, downloaded once and cached - never this project's own copy.
+## unset. Normally the GitHub release zip, downloaded once and cached. `local` (--local-toolchain)
+## instead exports this project's gdpackage on demand, to test unreleased exporter changes.
 
+const UtilsLocal = preload("res://addons/gdpackage/src/class/utils_local.gd")
+const UtilsRemote = preload("res://addons/gdpackage/src/class/utils_remote.gd")
+const ExportFileUtils = UtilsLocal.ExportFileUtils
+const KeysConfig = ExportFileUtils.KeysConfig
 const DepResolver = preload("res://addons/gdpackage/src/class/release/dep_resolver.gd")
 const ReleaseRunner = preload("res://addons/gdpackage/src/class/release/release_runner.gd")
 
@@ -16,9 +21,12 @@ const ASSET = "gdpackage-%s.zip"
 var errors:Array[String] = []
 
 
-## {dir, version, source: "remote", id}, or {} with `errors` filled.
-func resolve(options:Dictionary, cache_root:String, refresh:bool) -> Dictionary:
+## {dir, version, source: "remote"|"local", id}, or {} with `errors` filled. `local` ignores the
+## `toolchain` pin: the dev copy is whatever version it is.
+func resolve(options:Dictionary, cache_root:String, refresh:bool, local:bool = false, reporter = null) -> Dictionary:
 	errors.clear()
+	if local:
+		return _resolve_local(reporter)
 	var version = pick_version(options, _cfg_version(DEV_DIR)).trim_prefix("v")
 	if version == "":
 		errors.append("no toolchain version: set options.%s or give %s a version=" % [CONFIG_KEY, DEV_DIR])
@@ -64,6 +72,39 @@ func _resolve_remote(version:String, cache_root:String, refresh:bool) -> Diction
 			return {}
 
 	return _checked(plugin_dir, version, "remote", FileAccess.get_sha256(zip_path))
+
+
+## Exporting needs EditorInterface, so this only works inside the editor (the console, not the CLIs).
+func _resolve_local(reporter) -> Dictionary:
+	if not Engine.is_editor_hint():
+		errors.append("--local-toolchain exports the dev %s in-process, which needs the editor" % NAME)
+		return {}
+	var version = _cfg_version(DEV_DIR).trim_prefix("v")
+	var config_path = ExportFileUtils.get_export_config_path(DEV_DIR, reporter)
+	var config = ExportFileUtils.get_export_data(config_path, reporter) if config_path != "" else null
+	if not config is Dictionary or config.get(KeysConfig.EXPORTS, []).is_empty():
+		errors.append("no usable export config for %s at '%s'" % [DEV_DIR, config_path])
+		return {}
+	if not UtilsLocal.PluginExporterStatic.export_plugin(config_path, null, null, reporter):
+		errors.append("exporting the dev %s failed" % NAME)
+		return {}
+
+	var plugin_folder = config.get(KeysConfig.PLUGIN_FOLDER)
+	var root = ExportFileUtils.get_full_export_path(config.get(KeysConfig.EXPORT_ROOT), plugin_folder, config_path, reporter)
+	var entry = config.get(KeysConfig.EXPORTS)[0]
+	var dir = root.path_join(ExportFileUtils.get_export_name(entry, plugin_folder, config_path, reporter)) \
+		.path_join(ExportFileUtils.get_export_folder(entry, config_path))
+	return _checked(dir, version, "local", _dir_id(dir))
+
+
+## Content hash of an exported tree: the workspace is keyed on it, so an unchanged exporter reuses one.
+static func _dir_id(dir:String) -> String:
+	var lines = []
+	for f:String in UtilsRemote.GetFiles.scan(dir):
+		var path = dir.path_join(f) if f.is_relative_path() else f
+		lines.append("%s:%s" % [path.trim_prefix(dir), FileAccess.get_sha256(path)])
+	lines.sort()
+	return "local-" + "\n".join(lines).sha256_text()
 
 
 func _checked(plugin_dir:String, version:String, source:String, id:String) -> Dictionary:

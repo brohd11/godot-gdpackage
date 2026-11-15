@@ -6,10 +6,11 @@ const PECommandUtils = preload("res://addons/gdpackage/src/editor_plugins/consol
 const _HELP = \
 "Run a package's tests as test CI does: its tree against its requires at their tags, in a
 workspace without the rest of this project - so a pass means its declared requires are enough.
-Usage: gdpackage ci run_test [--verbose] [--local] [--refresh] <plugin_name>"
+Usage: gdpackage ci run_test [--verbose] [--local] [--local-toolchain] [--refresh] <plugin_name>"
 
 var refresh_flag := false
 var local_flag := false
+var local_toolchain_flag := false
 var verbose_flag := false
 
 static func get_command_name() -> String:
@@ -35,6 +36,9 @@ func _get_flags() -> Dictionary:
 	options.add_option("--local", {
 		&"help": "Fetch tags from this project's checkouts instead of remotes (no push needed)."
 	})
+	options.add_option("--local-toolchain", {
+		&"help": "Export this project's gdpackage and use it as the toolchain instead of the released zip (editor only)."
+	})
 	return options.get_options()
 
 func _process_flag(flag:String):
@@ -42,9 +46,11 @@ func _process_flag(flag:String):
 		refresh_flag = true
 	elif flag == "--local":
 		local_flag = true
+	elif flag == "--local-toolchain":
+		local_toolchain_flag = true
 	elif flag == "--verbose":
 		verbose_flag = true
 
 func _execute(ctx:Context):
 	var reporter = PECommandUtils.console_reporter(ctx, verbose_flag)
-	return ExitCode.OK if PluginExporter.test_package(positional_args[0], refresh_flag, local_flag, reporter) else ExitCode.FAIL
+	return ExitCode.OK if PluginExporter.test_package(positional_args[0], refresh_flag, local_flag, reporter, local_toolchain_flag) else ExitCode.FAIL
