@@ -241,6 +241,15 @@ static func _test_reduction() -> void:
 		"const UObject = preload("), 1)
 	_check("reduced: pass-through hub dropped", _found(dir, "_ns/util_r.gd"), false)
 
+	# An extends line is a hub mention too: it is rewritten to a path rather than a binding, which is
+	# what lets the hub-dropped check above hold with access_extends.gd in the plugin.
+	for variant in [BASELINE, REDUCED]:
+		var ext = _line(_dirs.get(variant, ""), "src/core/access_extends.gd", "extends ")
+		_check("%s: dotted extends became a path" % variant,
+			ext.begins_with('extends "') and ext.ends_with('u_object.gd"'), true)
+	_check("reduced: extends left no hub", _has(dir, "src/core/access_extends.gd", "UtilR."), false)
+	_check("reduced: extends injected no binding", _has(dir, "src/core/access_extends.gd", "const UObject"), false)
+
 	# One mention that no reduction rewrites away is enough to keep a hub.
 	_check("reduced: bare-used hub kept", _found(dir, "_ns/singletons.gd"), true)
 	# Head already the deepest file it names, so the chain must be left alone. The global class

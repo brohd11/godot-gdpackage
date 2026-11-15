@@ -32,6 +32,7 @@ static func run_tests() -> Dictionary:
 	_test_local_const_head()
 	_test_alias_tail()
 	_test_off_by_default()
+	_test_extends_chain()
 
 	_reset_dir()
 
@@ -151,6 +152,32 @@ static func _test_off_by_default() -> void:
 	_check("off: nothing resolved", plan.is_empty(), true)
 	# and the hub itself is not reached either, since only class-map lookups would find it
 	_check("off: leaf not reached", hub in scanner.get_graph().get_paths(), false)
+
+
+## `extends Hub.Base` plans like any chain. The head's class edge is a pass-through, so the hub
+## and its other preloads stay out of the export.
+static func _test_extends_chain() -> void:
+	var base = _w("r_ext_base.gd", "extends RefCounted\n")
+	var other = _w("r_ext_other.gd", "extends RefCounted\n")
+	var hub = _w("r_ext_hub.gd", _hub('const Base = preload("%s")\nconst Other = preload("%s")\n' % [base, other]))
+	var user = _w("r_ext_user.gd", "extends Hub.Base\n")
+
+	var edges = _scan(user, {"Hub": hub})
+	var entry = DepScanner.ScanGD.plan_reductions(edges, {}).get("Hub.Base", {})
+	_check("extends: planned onto the base", entry.get("path", ""), base)
+	var head_kept = false
+	for edge in edges:
+		if edge.to == hub and not edge.meta.get(DepEdge.META_PASS_THROUGH, false):
+			head_kept = true
+	_check("extends: hub edge is a pass-through", head_kept, false)
+
+	# a second, bare use of the head is what keeps the hub
+	var bare = _w("r_ext_bare.gd", "extends Hub.Base\nvar h = Hub\n")
+	var kept = false
+	for edge in _scan(bare, {"Hub": hub}):
+		if edge.to == hub and not edge.meta.get(DepEdge.META_PASS_THROUGH, false):
+			kept = true
+	_check("extends: bare use keeps the hub", kept, true)
 
 
 # --- harness -----------------------------------------------------------------------------
