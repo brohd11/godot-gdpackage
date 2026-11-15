@@ -41,6 +41,10 @@ This allows you to use your own test formats, or you can require GUT or GDUnit i
 
 A package is a folder with a `package.cfg` file (or `plugin.cfg`, the files are treated the same). It also typically has an `_export_ignore/` folder where the `export.yml` file is located. You can also store things here that are not intended for a release like extended documentation, test fixtures, etc.
 
+The intended repo set-up is submodule style, the root of the repo being the package itself (see this repo). Adding `path="addons/my_package"` to the package.cfg will tell GDPackage where the files should be located on install.
+
+A standard Godot plugin/project structure also works if there is only 1 folder in `res://addons/`.
+
 An example of a [plugin.cfg](./plugin.cfg) that declares dependencies.
 
 ## Quick start
@@ -57,7 +61,7 @@ gdpackage open gui my_plugin
 gdpackage export my_plugin
 ```
 
-The `init` command creates `_export_ignore/export.yml`. You can review the exported files in the GUI; exports go under that folder's `exports/` directory by default. See [Setup](export_ignore/doc/setup.md) for package creation and GUI instructions.
+The `init` command creates `_export_ignore/export.yml`, where build/release settings are stored. See [Setup](export_ignore/doc/setup.md) for package creation and GUI instructions.
 
 ## Other plugins
 - [Namespace](https://github.com/brohd11/godot-namespace.git) recognizes the package format and will build its global classes within your package.
