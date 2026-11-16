@@ -4,11 +4,11 @@ extends VBoxContainer
 ## Point it at an addon directory and it finds the docs itself - the packaged ".doc" folder, the
 ## "_export_ignore/doc" (or "export_ignore/doc") folder it came from in a dev project, or the plugin's README as a last
 ## resort. Point it at a single file instead and that file is the whole viewer, no folder scan.
-## Engine-only and plugin agnostic, so it can be lifted out of here as is.
+## Rendering is MarkdownView's; this side hands it the editor theme's colors, font and icons.
 
-const Parser = preload("res://addons/gdpackage/src/components/doc_viewer/markdown_parser.gd")
+const Parser = preload("uid://ct8civnuqvg81") #! resolve MarkdownView.Parser
 const DocIndex = preload("res://addons/gdpackage/src/components/doc_viewer/doc_index.gd")
-const MarkdownView = preload("res://addons/gdpackage/src/components/doc_viewer/markdown_view.gd")
+const MDView = preload("uid://bwtay2k1o6eyg") #! resolve MarkdownView.View
 
 const CONTENTS_TITLE = "Contents"
 const EMPTY_MESSAGE = "No documentation found."
@@ -62,6 +62,7 @@ var _landing:bool = false
 var _pending_scroll:Dictionary = {}
 var _pending_frames:int = 0
 
+var _header:HBoxContainer
 var _back_button:Button
 var _forward_button:Button
 var _title_label:Label
@@ -72,7 +73,7 @@ var _side_toc:RichTextLabel
 var _scroll:ScrollContainer
 var _column:ColumnContainer
 var _toc:RichTextLabel
-var _view:MarkdownView
+var _view:MDView
 var _footer:HBoxContainer
 var _prev_button:Button
 var _next_button:Button
@@ -171,18 +172,18 @@ static func _ui_scale() -> float:
 
 
 func _ready() -> void:
-	var header = HBoxContainer.new()
-	add_child(header)
+	_header = HBoxContainer.new()
+	add_child(_header)
 
-	_back_button = _new_header_button(header, &"Back", "<", "Back (Alt+Left)")
+	_back_button = _new_header_button(_header, &"Back", "<", "Back (Alt+Left)")
 	_back_button.pressed.connect(go_back)
-	_forward_button = _new_header_button(header, &"Forward", ">", "Forward (Alt+Right)")
+	_forward_button = _new_header_button(_header, &"Forward", ">", "Forward (Alt+Right)")
 	_forward_button.pressed.connect(go_forward)
-	_contents_button = _new_header_button(header, &"", "☰ " + CONTENTS_TITLE, "")
+	_contents_button = _new_header_button(_header, &"", "☰ " + CONTENTS_TITLE, "")
 	_contents_button.pressed.connect(show_contents)
 
 	_title_label = Label.new()
-	header.add_child(_title_label)
+	_header.add_child(_title_label)
 	_title_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_title_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 
@@ -224,10 +225,11 @@ func _ready() -> void:
 	_toc = _new_toc()
 	page.add_child(_toc)
 
-	_view = MarkdownView.new()
+	_view = MDView.new()
 	page.add_child(_view)
 	_view.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_view.highlighter_provider = highlighter_provider
+	_view.highlighter_provider = _view_highlighter()
+	_view.style_provider = _editor_style
 	_view.link_activated.connect(_on_link_activated)
 
 	_footer = HBoxContainer.new()
@@ -260,6 +262,36 @@ func _new_header_button(parent:Control, icon_name:StringName, text:String, toolt
 	else:
 		button.text = text
 	return button
+
+
+func _view_highlighter() -> Callable:
+	return highlighter_provider if highlighter_provider.is_valid() else _default_highlighter
+
+
+## The built-in highlighter is an editor class, so it is made by name and not always there.
+static func _default_highlighter(lang:String) -> SyntaxHighlighter:
+	if lang in ["", "gd", "gdscript"] and ClassDB.can_instantiate(&"GDScriptSyntaxHighlighter"):
+		return ClassDB.instantiate(&"GDScriptSyntaxHighlighter")
+	return null
+
+
+## Editor theme values for the markdown view; anything missing falls back to its own defaults.
+func _editor_style() -> Dictionary:
+	var style = {MDView.STYLE_CODE_FONT_COLOR: Color.WHITE}
+	var colors = {
+		MDView.STYLE_ACCENT: &"accent_color",
+		MDView.STYLE_CODE_BG: &"dark_color_2",
+		MDView.STYLE_WARNING: &"warning_color",
+		MDView.STYLE_ERROR: &"error_color",
+	}
+	for key in colors:
+		if has_theme_color(colors[key], &"Editor"):
+			style[key] = get_theme_color(colors[key], &"Editor")
+	if has_theme_font(&"source", &"EditorFonts"):
+		style[MDView.STYLE_CODE_FONT] = get_theme_font(&"source", &"EditorFonts")
+	if Engine.is_editor_hint():
+		style[MDView.STYLE_COPY_ICON] = EditorInterface.get_editor_theme().get_icon(&"ActionCopy", &"EditorIcons")
+	return style
 
 
 func _new_margin() -> MarginContainer:
@@ -341,7 +373,7 @@ func set_docs_path(value:String) -> void:
 func set_highlighter_provider(value:Callable) -> void:
 	highlighter_provider = value
 	if is_instance_valid(_view):
-		_view.highlighter_provider = value
+		_view.highlighter_provider = _view_highlighter()
 
 
 func set_max_columns(value:int) -> void:
@@ -532,6 +564,8 @@ func _update_metrics() -> void:
 	var char_width = _char_width()
 	_column.max_width = max_columns * char_width
 	_sidebar.custom_minimum_size.x = _SIDEBAR_COLUMNS * char_width
+	# The text button outgrows the icon ones, so the row would jump as it shows and hides.
+	_header.custom_minimum_size.y = _contents_button.get_combined_minimum_size().y
 
 
 func _is_wide() -> bool:
