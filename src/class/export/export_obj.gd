@@ -2,7 +2,7 @@ const PLUGIN_EXPORTED = false
 
 ## Dot-prefixed so Godot never imports the docs and they stay out of a consumer's game export,
 ## while editor code can still read them. DocViewer looks for this name.
-const DOC_DIR_NAME = ".doc"
+const DOC_DIR_NAME = _Docs.PACKAGED_DIR
 
 ## Base dir of a project-root LICENSE, as get_base_dir() reports it.
 const PROJECT_LICENSE_DIR = "res://"
@@ -18,6 +18,7 @@ const _UClassDetail = _UtilsRemote.UClassDetail
 const _UFile = _UtilsRemote.UFile
 const _GetFiles = _UtilsRemote.GetFiles
 const _PackageCfg = preload("uid://ddo8w07hts45v") #! resolve GDPackageSpec.Cfg
+const _Docs = preload("uid://01wqb0kamr3o") #! resolve GDPackageSpec.Docs
 const _VersionScanner = preload("res://addons/gdpackage/src/editor_plugins/console_command/min_version/version_scanner.gd")
 const TestFiles = preload("res://addons/gdpackage/src/class/export/test_files.gd")
 

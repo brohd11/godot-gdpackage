@@ -25,9 +25,6 @@ const SUITES:PackedStringArray = [
 	"res://addons/gdpackage/export_ignore/test/package_targets_test.gd",
 	"res://addons/gdpackage/export_ignore/test/release_runner_test.gd",
 	"res://addons/gdpackage/export_ignore/test/release_engine_test.gd",
-	"res://addons/gdpackage/export_ignore/test/doc_viewer/doc_index_test.gd",
-	"res://addons/gdpackage/export_ignore/test/doc_viewer/doc_menu_test.gd",
-	"res://addons/gdpackage/export_ignore/test/doc_viewer/doc_viewer_history_test.gd",
 ]
 
 ## Deferred: suites that host nodes need root in the tree, and it only enters after _initialize.

@@ -2,6 +2,7 @@ extends RefCounted
 
 const _UtilsRemote = preload("res://addons/gdpackage/src/class/utils_remote.gd")
 const _UtilsLocal = preload("res://addons/gdpackage/src/class/utils_local.gd")
+const _Docs = preload("uid://01wqb0kamr3o") #! resolve GDPackageSpec.Docs
 
 const Export = _UtilsLocal.ExportObj
 const _ExportFileUtils = _UtilsLocal.ExportFileUtils
@@ -88,7 +89,7 @@ func _init(export_config_path, _reporter = null):
 	include_project_license = options.get(KeysConfig.Options.INCLUDE_PROJECT_LICENSE, false)
 
 	# The config always sits in the _export_ignore (or export_ignore) dir, so docs are found beside it.
-	var doc_source_dir = export_config_path.get_base_dir().path_join("doc")
+	var doc_source_dir = export_config_path.get_base_dir().path_join(_Docs.SOURCE_SUB_DIR)
 
 	parser_settings = options.get(KeysConfig.Options.PARSER_SETTINGS, {})
 	

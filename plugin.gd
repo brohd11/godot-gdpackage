@@ -7,7 +7,7 @@ const GUI = preload("res://addons/gdpackage/src/gui/gui.gd")
 const COMMENT_TAGS = ["#! remote", "#! ignore-remote", "#! dependency", "#! singleton-module", "#! strip-cast"]
 const SHOW_TOOL_MENU_ITEM = &"plugin/gdpackage/show_tool_menu_item"
 
-const DocViewer = preload("res://addons/gdpackage/src/components/doc_viewer/doc_viewer.gd")
+const DocViewer = preload("uid://bp8qk7hu5ohs7") #! resolve GDPackageUser.DocViewer
 const UtilsRemote = preload("res://addons/gdpackage/src/class/utils_remote.gd")
 
 const ConsoleCommand = preload("res://addons/gdpackage/src/editor_plugins/console_command/console_command.gd")

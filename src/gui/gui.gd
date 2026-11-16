@@ -18,7 +18,8 @@ const YAMLHighlighter = preload("uid://com2gj0t82d8f") #! resolve SyntaxHighligh
 const Summary = preload("res://addons/gdpackage/src/gui/panels/summary.gd")
 const DependencyView = preload("res://addons/gdpackage/src/gui/panels/dep_view.gd")
 const ExportEditor = preload("res://addons/gdpackage/src/gui/panels/export_editor.gd")
-const DocViewer = preload("res://addons/gdpackage/src/components/doc_viewer/doc_viewer.gd")
+const DocViewer = preload("uid://bp8qk7hu5ohs7") #! resolve GDPackageUser.DocViewer
+const Docs = preload("uid://01wqb0kamr3o") #! resolve GDPackageSpec.Docs
 
 
 #const FileSystem = UtilsRemote.FileSystem
@@ -55,6 +56,8 @@ var split_container:HSplitContainer
 var tab_options_button:Button
 var tab_container:TabBarContainer
 
+var tree_vbox:VBoxContainer
+var filter_line_edit:LineEdit
 var file_tree:ExportTree
 var tree_helper:FSTreeClasses.FSTreeHelper
 
@@ -113,12 +116,26 @@ func _ready() -> void:
 	main_vbox.add_child(split_container)
 	UControl.expand(split_container)
 	
+	tree_vbox = VBoxContainer.new()
+	split_container.add_child(tree_vbox)
+	UControl.expand(tree_vbox)
+
+	filter_line_edit = LineEdit.new()
+	tree_vbox.add_child(filter_line_edit)
+	filter_line_edit.right_icon = EditorInterface.get_editor_theme().get_icon(&"Search", &"EditorIcons")
+	filter_line_edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	filter_line_edit.clear_button_enabled = true
+	filter_line_edit.placeholder_text = "Filter Files"
+
 	file_tree = ExportTree.new()
 	file_tree.allow_drag = false
 	file_tree.allow_rmb_select = true
-	split_container.add_child(file_tree)
-	
+	tree_vbox.add_child(file_tree)
+
 	UControl.expand(file_tree)
+
+	file_tree.filter_line_edit = filter_line_edit
+	filter_line_edit.text_changed.connect(func(_t): file_tree.update_filter())
 	
 	tree_helper = FSTreeClasses.FSTreeHelper.new(file_tree, null, null, null, false)
 	file_tree.tree_helper = tree_helper
@@ -275,7 +292,8 @@ func _build_tree():
 	var broken_icon = EditorInterface.get_editor_theme().get_icon(&"FileBroken", &"EditorIcons")
 	
 	var full_export_path = export_data.full_export_path
-	
+	file_tree.filter_root = full_export_path
+
 	var pre_script = export_data.pre_script
 	if pre_script != "":
 		ExportFileUtils.run_export_script(pre_script, "pre_export", export_data)
@@ -378,8 +396,9 @@ func _build_tree():
 					last_item.set_tooltip_text(0, new_text)
 			
 		# /build tree
-	
-	
+
+	file_tree.update_filter() # re-apply an active filter after rebuild
+
 	#if not first_tree_build:
 		#_collapse_tree()
 
@@ -395,7 +414,7 @@ func _collapse_tree():
 
 func _set_doc_path(export_file_path:String):
 	var plugin_dir = export_file_path.get_base_dir().get_base_dir()
-	var docs_path = export_file_path.get_base_dir().path_join("doc")
+	var docs_path = export_file_path.get_base_dir().path_join(Docs.SOURCE_SUB_DIR)
 	if DirAccess.dir_exists_absolute(docs_path):
 		doc_viewer.set_docs_path(docs_path)
 	elif FileAccess.file_exists(plugin_dir.path_join("README.md")) or FileAccess.file_exists(plugin_dir.path_join("readme.md")):
@@ -404,7 +423,36 @@ func _set_doc_path(export_file_path:String):
 		doc_viewer.clear()
 
 class ExportTree extends FSTreeClasses.MinTree:
-	
+
+	var filter_line_edit:LineEdit
+	var filter_root:= "" # full_export_path; item_dict keys are export paths under it
+	var _last_filter_state:= false
+
+	func update_filter():
+		# update_tree_items' filtering branch derefs get_root() unguarded
+		if get_root() == null:
+			return
+		var filtering = is_filtering()
+		var selected_paths = tree_helper.get_selected_paths()
+		tree_helper.update_tree_items(filtering, _filter_path, filter_root)
+		# On clearing the filter, keep the selection in view (mirrors FSTree)
+		if _last_filter_state and not filtering and not selected_paths.is_empty():
+			var item = tree_helper.get_tree_item(selected_paths[0])
+			if is_instance_valid(item):
+				tree_helper.uncollapse_items([item])
+				set_selected(item, 0)
+				scroll_to_item(item, true)
+		_last_filter_state = filtering
+
+	func is_filtering() -> bool:
+		return is_instance_valid(filter_line_edit) and filter_line_edit.text != ""
+
+	func _filter_path(path:String) -> bool:
+		# Export dirs may not exist on disk yet, so the helper passes them here; show only as ancestors.
+		if path.ends_with("/"):
+			return false
+		return filter_line_edit.text.is_subsequence_ofn(path.get_file())
+
 	func _make_custom_tooltip(_for_text: String) -> Object:
 		var item = get_item_at_position(get_local_mouse_position())
 		if item:
