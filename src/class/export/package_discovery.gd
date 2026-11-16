@@ -35,8 +35,9 @@ static func discover(root:String = "res://addons", filter:int = Filter.VALID) ->
 	return result
 
 
-## Dirs with no package cfg (PackageCfg.NAMES) - package_init candidates. Never descends into a package;
-## uncached so a freshly initialized dir drops off at once.
+## Dirs with no package cfg (PackageCfg.NAMES) and no package anywhere below them - package_init
+## candidates, so no package ends up inside another. Uncached so a freshly initialized dir and its
+## parents drop off at once.
 static func discover_unpackaged(root:String = "res://addons", max_depth:int = 2) -> Dictionary:
 	var paths:Array[String] = []
 	_scan_unpackaged(ProjectSettings.globalize_path(root).simplify_path().trim_suffix("/"), "", max_depth, paths)
@@ -83,18 +84,22 @@ static func _scan(root:String, relative:String, paths:Array[String]) -> void:
 		_scan(root, relative.path_join(child), paths)
 
 
-static func _scan_unpackaged(root:String, relative:String, depth_left:int, paths:Array[String]) -> void:
-	if depth_left <= 0:
-		return
+## Returns whether a package sits below [param relative]. Walks past max_depth for that answer alone,
+## so a deep package still rules out its ancestors; it never enters a package, which keeps it cheap.
+static func _scan_unpackaged(root:String, relative:String, depth_left:int, paths:Array[String]) -> bool:
 	var access = DirAccess.open(root.path_join(relative))
 	if access == null:
-		return
+		return false
+	var has_package := false
 	for child in access.get_directories():
 		if child.begins_with(".") or ExportIgnore.is_name(child) or access.is_link(child):
 			continue
 		var child_relative = relative.path_join(child)
-		var child_dir = root.path_join(child_relative)
-		if PackageCfg.has_cfg(child_dir):
+		if PackageCfg.has_cfg(root.path_join(child_relative)):
+			has_package = true
 			continue
-		paths.append(child_relative)
-		_scan_unpackaged(root, child_relative, depth_left - 1, paths)
+		if _scan_unpackaged(root, child_relative, depth_left - 1, paths):
+			has_package = true
+		elif depth_left > 0:
+			paths.append(child_relative)
+	return has_package

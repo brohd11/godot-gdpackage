@@ -61,13 +61,14 @@ static func _test_unpackaged() -> void:
 	_write("plugin/plugin.cfg")
 	_mkdir("plugin/src")
 	_write("group/lib/version.cfg")
+	_write("tall/a/b/c/package.cfg") # below the default depth, still rules out tall and tall/a
 	var dir = DirAccess.open(ROOT)
 	_check("symlink fixture", dir.create_link(ProjectSettings.globalize_path(ROOT), "loop"), OK)
 	_check("unpackaged default depth", Discovery.discover_unpackaged(ROOT).keys(),
-		["bare", "bare/deep", "group", "group/new_lib"])
-	_check("depth 1", Discovery.discover_unpackaged(ROOT, 1).keys(), ["bare", "group"])
+		["bare", "bare/deep", "group/new_lib"])
+	_check("depth 1", Discovery.discover_unpackaged(ROOT, 1).keys(), ["bare"])
 	_write("group/new_lib/version.cfg")
-	_check("initialized drops off", Discovery.discover_unpackaged(ROOT).keys(), ["bare", "bare/deep", "group"])
+	_check("initialized drops off", Discovery.discover_unpackaged(ROOT).keys(), ["bare", "bare/deep"])
 	_check("missing root", Discovery.discover_unpackaged(ROOT.path_join("missing")), {})
 	DirAccess.remove_absolute(ROOT.path_join("loop"))
 	Runner.remove_dir(ProjectSettings.globalize_path(ROOT))
