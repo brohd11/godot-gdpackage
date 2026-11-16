@@ -530,6 +530,8 @@ class KeysConfig:
 	const TEST_REQUIRE = "test_require"
 	const EXPORTED_REQUIRE = "exported_require"
 	const COMPILE_REQUIRE = "compile_require"
+	## Packages referenced but never bundled; also accepted per export entry.
+	const EXTERNAL = "external"
 	
 	const EXPORTS = "exports"
 	class Export:
@@ -539,6 +541,7 @@ class KeysConfig:
 		const EXPORT_FOLDER = "export_folder"
 		const OTHER_TRANSFERS = "other_transfers"
 		const EXCLUDE = "exclude"
+		const EXTERNAL = "external"
 		class Exclude:
 			const DIRECTORIES = "directories"
 			const FILE_EXTENSIONS = "file_extensions"
@@ -553,7 +556,7 @@ class KeysConfig:
 		const EXPORTED_DEPS = "exported_deps" # renamed to KeysConfig.EXPORTED_REQUIRE; still read
 		const INCLUDE_MIN_VERSION = "include_min_version"
 		const OVERWRITE = "overwrite"
-		const IGNORE_DEPENDENCIES = "ignore_dependencies"
+		const IGNORE_DEPENDENCIES = "ignore_dependencies" # all-or-nothing; `external` is per package
 		const IGNORE_SRC = "ignore_src"
 		const IGNORE_TESTS = "ignore_tests"
 		const MOVE_GLOBAL_FILES = "move_global_files"

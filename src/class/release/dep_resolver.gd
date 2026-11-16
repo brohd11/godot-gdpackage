@@ -19,6 +19,7 @@ const CONFIG_NAMES = ExportIgnore.CONFIG_NAMES
 const BUILD_KEY = "build_require"
 const COMPILE_KEY = "compile_require"
 const TEST_KEY = "test_require"
+const EXTERNAL_KEY = "external" # specs here are compile requirements; see requires_in_data
 const REQUIRE_REF = "@require" # build_require item standing for the package cfg's require list
 const TAGS_INCOMPARABLE = -99
 const KIND_SOURCE = "source"
@@ -158,7 +159,30 @@ static func requires_in_data(data:Dictionary, cfg_text:String, with_tests:bool =
 				var msg = "%s: /clone is install-only (gdaddon install); require the tag instead" % spec.strip_edges()
 				if not msg in errors: # @require expands into build and test alike
 					errors.append(msg)
+	# Never bundled, so the build and its compile check need the dep installed beside the export.
+	for spec in external_specs(data):
+		var dep = parse_dep(spec)
+		if dep != null:
+			out.append({"dep": dep, "compile": true, "test": false})
 	return {"requires": out, "error": "; ".join(errors)}
+
+
+## Require specs among the config's `external` entries, top-level and per export; res:// dirs skipped.
+static func external_specs(data:Dictionary) -> Array[String]:
+	var values = [data.get(EXTERNAL_KEY)]
+	var exports = data.get("exports", [])
+	if exports is Array:
+		for e in exports:
+			if e is Dictionary:
+				values.append(e.get(EXTERNAL_KEY))
+	var out:Array[String] = []
+	for value in values:
+		var items = value if value is Array else ([value] if value is String else [])
+		for item in items:
+			var spec = str(item).strip_edges()
+			if spec != "" and not spec.begins_with("res://") and not spec in out:
+				out.append(spec)
+	return out
 
 
 static func _is_clone_spec(spec:String) -> bool:

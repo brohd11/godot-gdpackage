@@ -35,6 +35,10 @@ func get_direct_dependencies(file_path:String) -> Dictionary:
 		if class_reduced_away(file_path, _class_name):
 			continue
 		var path = export_obj.export_data.class_list.get(_class_name)
+		# Registering it here would copy it into global/ regardless of the crawl's own prune.
+		if export_obj.is_external(path):
+			export_obj.note_external_ref(path, file_path)
+			continue
 		if not export_obj.global_classes_used.has(_class_name):
 			export_obj.global_classes_used[_class_name] = {
 				KeysData.DEPENDENT: file_path,
@@ -516,6 +520,7 @@ func _update_paths(line:String):
 			return line
 		
 		var old_path = _match.get_string(1)
+		var was_uid = old_path.begins_with(UFile._UID)
 		if old_path.begins_with(UFile._UID):
 			if old_path == UFile._UID or old_path == UFile._UID_INVALID:
 				continue
@@ -535,6 +540,13 @@ func _update_paths(line:String):
 				continue
 		
 		var new_path = export_obj.adjusted_remote_paths.get(old_path)
+		if new_path == null and export_obj.is_external(old_path):
+			# The dep's own release may relocate files (global/, hidden src/); its UIDs survive that.
+			if not was_uid:
+				var uid = external_uid(old_path)
+				if uid != "":
+					line = line.substr(0, start) + uid + line.substr(end)
+			continue
 		if new_path == null:
 			if not UFile.is_file_in_directory(old_path, export_obj.source): #TODO #^ this needs some work, would be nice to allow renaming out of plugin
 				#if not has_ignore_tag: # redundant
@@ -554,6 +566,16 @@ func _update_paths(line:String):
 		line = line.substr(0, start) + new_path + line.substr(end)
 	
 	return line
+
+## uid:// text for an external file, or "" (warned for scripts and resources, which may move).
+func external_uid(path:String) -> String:
+	var uid = UFile.path_to_uid(path)
+	if uid != path:
+		return uid
+	if path.get_extension() in ["gd", "cs", "tscn", "scn", "tres", "res"]:
+		export_obj.reporter.warn("GDPackage - no UID for external %s, kept as a path (%s)" % [
+			path, export_obj.file_parser.current_file_path_parsing])
+	return ""
 
 func get_global_class_in_file_data(file_path:String):
 	return ExportFileUtils._get_global_classes_in_file(file_path, export_obj.export_data.class_list, export_obj.reporter)

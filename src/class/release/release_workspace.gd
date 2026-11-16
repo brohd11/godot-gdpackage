@@ -8,6 +8,7 @@ const DepResolver = preload("res://addons/gdpackage/src/class/release/dep_resolv
 const ReleaseRunner = preload("res://addons/gdpackage/src/class/release/release_runner.gd")
 const ExportIgnore = preload("uid://c4pt5djyuf8c") #! resolve GDPackageSpec.ExportIgnore
 const ExportPaths = preload("res://addons/gdpackage/src/class/export/export_paths.gd")
+const ExternalDeps = preload("res://addons/gdpackage/src/class/export/external_deps.gd")
 
 const READY_MARKER = ".pe_release_ready"
 const TOOLCHAIN_PATH = "res://addons/gdpackage"
@@ -96,7 +97,27 @@ func _prepare(lock:Dictionary, target_name:String, toolchain_dir:String, debug_s
 	if autorun and not ReleaseRunner.write_export_autorun(ws):
 		errors.append("could not write the autorun plugin into " + ws)
 		return ""
+	if not _write_installed_map(ws, lock):
+		errors.append("could not write %s into %s" % [ExternalDeps.INSTALLED_MAP, ws])
+		return ""
 	return ws
+
+
+## repo_id -> install path for the export's `external` lookup: installed packages carry no .git,
+## and a release's cfg may lack url=.
+func _write_installed_map(ws:String, lock:Dictionary) -> bool:
+	var map = {}
+	for entry in [lock.target] + lock.deps:
+		if entry.get("repo_id", "") != "":
+			map[entry.repo_id] = entry.path
+	var path = ws.path_join(ExternalDeps.INSTALLED_MAP.trim_prefix("res://"))
+	DirAccess.make_dir_recursive_absolute(path.get_base_dir())
+	var file = FileAccess.open(path, FileAccess.WRITE)
+	if file == null:
+		return false
+	file.store_string(JSON.stringify(map, "\t"))
+	file.close()
+	return true
 
 
 func _populate(ws:String, lock:Dictionary, toolchain_dir:String) -> bool:

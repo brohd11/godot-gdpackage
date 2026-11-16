@@ -1,17 +1,13 @@
 {
 	"export_root": "Export directory - OS Path",
 	"plugin_folder":"PluginFolder/PluginVersion{{version=plugin_name}}",
+	"external": ["owner/repo@vX.Y.Z - packages used but not bundled; or a res:// dir"],
 	"exports": [
 		{
 			"source": "Export template - directory to copy",
 			"export_name": "plugin_name{{version}}",
 			"export_folder": "addons/plugin_name",
-			"exclude": {
-				"directories": [],
-				"file_extensions": ["gd", "cs"],
-				"files": [],
-				},
-				"other_transfers":[
+			"other_transfers":[
 				{
 					"from":"res://desired_file.gd",
 					"to":"new path, relative from export folder, include file name"
@@ -23,28 +19,20 @@
 				{
 					"from":["array", "of", "files"],
 					"to":"new path, relative from export folder, end at desired dir"
-				},
-				
+				}
 			]
 		},
 		{
 			"source": "Export template - directory to copy",
-			"export_name": "",
 			"export_folder": "",
 			"exclude": {
 				"directories": [],
 				"file_extensions": [],
-				"files": [],
-				},
-				"other_transfers":[
-				{
-					"from":"",
-					"to":""
-				},
-			]
+				"files": []
+			}
 		}
 	],
-	
+
 	"options": {
 		"overwrite": true,
 		"include_uid": true,
@@ -54,7 +42,7 @@
 		"parser_settings":{
 			"parse_cs":{
 				"namespace_rename":{
-					"MyNameSpace":"MyUniqueNameSpace - So namespaces don't clash if using the same library",
+					"MyNameSpace":"MyUniqueNameSpace - So namespaces don't clash if using the same library"
 					}
 				},
 			"parse_gd":{},

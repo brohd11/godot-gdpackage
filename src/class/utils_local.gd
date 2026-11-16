@@ -9,6 +9,7 @@ const ExportFileUtils = preload("res://addons/gdpackage/src/class/export/plugin_
 const DependencyTags = preload("res://addons/gdpackage/src/class/export/dependency_tags.gd")
 const TagRegistry = preload("res://addons/gdpackage/src/class/export/tag_registry.gd")
 const Reporter = preload("res://addons/gdpackage/src/class/export/reporter.gd")
+const ExternalDeps = preload("res://addons/gdpackage/src/class/export/external_deps.gd")
 
 const ParseBase = preload("res://addons/gdpackage/src/class/export/parse/parse_base.gd")
 const ParseGD = preload("res://addons/gdpackage/src/class/export/parse/parse_gd.gd")

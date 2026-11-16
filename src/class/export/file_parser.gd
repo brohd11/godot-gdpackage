@@ -125,6 +125,9 @@ func get_dependencies(file_path:String, all_dependencies:Dictionary, scanned_fil
 		
 		
 		for path in file_deps.keys():
+			if export_obj.is_external(path):
+				export_obj.note_external_ref(path, current_file_path)
+				continue
 			var data = file_deps.get(path)
 			var existing = all_dependencies.get(path, {})
 			var entry = {KeysData.DEPENDENT:current_file_path}

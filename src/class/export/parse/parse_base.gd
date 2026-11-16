@@ -177,7 +177,9 @@ func _rewrite_ser_file(file_path:String, header:String) -> Variant:
 			var id = line.get_slice(' id="', 1)
 			id = id.get_slice('"', 0)
 
-			line = RES_LINE_TEMPLATE % [type, get_adjusted_path_or_old_renamed(path), id]
+			# An external line is kept whole: its uid= is what survives the dep's own relocation.
+			if not export_obj.is_external(path):
+				line = RES_LINE_TEMPLATE % [type, get_adjusted_path_or_old_renamed(path), id]
 
 		adjusted_file_lines.append(line)
 
@@ -201,6 +203,8 @@ func _update_file_export_flags(line:String) -> String:
 	return line
 
 func get_adjusted_path_or_old_renamed(file_path:String) -> String:
+	if export_obj.is_external(file_path):
+		return file_path # installed alongside, never relative to the copy
 	var new_path = export_obj.adjusted_remote_paths.get(file_path, file_path)
 	new_path = export_obj.get_rel_or_absolute_path(new_path)
 	if not export_obj.use_relative_paths:

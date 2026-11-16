@@ -6,21 +6,9 @@ test_require:
   - "brohd11/godot-plugin-exporter-test-plugin@v0.2.6"
 exports:
   -
-    exclude:
-      directories:
-        - "res://addons/gdpackage/export_ignore"
-      file_extensions: []
-      files: []
-    remote_dir: "res://addons/gdpackage/src/remote/"
     export_name: "gdpackage{{version=gdpackage}}"
     export_folder: "addons/gdpackage"
-    other_transfers: []
     source: "res://addons/gdpackage/"
-    parser_overide_settings:
-      parse_cs: {}
-      parse_gd: {}
-      parse_tscn: {}
-      parse_tres: {}
 options:
   include_import: true
   include_uid: true

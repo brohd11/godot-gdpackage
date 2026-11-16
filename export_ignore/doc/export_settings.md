@@ -13,6 +13,7 @@ Exports are configured in `export.yml`, in the package's export-ignore folder. S
 - `compile_require` - dependencies also installed beside the export for verification. Defaults to `[]`.
 - `test_require` - test dependencies for the package's CI run. Defaults to `"@require"`.
 - `exported_require` - dependencies written into the exported cfg's `require=` for installers. Defaults to `[]`.
+- `external` - packages the plugin uses but does not bundle. See [External packages](#external-packages). Defaults to `[]`.
 - `test` - optional custom runner configuration. See [Testing](testing.md#gut-gdunit4-and-custom-runners).
 
 Requirement keys accept a spec or a list of specs. See [Releases](releases.md#build-requirements) for `"@require"` and dependency kinds.
@@ -20,8 +21,8 @@ Requirement keys accept a spec or a list of specs. See [Releases](releases.md#bu
 ### exports
 
 - `source` - source location of the plugin.
-- `exclude` - directories, file extensions, and files to ignore on export.
-- `remote_dir` - where files from outside the plugin are recreated.
+- `exclude` - optional. Directories, file extensions, and files to ignore on export. The export-ignore folder is always skipped, so it never needs listing.
+- `remote_dir` - where files from outside the plugin are recreated. Defaults to `src/remote`.
 - `export_name` - package folder under `export_root` + `plugin_folder`, zipped as a whole. Defaults to the last segment of `plugin_folder`.
 - `export_folder` - install path relative to `res://`, e.g. `addons/_lib/my_lib`. Recreated inside the package, so it extracts straight into a project. Defaults to `source`; a different path renames the plugin and rewrites its paths to match. No `{{version}}` templates.
 - `other_transfers` - other files to transfer into the plugin on export. Two sources resolving to the same destination abort the export. Each entry:
@@ -30,8 +31,26 @@ Requirement keys accept a spec or a list of specs. See [Releases](releases.md#bu
   - `recursive` - bool, defaults false. For a directory `from`, includes subdirectories, keeping their structure under `to`.
   - `ignore_deps` - bool, defaults false. Files are copied and their paths rewritten, but never scanned for dependencies or global classes. For optional integrations that name classes from plugins that may be absent: ship them under a `.gdignore` so they don't compile until loaded.
   - `custom_tree_message` - text appended to the file in the export tree view.
-- `ignore_dependencies` - do not export any dependencies for the files.
-- `parser_overide_settings` - per-export override of `parser_settings`, same structure.
+- `external` - more external entries for this export only, added to the top-level list.
+- `ignore_dependencies` - do not export any dependencies for the files. All or nothing; use `external` to leave out particular packages. Also accepted under `options`.
+- `parser_overide_settings` - optional per-export override of `parser_settings`, same structure.
+
+### External packages
+
+`external` lists packages the export references but leaves out, so they become hard dependencies installed beside the plugin. Each entry is a require spec or a `res://` directory:
+
+```yaml
+external:
+  - "brohd11/godot-code-completions/release@v0.3.0"
+  - "res://addons/some_local_thing"
+```
+
+- List a spec here only. Release and test builds install it for the export and beside it for the compile check, as if it were in `compile_require`. A `/release` spec fits best, since nothing from the dependency is bundled.
+- If the package cfg's `require` also lists the repo, use the same kind in both places. Asking for the source and the `/release` form of one repo is an error.
+- A spec is matched to a local package: in a release workspace by its install path, otherwise by a cfg `url=` naming the repo, then a checkout whose git origin does. An unmatched spec fails the export.
+- A spec is added to the exported cfg's `require=` as written. A directory is not; the export warns when no require list names it.
+- Files inside an external package are never crawled or copied, and its global classes are not renamed or preloaded, so `extends EditorCodeCompletion` stays as written.
+- A path reference into an external package is rewritten to its `uid://`, because that package's own release may move files (`global/`, a hidden `src/`). A file without a UID keeps its path, with a warning for scripts and resources. Prefer global class names or UIDs for these references.
 
 ### options
 

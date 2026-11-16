@@ -44,6 +44,12 @@ var ignored_tests:Dictionary = {}
 var virtual_files:Dictionary = {}
 
 var ignore_dependencies:= false
+## Dirs of packages referenced but never bundled: not crawled, not copied, class names kept global.
+var external_dirs:Array = []
+## Released cfg require: the config's exported_require plus every external spec.
+var exported_require:Array = []
+## {external path: first dependent} - what the export left pointing at an installed package.
+var external_refs:Dictionary = {}
 
 var rename_plugin := false
 var plugin_name := ""
@@ -227,6 +233,9 @@ func get_global_classes_used_in_valid_files():
 			var remote_path = export_data.class_list.get(class_nm)
 			if global_classes_used.has(class_nm):
 				continue
+			if is_external(remote_path):
+				note_external_ref(remote_path, file)
+				continue
 			global_classes_used[class_nm] = {
 				_KeysData.DEPENDENT: file,
 				_KeysData.PATH: remote_path
@@ -343,6 +352,8 @@ func _seed_access_reduction_targets() -> void:
 			var path:String = access_reductions[file_path][expression].get(_KeysData.PATH, "")
 			if path == "" or files_to_scan_for_deps.has(path):
 				continue
+			if is_external(path):
+				continue # binding gets dropped: the target is never exported
 			if _UtilsRemote.UFile.is_file_in_directory(path, source) and not ignored_tests.has(path):
 				continue # already travelling as part of the plugin itself
 			if not file_dependencies.has(path):
@@ -419,6 +430,23 @@ func _will_be_exported(path:String) -> bool:
 	return _UtilsRemote.UFile.is_file_in_directory(path, source)
 
 
+## True for a path inside an external package; never for the export's own source.
+func is_external(path) -> bool:
+	if not path is String or path == "" or external_dirs.is_empty():
+		return false
+	if _UtilsRemote.UFile.is_file_in_directory(path, source):
+		return false
+	for dir:String in external_dirs:
+		if _UtilsRemote.UFile.is_file_in_directory(path, dir):
+			return true
+	return false
+
+
+func note_external_ref(path:String, dependent:String) -> void:
+	if not external_refs.has(path):
+		external_refs[path] = dependent
+
+
 ## Transfers marked ignore_deps are copied verbatim: never crawled, never seed global classes.
 func file_deps_ignored(path:String) -> bool:
 	return valid_files_for_transfer.get(path, {}).get(_KeysData.IGNORE_DEPS, false)
@@ -443,6 +471,8 @@ func get_global_class_export_paths():
 		var renameable = class_renames.has(name)
 		var data = global_classes_used.get(name)
 		var remote_path = data.get(_KeysData.PATH)
+		if is_external(remote_path):
+			continue # guard: any writer to global_classes_used must not bring an external copy in
 		var dependent = data.get(_KeysData.DEPENDENT)
 		var remote_dir_path = get_remote_file_local_path(remote_path)
 
@@ -593,7 +623,7 @@ func update_plugin_cfg():
 ## Bundled deps ship inside the package, so the released cfg lists only what an installer must add.
 func _update_deps(plugin_cfg_path:String):
 	var text = FileAccess.get_file_as_string(plugin_cfg_path)
-	var updated = _PackageCfg.set_require(text, export_data.exported_require)
+	var updated = _PackageCfg.set_require(text, exported_require)
 	if updated == text:
 		return
 	var file = FileAccess.open(plugin_cfg_path, FileAccess.WRITE)
@@ -757,8 +787,12 @@ func export_files():
 
 func get_class_renames():
 	for _class_name in export_data.class_list_array:
-		if _class_name not in class_rename_ignore:
-			class_renames[_class_name] = ""
+		if _class_name in class_rename_ignore:
+			continue
+		# Left out, an external class keeps its global name and never gets a preload injected.
+		if is_external(export_data.class_list.get(String(_class_name), "")):
+			continue
+		class_renames[_class_name] = ""
 
 func get_remote_file_local_path(file_path:String) -> String:
 	var stripped_path = file_path.trim_prefix("res://")

@@ -162,6 +162,10 @@ static func _test_export_config() -> void:
 	var clone = DepResolver.requires_in_export_config(_ex(["@require"]), "yml", '[plugin]\nrequire=["a/b@v1", "c/d/clone@main"]\n')
 	_check("/clone in a cfg is one error, other specs kept", [clone.error.count("/clone is install-only"), clone.requires.map(func(r): return r.dep.repo_id)],
 		[1, ["github.com/a/b"]])
+	var ext = DepResolver.requires_in_export_config(
+		'external:\n  - "a/b/release@v1"\n  - "res://addons/local"\nexports:\n  - source: "res://x"\n    external: ["c/d@v2", "a/b/release@v1"]\n', "yml")
+	_check("external: specs as compile, dirs skipped, deduplicated", [ext.error, ext.requires.map(func(r): return [r.dep.repo_id, r.compile, r.test, r.dep.kind])],
+		["", [["github.com/a/b", true, false, "release"], ["github.com/c/d", true, false, "source"]]])
 	_check("cfg_require: [addon] list wins", DepResolver.cfg_require('[plugin]\nrequire=["a/b@v1"]\n[addon]\nrequire=[\n"c/d@v1",\n]\n'), ["c/d@v1"])
 	_check("cfg_require: [plugin] list when [addon] has none", DepResolver.cfg_require('[addon]\nname="x"\n[plugin]\nrequire=["a/b@v1"]\n'), ["a/b@v1"])
 	_check("cfg_require: other section ignored", DepResolver.cfg_require('[deps]\nrequire=["a/b@v1"]\n[plugin]\nname="x"\n').size(), 0)
@@ -516,6 +520,15 @@ static func _test_kinds() -> void:
 	var r3 = DepResolver.new(f)
 	_check("release without asset: empty lock", r3.resolve(t3, "v1", "res://addons/t3"), {})
 	_check("release without asset: named " + str(r3.errors), r3.errors.size() == 1 and "no usable tag v1 (no release asset at v1)" in r3.errors[0], true)
+
+	# external: listed once, the sealed release is installed and verified beside the export.
+	var t5 = f.add("me/t5", "v1", {"plugin.cfg": '[plugin]\n', EX: 'external: ["me/y/release@v2"]\n'})
+	var r5 = DepResolver.new(f)
+	var lock5 = r5.resolve(t5, "v1", "res://addons/t5")
+	_check("external: resolved " + str(r5.errors), lock5.is_empty(), false)
+	if not lock5.is_empty():
+		var y5 = _dep(lock5, "github.com/me/y")
+		_check("external: release entry, verified", [y5.kind, y5.verify, y5.path], ["release", true, "res://addons/lib/y"])
 
 	var t4 = f.add("me/t4", "v1", {"plugin.cfg": '[plugin]\n', EX: _ex(["me/y/release@v2", "me/w@v1"])})
 	f.add("me/w", "v1", {"plugin.cfg": '[plugin]\npath="addons/w"\n', EX: _ex(["me/y@v2"])})

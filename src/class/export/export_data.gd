@@ -5,6 +5,8 @@ const _UtilsLocal = preload("res://addons/gdpackage/src/class/utils_local.gd")
 const _Docs = preload("uid://01wqb0kamr3o") #! resolve GDPackageSpec.Docs
 
 const Export = _UtilsLocal.ExportObj
+const _ExternalDeps = _UtilsLocal.ExternalDeps
+const _PackageCfg = preload("uid://ddo8w07hts45v") #! resolve GDPackageSpec.Cfg
 const _ExportFileUtils = _UtilsLocal.ExportFileUtils
 const KeysConfig = _ExportFileUtils.KeysConfig
 
@@ -24,6 +26,8 @@ var post_script:String
 var options:Dictionary = {}
 ## The released cfg's require list: deps an installer must add because they aren't bundled.
 var exported_require:Array = []
+## Top-level `external:` resolved; each export adds its own entries on top.
+var external:Dictionary = {"dirs": [], "specs": []}
 var overwrite:bool = true
 var include_uid:bool = true
 var include_import:bool = true
@@ -79,6 +83,9 @@ func _init(export_config_path, _reporter = null):
 	if exported == null and options is Dictionary:
 		exported = options.get(KeysConfig.Options.EXPORTED_DEPS) # pre-rename configs
 	exported_require = exported if exported is Array else ([exported] if exported is String and exported != "" else [])
+	external = _resolve_external(export_data.get(KeysConfig.EXTERNAL), export_config_path)
+	if external.is_empty():
+		return
 	overwrite = options.get(KeysConfig.Options.OVERWRITE, false)
 	include_uid = options.get(KeysConfig.Options.INCLUDE_UID, true)
 	include_import = options.get(KeysConfig.Options.INCLUDE_IMPORT, true)
@@ -128,10 +135,23 @@ func _init(export_config_path, _reporter = null):
 			export_obj.rename_plugin = true
 			export_obj.new_plugin_name = install_path
 		
-		var exclude = export.get(KeysConfig.Export.EXCLUDE)
-		export_obj.exclude_directories = exclude.get(KeysConfig.Export.Exclude.DIRECTORIES)
-		export_obj.exclude_file_extensions = exclude.get(KeysConfig.Export.Exclude.FILE_EXTENSIONS)
-		export_obj.exclude_files = exclude.get(KeysConfig.Export.Exclude.FILES)
+		# Optional: the export_ignore dir is always skipped, which is all most configs listed here.
+		var exclude = export.get(KeysConfig.Export.EXCLUDE, {})
+		if not exclude is Dictionary:
+			exclude = {}
+		export_obj.exclude_directories = _array(exclude.get(KeysConfig.Export.Exclude.DIRECTORIES))
+		export_obj.exclude_file_extensions = _array(exclude.get(KeysConfig.Export.Exclude.FILE_EXTENSIONS))
+		export_obj.exclude_files = _array(exclude.get(KeysConfig.Export.Exclude.FILES))
+
+		var own_external = _resolve_external(export.get(KeysConfig.Export.EXTERNAL), export_config_path)
+		if own_external.is_empty():
+			return
+		export_obj.external_dirs = external.dirs.duplicate()
+		for dir in own_external.dirs:
+			if not dir in export_obj.external_dirs:
+				export_obj.external_dirs.append(dir)
+		export_obj.exported_require = _ExternalDeps.merge_require(
+			_ExternalDeps.merge_require(exported_require, external.specs), own_external.specs)
 		
 		var default_remote_dir = export_obj.source.path_join("src/remote")
 		export_obj.remote_dir = export.get(KeysConfig.Export.REMOTE_DIR, default_remote_dir)
@@ -140,15 +160,18 @@ func _init(export_config_path, _reporter = null):
 		
 		export_obj.source_files = _UtilsRemote.GetFiles.scan(export_obj.source)
 		export_obj.export_dir_path = full_export_path.path_join(export_obj.export_name).path_join(export_obj.export_folder)
-		export_obj.other_transfers = export.get(KeysConfig.Export.OTHER_TRANSFERS, [])
+		export_obj.other_transfers = _array(export.get(KeysConfig.Export.OTHER_TRANSFERS))
 		# Hides src/ in the release; should_move_global() has already pulled globals out of it.
 		if ignore_src and DirAccess.dir_exists_absolute(export_obj.source.path_join("src")):
 			export_obj.other_transfers.append({"to": "src/.gdignore"})
-		export_obj.ignore_dependencies = export.get(KeysConfig.Options.IGNORE_DEPENDENCIES, false)
+		# Documented as an option; older configs set it on the export entry.
+		export_obj.ignore_dependencies = export.get(KeysConfig.Options.IGNORE_DEPENDENCIES,
+			options.get(KeysConfig.Options.IGNORE_DEPENDENCIES, false))
 		
 		export_obj.file_parser = _UtilsLocal.FileParser.new()
 		export_obj.file_parser.set_export_obj(export_obj)
-		var overide_settings:Dictionary = export.get(KeysConfig.Options.PARSER_OVERIDE_SETTINGS, {}).duplicate(true)
+		var overide_value = export.get(KeysConfig.Options.PARSER_OVERIDE_SETTINGS, {})
+		var overide_settings:Dictionary = overide_value.duplicate(true) if overide_value is Dictionary else {}
 		#overide_settings = _sort_settings_dict(overide_settings)
 		
 		for parse_key in parser_settings.keys():
@@ -206,6 +229,31 @@ func _init(export_config_path, _reporter = null):
 	
 	
 	data_valid = true
+
+## {dirs, specs} for an `external` value, or {} after reporting why it failed.
+func _resolve_external(value, export_config_path:String) -> Dictionary:
+	var items = _ExternalDeps.entries(value)
+	if items.is_empty():
+		return {"dirs": [], "specs": []}
+	var resolved = _ExternalDeps.resolve(items)
+	for e in resolved.errors:
+		reporter.error("GDPackage - " + e, true)
+	if not resolved.errors.is_empty():
+		return {}
+	var package_dir = export_config_path.get_base_dir().get_base_dir() # config sits in export_ignore/
+	var cfg_path = _PackageCfg.find(package_dir)
+	var cfg_text = FileAccess.get_file_as_string(cfg_path) if cfg_path != "" else ""
+	# Specs need no check: DepResolver installs them for build and compile on its own.
+	var required = _ExternalDeps.repo_ids(exported_require + Array(_ExternalDeps.DepResolver.cfg_require(cfg_text)))
+	for item in items:
+		if item.begins_with("res://") and not required.has(_ExternalDeps.dir_repo_id(item)):
+			reporter.warn("GDPackage - external dir %s is in no require list; installers will not know to add it" % item)
+	return {"dirs": resolved.dirs, "specs": resolved.specs}
+
+
+static func _array(value) -> Array:
+	return value if value is Array else []
+
 
 func _sort_settings_dict(dict:Dictionary):
 	var sorted_dict = {}

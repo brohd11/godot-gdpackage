@@ -84,14 +84,10 @@ static func plugin_init(plugin_name:=""):
 	
 	var export = PluginExportJSON.get_export_obj_data()
 	export[KeysConfig.Export.SOURCE] = export_dir
-	export[KeysConfig.Export.REMOTE_DIR] = export_dir.path_join("src/remote")
 	var export_dir_name_dash = export_dir_name.replace("_", "-")
 	export[KeysConfig.Export.EXPORT_NAME] = "%s{{version=%s}}" % [export_dir_name_dash, export_dir]
 	export[KeysConfig.Export.EXPORT_FOLDER] = export_dir.trim_prefix("res://").trim_suffix("/")
-	
-	var exclude = export.get(KeysConfig.Export.EXCLUDE)
-	exclude[KeysConfig.Export.Exclude.DIRECTORIES] = [export_ignore_dir]
-	
+
 	template_data[KeysConfig.EXPORTS].append(export)
 
 	#UFile.write_to_json(template_data, export_config_path)
@@ -353,6 +349,7 @@ class PluginExportJSON:
 			KeysConfig.POST_SCRIPT: "",
 			# build_require / test_require default to the cfg's require, compile_require and
 			# exported_require to [] (DepResolver, ExportData), so new configs leave them out.
+			KeysConfig.EXTERNAL: [],
 			KeysConfig.OPTIONS: {
 				KeysConfig.Options.OVERWRITE: true,
 				KeysConfig.Options.INCLUDE_UID: true,
@@ -388,16 +385,5 @@ class PluginExportJSON:
 			KeysConfig.Export.SOURCE: "",
 			KeysConfig.Export.EXPORT_NAME: "",
 			KeysConfig.Export.EXPORT_FOLDER: "",
-			KeysConfig.Export.EXCLUDE: {
-				KeysConfig.Export.Exclude.DIRECTORIES: [],
-				KeysConfig.Export.Exclude.FILE_EXTENSIONS: [],
-				KeysConfig.Export.Exclude.FILES: [],
-				},
-			KeysConfig.Export.OTHER_TRANSFERS:[],
-			KeysConfig.Options.PARSER_OVERIDE_SETTINGS:{
-				"parse_cs":{},
-				"parse_gd":{},
-				"parse_tscn":{},
-				"parse_tres":{},
-			}
+			# remote_dir, other_transfers, exclude and parser_overide_settings are optional.
 		}

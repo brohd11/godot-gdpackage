@@ -3,8 +3,8 @@ extends EditorScript
 
 ## End-to-end coverage of the exporter, driven by the addons/plugin_exporter_test fixture plugin.
 ## That plugin's source is written to trip every feature worth checking, and its config exports it
-## five ways - baseline, reduced, relative, renamed, backported - so the same fixtures have to come
-## out correct under settings that are mutually exclusive with each other.
+## six ways - baseline, reduced, relative, renamed, backported, external - so the same fixtures have
+## to come out correct under settings that are mutually exclusive with each other.
 ##
 ## Needs the editor: an export reaches for EditorInterface. Test CI runs it in a headless editor,
 ## with the fixture plugin pulled in through test_require; the plain --script run_headless.gd can't,
@@ -26,6 +26,7 @@ const REDUCED = "pet-reduced"
 const RELATIVE = "pet-relative"
 const RENAMED = "pet-renamed"
 const BACKPORT = "pet-backport"
+const EXTERNAL = "pet-external"
 
 static var _failures:Array[String] = []
 static var _passed:int = 0
@@ -52,6 +53,7 @@ static func run_tests() -> Dictionary:
 		_test_relative()
 		_test_renamed()
 		_test_backport()
+		_test_external()
 		_test_struct()
 		_test_optimizer()
 		_test_no_cross_contamination()
@@ -361,6 +363,42 @@ static func _test_backport() -> void:
 		'Engine.get_singleton(&"EditorInterface")'), true)
 
 
+## `external`: yaml_parser is referenced by class name, uid preload and a tagged path, and none of it
+## may be bundled or rewritten, while util_r beside it still is.
+static func _test_external() -> void:
+	var dir = _dirs.get(EXTERNAL, "")
+	if dir == "":
+		return
+
+	var bundled:Array[String] = []
+	for file in _walk(dir):
+		if "yaml_parser" in file or file.ends_with("/yaml.gd"):
+			bundled.append(file.trim_prefix(dir))
+	_check("external: nothing bundled (%s)" % ", ".join(bundled), bundled.is_empty(), true)
+	_check("external: other libs still bundled", _found(dir, "/u_window.gd"), true)
+	# This entry omits remote_dir and other_transfers and doesn't list export_ignore; defaults must hold.
+	_check("optional keys: export_ignore still skipped", _exists(dir, "export_ignore/plugin_export.yml"), false)
+	_check("optional keys: default remote_dir", _found(dir, "src/remote/addons/_lib/util_r/src/node/u_window.gd"), true)
+
+	_check("external: class name kept", _has(dir, "src/core/access_paths.gd", "return YAMLParser.dump({})"), true)
+	_check("external: no preload injected", _has(dir, "src/core/access_paths.gd", "const YAMLParser"), false)
+	_check("external: uid preload left as uid", _has(dir, "src/core/consumer.gd", 'preload("uid://leuersl04lis")'), true)
+	# package.cfg has no UID, so the tagged path is kept as written rather than vendored.
+	_check("external: tagged path untouched", _has(dir, "src/utils_remote.gd",
+		'"res://addons/_lib/yaml_parser/package.cfg" #! dependency'), true)
+
+	_check("external: spec added to the released require", _has(dir, "plugin.cfg", "godot-yaml-parser"), true)
+	_check("external: require merge stayed in its variant",
+		_has(_dirs.get(BASELINE, ""), "plugin.cfg", "godot-yaml-parser"), false)
+
+	# Installed beside its real dependency, the export has to load.
+	var install = String(_installs.get(dir, ""))
+	var yaml_src = ProjectSettings.globalize_path("res://addons/_lib/yaml_parser")
+	var errors = CompileCheck.compile_errors(dir, install, ProjectSettings.globalize_path("user://pe_external_compile"),
+		{"res://addons/_lib/yaml_parser": yaml_src})
+	_check("external: compiles beside the installed dependency", Array(errors), [])
+
+
 ## `#! struct`: a tagged data-only class becomes an enum plus create(), and the sites naming it become
 ## array literals and Array hints. These fixtures use the enabled optimizer defaults.
 static func _test_struct() -> void:
@@ -427,14 +465,14 @@ static func _test_optimizer() -> void:
 ## adopting an earlier one's setting. The per-variant tests above would barely notice: they only
 ## assert a setting is on where it belongs, never that it is off everywhere else.
 static func _test_no_cross_contamination() -> void:
-	for variant in [BASELINE, RELATIVE, RENAMED, BACKPORT]:
+	for variant in [BASELINE, RELATIVE, RENAMED, BACKPORT, EXTERNAL]:
 		var dir = _dirs.get(variant, "")
 		if dir == "":
 			continue
 		# Reduction is variant 2's alone; with it off the pass-through hub is still copied.
 		_check("%s: reduction did not leak in" % variant, _found(dir, "_ns/util_r.gd"), true)
 
-	for variant in [BASELINE, REDUCED, RENAMED, BACKPORT]:
+	for variant in [BASELINE, REDUCED, RENAMED, BACKPORT, EXTERNAL]:
 		var dir = _dirs.get(variant, "")
 		if dir == "":
 			continue
@@ -442,7 +480,7 @@ static func _test_no_cross_contamination() -> void:
 		_check("%s: relative paths did not leak in" % variant, _has(dir, "src/core/consumer.gd",
 			'preload("res://'), true)
 
-	for variant in [BASELINE, REDUCED, RELATIVE, RENAMED]:
+	for variant in [BASELINE, REDUCED, RELATIVE, RENAMED, EXTERNAL]:
 		var dir = _dirs.get(variant, "")
 		if dir == "":
 			continue
