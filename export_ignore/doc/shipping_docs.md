@@ -1,5 +1,12 @@
 # Shipping documentation
 
+## Install
+
+`DocViewer` lives in the `brohd11/godot-gdpackage-user` repo. I recommend installing with gdaddon: `gdaddon install brohd11/godot-gdpackage-user`
+This also installs (with confirmation) gdpackage-spec and markdown-view, which are required for the build.
+
+## Export Setting
+
 With `options.include_docs` on (the default), the `doc` folder beside `export.yml` is copied into the exported plugin as `.doc`, structure intact.
 
 - The files are copied verbatim: nothing is parsed or crawled for dependencies, and no `.uid`/`.import` sidecars come along.
@@ -11,7 +18,7 @@ With `options.include_docs` on (the default), the `doc` folder beside `export.ym
 The `DocViewer` component renders those docs. Preload it from GDPackage so the exporter gathers it into the package, then give it an entry point (a button, a menu item) and the addon directory to read from:
 
 ``` gdscript
-const DocViewer = preload("res://addons/gdpackage/src/components/doc_viewer/doc_viewer.gd")
+const DocViewer = GDPackageUser.DocViewer # using it as a const allows gdpackage to skip GDPackageUser in it's dependency crawl
 
 func _on_help_pressed() -> void:
 	DocViewer.open("res://addons/my_plugin/")

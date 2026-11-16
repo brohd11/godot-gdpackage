@@ -4,6 +4,19 @@ GDPackage is a plugin and tool for working with GDScript "packages". A package i
 
 Companion tool [gdaddon](https://github.com/brohd11/gdaddon) uses the same package format to install a package and dependencies into your project, for releases or dev project setup.
 
+## Install
+
+Download the release and place the contents in the addons folder.
+
+Using [Editor Console](https://github.com/brohd11/godot-editor-console) plugin is suggested, it provides easy access to gdpackage commands in the editor.
+
+### Install with gdaddon
+
+Navigate to your project in terminal, then run:
+```sh
+gdaddon install brohd11/godot-gdpackage/release
+gdaddon install brohd11/godot-editor-console/release
+```
 
 ## Purpose
 
@@ -47,9 +60,7 @@ A standard Godot plugin/project structure also works if there is only 1 folder i
 
 An example of a [plugin.cfg](./plugin.cfg) that declares dependencies.
 
-## Quick start
-
-Using [Editor Console](https://github.com/brohd11/godot-editor-console) plugin is suggested, it provides easy access to gdpackage commands in the editor.
+## Quick Start
 
 Enable GDPackage in **Project Settings -> Plugins**. For an existing plugin at `res://addons/my_plugin`, you can initialize, open the gui, and export:
 
