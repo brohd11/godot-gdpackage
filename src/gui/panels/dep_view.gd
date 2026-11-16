@@ -36,10 +36,10 @@ func set_current_file(path:String):
 func _create_graph():
 	dep_graph.v_gap = 50 * EditorInterface.get_editor_scale()
 	dep_graph.h_gap = 200 * EditorInterface.get_editor_scale()
-	# same tag handling as the export crawl, so a "#! dependency" file shows up here too
+	# same tag handling as the export crawl, so a "#! gdp-dependency" file shows up here too
 	dep_graph.scan_max_depth = -1
 	dep_graph.scan_tag_handlers = {DependencyTags.TAG: DependencyTags.dependency_dir()}
-	dep_graph.scan_ignore_line_tags = [DependencyTags.IGNORE_REMOTE]
+	dep_graph.scan_ignore_line_tags = [DependencyTags.IGNORE]
 	dep_graph.scan_collapse_pass_through = collapse_pass_through and not show_pass_through
 	dep_graph.scan_collapse_keep_dirs = keep_dirs
 	dep_graph.set_files(current_files)

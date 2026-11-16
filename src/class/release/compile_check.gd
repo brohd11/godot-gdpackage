@@ -3,7 +3,7 @@ extends RefCounted
 ## Proves a release export stands alone: installs it into an empty project (plus runtime deps),
 ## loads every script and resource there, and collects parse/compile errors from the output.
 ## load() hands back a non-null GDScript even when compilation fails, so output is the real signal.
-## Files tagged `#! pe-skip-parse` (DependencyTags.SKIP_PARSE) are not loaded, e.g. a placeholder
+## Files tagged `#! gdp-skip-parse` (DependencyTags.SKIP_PARSE) are not loaded, e.g. a placeholder
 ## extends that Singletons.RuntimeExtend swaps at runtime and so can never compile as written.
 
 const ReleaseRunner = preload("res://addons/gdpackage/src/class/release/release_runner.gd")
@@ -82,7 +82,7 @@ static func broken_references(plugin_dir:String, install_path:String) -> Array[S
 	return broken
 
 
-## Files under plugin_dir, relative to it, tagged `#! pe-skip-parse`.
+## Files under plugin_dir, relative to it, tagged `#! gdp-skip-parse`.
 static func parse_skipped(plugin_dir:String) -> Array[String]:
 	plugin_dir = plugin_dir.trim_suffix("/")
 	var found:Array[String] = []

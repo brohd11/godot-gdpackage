@@ -187,10 +187,10 @@ func sort_valid_files():
 					_KeysData.PATH: file
 					}
 		
-		if file_ext != "gd" or not _ExportFileUtils.is_remote_file(file):
+		if file_ext != "gd" or not _ExportFileUtils.is_replace_file(file):
 			continue
 
-		var remote_file_path = _ExportFileUtils.get_remote_extends_path(file, self)
+		var remote_file_path = _ExportFileUtils.get_replace_extends_path(file, self)
 		if remote_file_path == "":
 			continue
 
@@ -512,31 +512,18 @@ func get_singleton_modules():
 			continue
 		if not file_parser.check_file_valid(file_path):
 			continue
-		var file_access = FileAccess.open(file_path, FileAccess.READ)
-		var count = 0
-		var _class_name = ""
-		var version = ""
-		while not file_access.eof_reached() and count < 10:
-			var line = file_access.get_line()
-			if line.find("class_name") == -1:
-				continue
-			if line.find("#! singleton-module") > -1: #^ this should be removable at this point, the whole singleton tag system
-				version = line.get_slice("#! singleton-module", 1).strip_edges()
-			break
-		
 		var script = load(file_path)
-		_class_name = script.get_singleton_name()
+		var _class_name = script.get_singleton_name()
 		
-		if version == "":
-			version = "0.0.0"
-			var base_dir = file_path.get_base_dir()
-			while base_dir != "res://":
-				if not _PackageCfg.has_cfg(base_dir):
-					base_dir = base_dir.get_base_dir()
-				else:
-					version = _PackageCfg.dir_value(base_dir, "version", "0.0.0")
-					break
-		
+		# The version is the owning package's: the nearest cfg up the file's path.
+		var version = "0.0.0"
+		var base_dir = file_path.get_base_dir()
+		while base_dir != "res://":
+			if not _PackageCfg.has_cfg(base_dir):
+				base_dir = base_dir.get_base_dir()
+			else:
+				version = _PackageCfg.dir_value(base_dir, "version", "0.0.0")
+				break
 		
 		var adjusted_path = adjusted_remote_paths.get(file_path, file_path)
 		var singleton_data = {

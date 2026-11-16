@@ -1,5 +1,5 @@
 @tool
-extends "res://addons/modular_browser/plugin/scripts_panels/panel_interface_base.gd" #! ignore-remote
+extends "res://addons/modular_browser/plugin/scripts_panels/panel_interface_base.gd" #! gdp-ignore
 
 class Data:
 	const module = Modules.None

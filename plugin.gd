@@ -4,7 +4,7 @@ extends EditorPlugin
 const PLUGIN_EXPORTED = false
 
 const GUI = preload("res://addons/gdpackage/src/gui/gui.gd")
-const COMMENT_TAGS = ["#! remote", "#! ignore-remote", "#! dependency", "#! singleton-module", "#! strip-cast"]
+const DependencyTags = preload("res://addons/gdpackage/src/class/export/dependency_tags.gd")
 const SHOW_TOOL_MENU_ITEM = &"plugin/gdpackage/show_tool_menu_item"
 
 const DocViewer = preload("uid://bp8qk7hu5ohs7") #! resolve GDPackageUser.DocViewer
@@ -96,11 +96,11 @@ func _register_code_completions():
 		return
 	var prefix = "#!"
 	var singleton = Singletons.CheckInstance.get_instance(sing_name)
-	singleton.register_tag(prefix, "remote", singleton.TagLocation.START)
-	singleton.register_tag(prefix, "ignore-remote", singleton.TagLocation.END)
-	singleton.register_tag(prefix, "dependency", singleton.TagLocation.END)
-	singleton.register_tag(prefix, "singleton-module", singleton.TagLocation.END)
-	singleton.register_tag(prefix, "strip-cast", singleton.TagLocation.START)
+	singleton.register_tag(prefix, DependencyTags.REPLACE, singleton.TagLocation.START)
+	singleton.register_tag(prefix, DependencyTags.SKIP_PARSE, singleton.TagLocation.START)
+	singleton.register_tag(prefix, DependencyTags.STRIP_CAST, singleton.TagLocation.START)
+	singleton.register_tag(prefix, DependencyTags.IGNORE, singleton.TagLocation.END)
+	singleton.register_tag(prefix, DependencyTags.TAG, singleton.TagLocation.END)
 
 
 func _register_syntax_tags():
@@ -108,20 +108,16 @@ func _register_syntax_tags():
 	if not Singletons.CheckInstance.check_valid(sing_name):
 		return
 	var singleton = Singletons.CheckInstance.get_instance(sing_name)
-	for tag in COMMENT_TAGS:
-		var prefix = tag.get_slice(" ", 0)
-		var tag_name = tag.get_slice(" ", 1)
-		singleton.register_comment_tag(prefix, tag_name)
+	for tag_name in DependencyTags.ALL:
+		singleton.register_comment_tag("#!", tag_name)
 
 func _unregister_syntax_tags():
 	var sing_name = "SyntaxPlusSingleton"
 	if not Singletons.CheckInstance.check_valid(sing_name):
 		return
 	var singleton = Singletons.CheckInstance.get_instance(sing_name)
-	for tag in COMMENT_TAGS:
-		var prefix = tag.get_slice(" ", 0)
-		var tag_name = tag.get_slice(" ", 1)
-		singleton.unregister_comment_tag(prefix, tag_name)
+	for tag_name in DependencyTags.ALL:
+		singleton.unregister_comment_tag("#!", tag_name)
 
 
 func _unregister_singletons():

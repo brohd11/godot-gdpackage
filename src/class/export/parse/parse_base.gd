@@ -17,7 +17,7 @@ const DepEdge = DepScanner.DepEdge
 const DepKind = DepEdge.Kind
 
 ## Edge kinds that mean "copy this file". LOAD is deliberately absent - a load() target
-## compiles without the file, so it is only pulled in when tagged "#! dependency".
+## compiles without the file, so it is only pulled in when tagged "#! gdp-dependency".
 const DEP_KINDS = [DepKind.PRELOAD, DepKind.EXTENDS_PATH, DepKind.EXT_RESOURCE, DepKind.TAG]
 
 const RES_LINE_TEMPLATE = '[ext_resource type="%s" path="%s" id="%s"]'
@@ -110,7 +110,7 @@ static func build_dep_scanner(class_map:Dictionary = {}, keep_dirs:Array = []):
 	scanner.class_map = class_map
 	scanner.resolve_access_paths = not class_map.is_empty()
 	scanner.collapse_keep_dirs = keep_dirs
-	scanner.ignore_line_tags = [DependencyTags.IGNORE_REMOTE]
+	scanner.ignore_line_tags = [DependencyTags.IGNORE]
 	scanner.add_tag_handler(DependencyTags.TAG, DependencyTags.dependency_dir())
 	return scanner
 
@@ -127,7 +127,7 @@ static func edges_to_dependencies(edges:Array, out:Dictionary) -> Dictionary:
 		if entry == null:
 			entry = {}
 			out[edge.to] = entry
-		# 'preload("x") #! dependency current' emits a PRELOAD and a TAG edge for the same
+		# 'preload("x") #! gdp-dependency current' emits a PRELOAD and a TAG edge for the same
 		# file, so the directory is only ever written - never cleared by whichever lands last.
 		var dependency_dir = edge.meta.get(DependencyTags.DIR_KEY, "")
 		if dependency_dir != "":

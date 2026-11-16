@@ -8,7 +8,7 @@ const DependencyTags = UtilsLocal.DependencyTags
 
 const TEXT_FILE_TYPES = ["gd", "tscn", "cs", "tres"]
 
-const PARSE_FOLDER_PATH = "./parse" #! ignore-remote
+const PARSE_FOLDER_PATH = "./parse" #! gdp-ignore
 
 var custom_text_types:Array = []
 
@@ -131,7 +131,7 @@ func get_dependencies(file_path:String, all_dependencies:Dictionary, scanned_fil
 			var data = file_deps.get(path)
 			var existing = all_dependencies.get(path, {})
 			var entry = {KeysData.DEPENDENT:current_file_path}
-			# a "#! dependency <destination>" placement has to survive a later plain reference to the
+			# a "#! gdp-dependency <destination>" placement has to survive a later plain reference to the
 			# same file, whichever order the two are crawled in
 			var dep_dir = data.get(KeysData.DEPENDENCY_DIR, existing.get(KeysData.DEPENDENCY_DIR))
 			if dep_dir != null:

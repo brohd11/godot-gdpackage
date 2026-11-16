@@ -4,7 +4,7 @@ const PLUGIN_EXPORTED_STRING = "const PLUGIN_EXPORTED = false"
 const PLUGIN_EXPORTED_REPLACE = "const PLUGIN_EXPORTED = true"
 
 const OUT_OF_PLUGIN_MSG = \
-"Out of plugin file path updated (if needed) but file not copied, if it should be, tag with \"#! dependency\" or ignore warning with \"#! ignore-remote\".
+"Out of plugin file path updated (if needed) but file not copied, if it should be, tag with \"#! gdp-dependency\" or ignore warning with \"#! gdp-ignore\".
  File: \"%s\", in \"%s\""
 
 var path_regex:RegEx
@@ -92,7 +92,7 @@ func post_export_edit_file(file_path:String, file_lines:Variant=null):
 
 	var extended_class_string = ""
 	var ignored_lines = DepScanner.ScanGD.ignored_line_numbers(
-		"\n".join(file_lines), [DependencyTags.IGNORE_REMOTE])
+		"\n".join(file_lines), [DependencyTags.IGNORE])
 	
 	var adjusted_file_lines = []
 	for line_index in file_lines.size():
@@ -292,7 +292,7 @@ func _file_reductions() -> Dictionary:
 	return out
 
 
-## The file being written holds this source: a `#! remote` stub is copied from its base script, and
+## The file being written holds this source: a `#! gdp-replace` stub is copied from its base script, and
 ## that is what the crawl planned against.
 func _content_path() -> String:
 	var path:String = export_obj.file_parser.current_file_path_parsing
@@ -504,7 +504,7 @@ func _reduction_preload_lines(reductions:Dictionary, declared_bindings:Dictionar
 
 
 func _update_paths(line:String):
-	if not DepScanner.ScanGD.ignored_line_numbers(line, [DependencyTags.IGNORE_REMOTE]).is_empty():
+	if not DepScanner.ScanGD.ignored_line_numbers(line, [DependencyTags.IGNORE]).is_empty():
 		return line
 	var current_parse_file = export_obj.file_parser.current_file_path_parsing
 	var comment_index = line.find("#")

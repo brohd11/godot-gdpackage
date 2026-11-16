@@ -1,7 +1,7 @@
 @tool
 extends EditorScript
 
-## Tests for gdpackage's `#! dependency` tag handler — the one handler the exporter
+## Tests for gdpackage's `#! gdp-dependency` tag handler — the one handler the exporter
 ## registers on DepMap.Scanner. The collector itself ships no handlers; the mechanism
 ## it provides is covered by dep_map's own suite.
 ##
@@ -71,10 +71,10 @@ static func _test_scan_end_to_end() -> void:
 	var asset = _w("dep_asset.gd", "extends RefCounted\n")
 	var src = _w("dep_src.gd", "\n".join([
 		# the shape the old elif chain swallowed: the preload branch won and dropped the dir
-		'const A = preload("%s") #! dependency current' % asset,
-		'#! dependency "%s" assets' % asset,
+		'const A = preload("%s") #! gdp-dependency current' % asset,
+		'#! gdp-dependency "%s" assets' % asset,
 		# prose about the tag must not fire it — the tag has to open the comment
-		'## tag it `#! dependency "res://nope.gd"` to pull a file in',
+		'## tag it `#! gdp-dependency "res://nope.gd"` to pull a file in',
 	]) + "\n")
 
 	var d = DepScanner.open(src)
@@ -96,14 +96,14 @@ static func _test_scan_end_to_end() -> void:
 
 static func _test_ignore_remote() -> void:
 	var asset = _w("ignored_asset.gd", "extends RefCounted\n")
-	var source = _w("ignored_source.gd", 'const Asset = preload("%s") #! ignore-remote\n' % asset)
+	var source = _w("ignored_source.gd", 'const Asset = preload("%s") #! gdp-ignore\n' % asset)
 	var scanner = DepScanner.open(source)
 	scanner.use_project_classes = false
-	scanner.ignore_line_tags = [DependencyTags.IGNORE_REMOTE]
+	scanner.ignore_line_tags = [DependencyTags.IGNORE]
 	scanner.add_tag_handler(DependencyTags.TAG, DependencyTags.dependency_dir())
-	_check("ignore-remote: preload not gathered", scanner.get_graph().has(asset), false)
-	_w("ignored_source.gd", 'const Asset = preload("%s") #! ignore-remote\n#! dependency "%s"\n' % [asset, asset])
-	_check("ignore-remote: another explicit dependency still gathers", scanner.get_graph().has(asset), true)
+	_check("gdp-ignore: preload not gathered", scanner.get_graph().has(asset), false)
+	_w("ignored_source.gd", 'const Asset = preload("%s") #! gdp-ignore\n#! gdp-dependency "%s"\n' % [asset, asset])
+	_check("gdp-ignore: another explicit dependency still gathers", scanner.get_graph().has(asset), true)
 
 
 static func _dir(value:String, raws:Array):
@@ -114,7 +114,7 @@ static func _dir(value:String, raws:Array):
 static func _ctx(value:String, raws:Array) -> Dictionary:
 	return {
 		"file_path": DIR + "ctx.gd",
-		"line": "#! dependency " + value,
+		"line": "#! gdp-dependency " + value,
 		"line_no": 1,
 		"tag": DependencyTags.TAG,
 		"value": value,
@@ -151,7 +151,7 @@ static func _rm_recursive(dir:String) -> void:
 	DirAccess.remove_absolute(dir)
 
 
-## File-level like `#! remote`: anywhere in the first HEADER_LINES lines, as a whole tag.
+## File-level like `#! gdp-replace`: anywhere in the first HEADER_LINES lines, as a whole tag.
 static func _test_skip_parse() -> void:
 	var tag = "#! " + DependencyTags.SKIP_PARSE
 	var filler = []

@@ -2,12 +2,18 @@
 ## add_tag_handler(), which documents the handler contract - a Callable taking one context
 ## dict and returning the metadata to hang on the edges it emits.
 
-## Tag name without the "#!" prefix, the form add_tag_handler() takes.
-const TAG = "dependency"
-const IGNORE_REMOTE = "ignore-remote"
-## File-level, like `#! remote`: within the first HEADER_LINES lines. The file is copied untouched,
-## its dependencies aren't gathered, and the release compile check doesn't load it.
-const SKIP_PARSE = "pe-skip-parse"
+## Every gdpackage tag name, without the "#!" prefix (the form add_tag_handler() takes).
+const TAG = "gdp-dependency"
+const IGNORE = "gdp-ignore"
+## File-level, within the first HEADER_LINES lines: an extending stub is replaced by its base script.
+const REPLACE = "gdp-replace"
+## Names whose type casts are stripped on export, e.g. a singleton's self-referencing const.
+const STRIP_CAST = "gdp-strip-cast"
+## File-level, like REPLACE. The file is copied untouched, its dependencies aren't gathered, and
+## the release compile check doesn't load it.
+const SKIP_PARSE = "gdp-skip-parse"
+## Every tag, for editor highlighting and completion.
+const ALL = [TAG, IGNORE, REPLACE, STRIP_CAST, SKIP_PARSE]
 const HEADER_LINES = 10
 ## The key the handler hangs on the edges it emits; parse_base maps it onto the export dict's
 ## own key. Naming it here rather than reaching for KeysData is what leaves this file
@@ -16,7 +22,7 @@ const DIR_KEY = "dir"
 const DECLARING_FILE_KEY = "declaring_file"
 
 
-## `#! dependency [destination]` optionally names the complete output file, including its name.
+## `#! gdp-dependency [destination]` optionally names the complete output file, including its name.
 ## Relative paths follow the declaring file; <package>/ anchors to the export's source root.
 ## "current" and "." keep the original filename beside the declaring file.
 static func dependency_dir() -> Callable:

@@ -1,5 +1,3 @@
-#! remote
-
 const UFile = preload("uid://bqfy5cvhth0m1") #! resolve UtilR.Files.UFile
 const GetFiles = preload("uid://2kt1rv8kqr3u") #! resolve UtilR.Files.GetFiles
 const UString = preload("uid://dce8d0wuh35gs") #! resolve UtilR.Strings.UString

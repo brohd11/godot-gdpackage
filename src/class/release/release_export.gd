@@ -165,7 +165,7 @@ static func _export_release(plugin_name:String, refresh:bool, local:bool, tree_d
 			failures.append("%s: missing reference %s" % [label, b])
 		var parse_skipped = CompileCheck.parse_skipped(plugin_dir)
 		if not parse_skipped.is_empty():
-			reporter.info("  %s: compile check skips %d pe-skip-parse file(s): %s" % [label, parse_skipped.size(), ", ".join(parse_skipped)])
+			reporter.info("  %s: compile check skips %d gdp-skip-parse file(s): %s" % [label, parse_skipped.size(), ", ".join(parse_skipped)])
 		var work_dir = cache.root.path_join("verify").path_join(label.replace("/", "_"))
 		var errs = CompileCheck.compile_errors(plugin_dir, exported.install_path, work_dir, verify_installs)
 		for e in errs:

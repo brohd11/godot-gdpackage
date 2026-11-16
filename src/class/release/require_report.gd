@@ -60,7 +60,7 @@ static func build(plugin_name:String) -> Dictionary:
 	# Every edge, so a file referenced from inside and outside its package still counts the outside.
 	var counted = {}
 	for edge in graph.edges:
-		# a load() target compiles without the file - same rule as the export, it needs "#! dependency"
+		# a load() target compiles without the file - same rule as the export, it needs "#! gdp-dependency"
 		if edge.to == "" or edge.kind == DepEdge.Kind.LOAD:
 			continue
 		var package = _package_dir(edge.to, cache)
@@ -196,7 +196,7 @@ static func _scan_files(roots:Array, class_map:Dictionary):
 	scanner.class_map = class_map
 	scanner.include_missing = false # a file not on disk can't be packaged
 	scanner.follow_load = false
-	scanner.ignore_line_tags = [DependencyTags.IGNORE_REMOTE]
+	scanner.ignore_line_tags = [DependencyTags.IGNORE]
 	scanner.ignore_dir_names = DepResolver.ExportIgnore.NAMES.duplicate()
 	scanner.add_tag_handler(DependencyTags.TAG, DependencyTags.dependency_dir())
 	return scanner.get_graph()

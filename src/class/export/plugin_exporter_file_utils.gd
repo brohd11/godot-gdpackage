@@ -321,23 +321,24 @@ static func write_new_uid(uid_path):
 	var f = FileAccess.open(uid_path, FileAccess.WRITE)
 	f.store_string(uid)
 
-static func is_remote_file(file_path:String):
+static func is_replace_file(file_path:String):
+	var marker = "#! " + DependencyTags.REPLACE
 	var file_access = FileAccess.open(file_path, FileAccess.READ)
 	var count = 0
-	while not file_access.eof_reached() and count < 10:
+	while not file_access.eof_reached() and count < DependencyTags.HEADER_LINES:
 		var line = file_access.get_line()
-		if line.begins_with("#! remote"):
+		if line.begins_with(marker):
 			return true
 		count += 1
 
 	return false
 
 
-## The path a `#! remote` file extends, resolved absolute, or "" if it does not extend one.
+## The path a `#! gdp-replace` file extends, resolved absolute, or "" if it does not extend one.
 ## Such a file is a stub standing in for the real script, which is what gets copied in its place.
-static func get_remote_extends_path(file_path:String, export_obj:ExportData.Export) -> String:
+static func get_replace_extends_path(file_path:String, export_obj:ExportData.Export) -> String:
 	var text = ScanGD.mask_ignored_lines(FileAccess.get_file_as_string(file_path),
-		[DependencyTags.IGNORE_REMOTE])
+		[DependencyTags.IGNORE])
 	for line:String in text.split("\n"):
 		var extend_idx = line.find("extends ") # ""
 		var class_idx = line.find("class ") # ""
@@ -388,7 +389,7 @@ static func _get_global_classes_in_text(file_as_string:String, global_class_dict
 		_global_class_regex.compile("\\b[a-zA-Z_]\\w*\\b")
 
 	var string_map = get_string_map(file_as_string)
-	var dependency_text = ScanGD.mask_ignored_lines(file_as_string, [DependencyTags.IGNORE_REMOTE])
+	var dependency_text = ScanGD.mask_ignored_lines(file_as_string, [DependencyTags.IGNORE])
 	var found_classes = {}
 	
 	var matches = _global_class_regex.search_all(file_as_string)

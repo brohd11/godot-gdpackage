@@ -148,7 +148,7 @@ static func get_required_files(_backport_target):
 		files.append(EI_BACKPORT_PATH)
 		files.append(BackportStaticVar.BACKPORT_STATIC_PATH)
 	
-	var script = preload("./backport.gd") #! ignore-remote
+	var script = preload("./backport.gd") #! gdp-ignore
 	for i in range(files.size()):
 		var file = files[i]
 		file = UFile.path_from_relative(file, script.resource_path)

@@ -51,7 +51,7 @@ static func _test_roots_and_recursion() -> void:
 	_check("direct dependency copied", export.files_to_copy.has(branch), true)
 	_check("transitive dependency copied", export.files_to_copy.has(leaf), true)
 	_check("load stays opt-in", export.files_to_copy.has(optional), false)
-	_w("plugin/plain.gd", 'var optional = load("%s") #! dependency current\n' % optional)
+	_w("plugin/plain.gd", 'var optional = load("%s") #! gdp-dependency current\n' % optional)
 	export = _crawl([root])
 	_check("tagged load copied", export.files_to_copy.has(optional), true)
 	_check("tag placement retained", export.adjusted_remote_paths.get(optional), DIR + "plugin/optional.gd")
@@ -65,10 +65,10 @@ static func _test_roots_and_recursion() -> void:
 
 static func _test_ignores_and_rewrites() -> void:
 	var leaf = _w("external/ignored.gd", "extends RefCounted\n")
-	var root = _w("plugin/ignored.gd", 'const Leaf = preload("%s") #! ignore-remote\n' % leaf)
+	var root = _w("plugin/ignored.gd", 'const Leaf = preload("%s") #! gdp-ignore\n' % leaf)
 	var export = _crawl([root])
 	_check("ignored preload absent", export.files_to_copy.has(leaf), false)
-	var ignored_line = 'const Leaf = preload("%s") #! ignore-remote' % leaf
+	var ignored_line = 'const Leaf = preload("%s") #! gdp-ignore' % leaf
 	_w("plugin/ignored.gd", ignored_line + '\nconst Other = preload("%s")\n' % leaf)
 	export = _crawl([root])
 	_check("unignored occurrence still copies", export.files_to_copy.has(leaf), true)
@@ -86,31 +86,31 @@ static func _test_ignores_and_rewrites() -> void:
 	var mixed = 'const P = preload("%s"); var a = load("%s"); var b = ResourceLoader.load("%s")' % [leaf, leaf, leaf]
 	_check("runtime loads stay absolute beside a relative preload", parser._update_paths(mixed),
 		'const P = preload("%s"); var a = load("%s"); var b = ResourceLoader.load("%s")' % [export.get_rel_or_absolute_path(target), target, target])
-	_w("plugin/ignored.gd", '#! ignore-remote\nconst Leaf = preload("%s")\n' % leaf)
+	_w("plugin/ignored.gd", '#! gdp-ignore\nconst Leaf = preload("%s")\n' % leaf)
 	_check("header does not disable file", _crawl([root]).files_to_copy.has(leaf), true)
 
 
 static func _test_classes_and_reduction() -> void:
 	var leaf = _w("external/class_leaf.gd", "extends RefCounted\n")
 	var hub = _w("external/hub.gd", 'const Leaf = preload("./class_leaf.gd")\n')
-	var root = _w("plugin/classes.gd", "var optional = Hub.Leaf #! ignore-remote\n")
+	var root = _w("plugin/classes.gd", "var optional = Hub.Leaf #! gdp-ignore\n")
 	var classes = {"Hub": hub}
 	var export = _crawl([root], classes, true)
 	_check("ignored class absent", export.global_classes_used.has("Hub"), false)
 	_check("ignored access target absent", export.files_to_copy.has(leaf), false)
 	_check("ignored reduction absent", export.access_reductions.get(root, {}).is_empty(), true)
-	_w("plugin/classes.gd", "var optional = Hub.Leaf #! ignore-remote\nvar included = Hub.Leaf\n")
+	_w("plugin/classes.gd", "var optional = Hub.Leaf #! gdp-ignore\nvar included = Hub.Leaf\n")
 	export = _crawl([root], classes, true)
 	_check("unignored reduction copied", export.files_to_copy.has(leaf), true)
 	_check("ignored use does not retain hub", export.files_to_copy.has(hub), false)
 	_check("unignored reduction recorded", export.access_reductions.get(root, {}).has("Hub.Leaf"), true)
-	_w("plugin/classes.gd", "var included = Hub\nvar optional = Hub #! ignore-remote\n")
+	_w("plugin/classes.gd", "var included = Hub\nvar optional = Hub #! gdp-ignore\n")
 	export = _crawl([root], classes)
 	_check("unignored global copied", export.files_to_copy.has(hub), true)
 	var data = FileUtils._get_global_classes_in_text(
-		"class_name Own extends Hub #! ignore-remote\n", {"Own": root, "Hub": hub})
+		"class_name Own extends Hub #! gdp-ignore\n", {"Own": root, "Hub": hub})
 	_check("ignored header preserves declaration", data, {"global_class_definition": "Own"})
-	var ignored_binding = 'const Hub = preload("%s") #! ignore-remote' % hub
+	var ignored_binding = 'const Hub = preload("%s") #! gdp-ignore' % hub
 	var lines = [ignored_binding, "var included = Hub"]
 	_w("plugin/classes.gd", "\n".join(lines))
 	export = _crawl([root], classes)
@@ -119,7 +119,7 @@ static func _test_classes_and_reduction() -> void:
 	var rendered = export.file_parser.default_parsers.gd.post_export_edit_file(root, lines)
 	_check("ignored binding not injected twice", "\n".join(rendered).count("const Hub ="), 1)
 	_check("ignored binding text preserved", rendered[0], ignored_binding)
-	_w("plugin/classes.gd", "var ignored = Hub #! ignore-remote\n")
+	_w("plugin/classes.gd", "var ignored = Hub #! gdp-ignore\n")
 	export = _crawl([root], classes)
 	export.class_renames = classes.duplicate()
 	export.file_parser.current_file_path_parsing = root
@@ -130,13 +130,13 @@ static func _test_classes_and_reduction() -> void:
 static func _test_replacement() -> void:
 	var leaf = _w("external/replacement_leaf.gd", "extends RefCounted\n")
 	var base = _w("external/base.gd", 'const Leaf = preload("./replacement_leaf.gd")\n')
-	var stub = _w("plugin/stub.gd", '#! remote\nextends "%s"\n' % base)
+	var stub = _w("plugin/stub.gd", '#! gdp-replace\nextends "%s"\n' % base)
 	var export = _crawl([stub])
 	_check("remote stub replacement retained", export.files_to_copy[stub].get(Keys.REPLACE_WITH), base)
 	_check("replacement base not copied twice", export.files_to_copy.has(base), false)
 	_check("replacement dependency copied", export.files_to_copy.has(leaf), true)
 	_check("base references redirected to stub", export.adjusted_remote_paths.get(base), stub)
-	_w("plugin/stub.gd", '#! remote\nextends "%s" #! ignore-remote\n' % base)
+	_w("plugin/stub.gd", '#! gdp-replace\nextends "%s" #! gdp-ignore\n' % base)
 	export = _crawl([stub])
 	_check("ignored extends does not replace", export.files_to_copy[stub].has(Keys.REPLACE_WITH), false)
 	_check("ignored extends does not gather", export.files_to_copy.has(base), false)
@@ -151,7 +151,7 @@ static func _test_uid_sidecars() -> void:
 	var global = _w("plugin/uid_global.gd", "class_name PEUIDGlobal extends RefCounted\n")
 	var external = ProjectSettings.globalize_path(_w("external/uid_external.gd", "extends RefCounted\n"))
 	var base = ProjectSettings.globalize_path(_w("external/uid_base.gd", "extends RefCounted\n"))
-	var stub = _w("plugin/uid_stub.gd", '#! remote\nextends "%s"\n' % base)
+	var stub = _w("plugin/uid_stub.gd", '#! gdp-replace\nextends "%s"\n' % base)
 	var backport = _w("external/uid_backport.gd", "extends RefCounted\n")
 	var root = _w("plugin/uid_root.gd", 'const Local = preload("./uid_local.gd")\nconst External = preload("%s")\nvar type = PEUIDGlobal\n' % external)
 	var originals = {}
@@ -189,14 +189,14 @@ static func _test_uid_sidecars() -> void:
 
 static func _test_scan_consumers() -> void:
 	var leaf = _w("external/consumer_leaf.gd", "extends RefCounted\n")
-	var root = _w("plugin/consumer.gd", 'const Leaf = preload("%s") #! ignore-remote\n' % leaf)
+	var root = _w("plugin/consumer.gd", 'const Leaf = preload("%s") #! gdp-ignore\n' % leaf)
 	var report = load("res://addons/gdpackage/src/class/release/require_report.gd")
 	_check("require ignores tagged edge", report._scan_files([root], {}).has(leaf), false)
 	var view = load("res://addons/gdpackage/src/gui/panels/dep_view.gd").new()
 	Engine.get_main_loop().root.add_child(view)
 	view.set_current_file(root)
 	_check("dependency view ignores tagged edge", view.dep_graph.get_dep_graph().has(leaf), false)
-	_w("plugin/consumer.gd", 'const Leaf = preload("%s") #! ignore-remote\nconst Other = preload("%s")\n' % [leaf, leaf])
+	_w("plugin/consumer.gd", 'const Leaf = preload("%s") #! gdp-ignore\nconst Other = preload("%s")\n' % [leaf, leaf])
 	_check("require retains other reference", report._scan_files([root], {}).has(leaf), true)
 	view.set_current_file(root)
 	_check("dependency view retains other reference", view.dep_graph.get_dep_graph().has(leaf), true)
@@ -210,7 +210,7 @@ static func _test_destinations() -> void:
 	var root = _w("plugin/main.gd", 'const Console = preload("%s")\n' % branch)
 	for renamed in [false, true]:
 		for destination in ["licenses/font/LICENSE", "./licenses/font/LICENSE", "../licenses/font/LICENSE", "current", ".", "<package>/licenses/font/LICENSE", DIR + "plugin/licenses/font/LICENSE"]:
-			var line = 'const LICENSE = "%s" #! dependency %s' % [asset, destination]
+			var line = 'const LICENSE = "%s" #! gdp-dependency %s' % [asset, destination]
 			_w("external/console.gd", line + "\n")
 			var export = _crawl([root], {}, false, renamed)
 			var declaring_dest:String = export.get_remote_file_local_path(branch)
@@ -242,20 +242,20 @@ static func _test_destinations() -> void:
 
 static func _test_destination_provenance() -> void:
 	var asset = _w("external/shared.txt", "shared\n")
-	var tagged = _w("plugin/nested/tagged.gd", 'const Asset = "%s" #! dependency nearby/shared.txt\n' % asset)
-	var plain = _w("plugin/plain_reference.gd", 'const Asset = "%s" #! dependency\n' % asset)
+	var tagged = _w("plugin/nested/tagged.gd", 'const Asset = "%s" #! gdp-dependency nearby/shared.txt\n' % asset)
+	var plain = _w("plugin/plain_reference.gd", 'const Asset = "%s" #! gdp-dependency\n' % asset)
 	for roots in [[tagged, plain], [plain, tagged]]:
 		var export = _crawl(roots)
 		_check("tag provenance survives plain reference", export.file_dependencies[asset].get(Keys.DEPENDENCY_SOURCE), tagged)
 		_check("placement independent of plain reference order", export.adjusted_remote_paths.get(asset), DIR + "plugin/nested/nearby/shared.txt")
-	var second = _w("plugin/second.gd", 'const Asset = "%s" #! dependency last/shared.txt\n' % asset)
+	var second = _w("plugin/second.gd", 'const Asset = "%s" #! gdp-dependency last/shared.txt\n' % asset)
 	_check("last explicit destination wins", _crawl([tagged, second]).adjusted_remote_paths.get(asset), DIR + "plugin/last/shared.txt")
 
 
 static func _test_relocated_declarations() -> void:
 	var asset = _w("external/relocated.txt", "relocated\n")
-	var base = _w("external/declaring_base.gd", 'const Asset = "%s" #! dependency current\n' % asset)
-	var stub = _w("plugin/sub/stub.gd", '#! remote\nextends "%s"\n' % base)
+	var base = _w("external/declaring_base.gd", 'const Asset = "%s" #! gdp-dependency current\n' % asset)
+	var stub = _w("plugin/sub/stub.gd", '#! gdp-replace\nextends "%s"\n' % base)
 	var export = _crawl([stub], {}, false, true)
 	_check("current follows replacement stub", export.adjusted_remote_paths.get(asset), "res://addons/pe_renamed/sub/relocated.txt")
 	var root = _w("plugin/global_user.gd", "var moved = Moved\n")
@@ -266,9 +266,9 @@ static func _test_relocated_declarations() -> void:
 
 static func _test_destination_chains() -> void:
 	var asset = _w("external/chained.txt", "chained\n")
-	var child = _w("external/child.gd", 'const Asset = "%s" #! dependency current\n' % asset)
-	var parent = _w("external/parent.gd", 'const Child = preload("%s") #! dependency children/renamed_child.gd\n' % child)
-	var root = _w("plugin/chain.gd", 'const Parent = preload("%s") #! dependency <package>/placed/renamed_parent.gd\n' % parent)
+	var child = _w("external/child.gd", 'const Asset = "%s" #! gdp-dependency current\n' % asset)
+	var parent = _w("external/parent.gd", 'const Child = preload("%s") #! gdp-dependency children/renamed_child.gd\n' % child)
+	var root = _w("plugin/chain.gd", 'const Parent = preload("%s") #! gdp-dependency <package>/placed/renamed_parent.gd\n' % parent)
 	var plain = _w("plugin/early.gd", 'const Child = preload("%s")\n' % child)
 	for roots in [[root, plain], [plain, root]]:
 		var export = _crawl(roots, {}, false, true)
@@ -282,14 +282,14 @@ static func _test_destination_chains() -> void:
 static func _test_invalid_destinations() -> void:
 	var asset = _w("external/invalid.txt", "invalid\n")
 	for destination in ["<package>/../escape", "../escape", "res://addons/gdpackage/licenses/source_font/LICENSE", "<package>/licenses/"]:
-		var root = _w("plugin/invalid.gd", 'const Asset = "%s" #! dependency %s\n' % [asset, destination])
+		var root = _w("plugin/invalid.gd", 'const Asset = "%s" #! gdp-dependency %s\n' % [asset, destination])
 		var export = _crawl([root])
 		_check("invalid destination aborts: " + destination, export.export_valid, false)
 		_check("invalid destination not copied: " + destination, export.files_to_copy.has(asset), false)
 		_check("invalid destination not rewritten: " + destination, export.adjusted_remote_paths.has(asset), false)
 	var a = _w("external/cycle_a.gd", "")
-	var b = _w("external/cycle_b.gd", 'const A = preload("%s") #! dependency current\n' % a)
-	_w("external/cycle_a.gd", 'const B = preload("%s") #! dependency current\n' % b)
+	var b = _w("external/cycle_b.gd", 'const A = preload("%s") #! gdp-dependency current\n' % a)
+	_w("external/cycle_a.gd", 'const B = preload("%s") #! gdp-dependency current\n' % b)
 	var root = _w("plugin/cycle.gd", 'const A = preload("%s")\n' % a)
 	var export = _crawl([root])
 	_check("placement cycle aborts", export.export_valid, false)

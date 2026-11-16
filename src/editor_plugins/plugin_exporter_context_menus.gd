@@ -7,13 +7,13 @@ const Params = PopupWrapper.ContextPlugin.ItemParams
 const UtilsRemote = preload("res://addons/gdpackage/src/class/utils_remote.gd")
 const UFile = UtilsRemote.UFile
 
-const DEPENDENCY_TAGS = ["#! dependency", "#! ignore-remote"]
+const DependencyTags = preload("res://addons/gdpackage/src/class/export/dependency_tags.gd")
+const DEPENDENCY_TAGS = ["#! " + DependencyTags.TAG, "#! " + DependencyTags.IGNORE]
 
-const SINGLETON_MODULE = "GDPackage/Singleton Module"
 const DEPENDENCY = "GDPackage/Dependency"
 const EXPORTED_FLAG = "GDPackage/Exported Flag"
 const BACKPORT_FLAG = "GDPackage/Backport Flag"
-const IGNORE_REMOTE = "GDPackage/Ignore Remote"
+const IGNORE = "GDPackage/Ignore"
 
 const STD_META = {
 	Params.PRIORITY: 1020,
@@ -30,12 +30,10 @@ func _get_menu_options(data) -> void:
 
 func _on_popup_pressed(data, item_name):
 	var script_editor:CodeEdit = PopupWrapper.Slots.code_edit(data)
-	if item_name == SINGLETON_MODULE:
-		add_singleton_module(script_editor)
-	elif item_name == DEPENDENCY:
+	if item_name == DEPENDENCY:
 		add_dep_tag(script_editor)
-	elif item_name == IGNORE_REMOTE:
-		add_ignore_remote(script_editor)
+	elif item_name == IGNORE:
+		add_ignore_tag(script_editor)
 	elif item_name == EXPORTED_FLAG:
 		add_exported_flag(script_editor)
 	elif item_name == BACKPORT_FLAG:
@@ -51,10 +49,6 @@ static func get_valid_items(script_editor:CodeEdit) -> Dictionary:
 		valid_items[EXPORTED_FLAG] = STD_META
 		valid_items[BACKPORT_FLAG] = STD_META
 	
-	if text.begins_with("class_name"):
-		if text.find("#! singleton-module") == -1:
-			valid_items[SINGLETON_MODULE] = STD_META
-	
 	if text.count('"') == 2:
 		var valid_dep = true
 		for tag in DEPENDENCY_TAGS:
@@ -66,27 +60,21 @@ static func get_valid_items(script_editor:CodeEdit) -> Dictionary:
 			valid_dep = false
 		if valid_dep:
 			valid_items[DEPENDENCY] = STD_META
-			valid_items[IGNORE_REMOTE] = STD_META
+			valid_items[IGNORE] = STD_META
 	
 	return valid_items
-
-static func add_singleton_module(script_editor):
-	var line = script_editor.get_caret_line()
-	var text = script_editor.get_line(line)
-	script_editor.set_caret_column(text.length())
-	script_editor.insert_text_at_caret(" #! singleton-module")
 
 static func add_dep_tag(script_editor):
 	var line = script_editor.get_caret_line()
 	var text = script_editor.get_line(line)
 	script_editor.set_caret_column(text.length())
-	script_editor.insert_text_at_caret(" #! dependency")
+	script_editor.insert_text_at_caret(" #! " + DependencyTags.TAG)
 
-static func add_ignore_remote(script_editor):
+static func add_ignore_tag(script_editor):
 	var line = script_editor.get_caret_line()
 	var text = script_editor.get_line(line)
 	script_editor.set_caret_column(text.length())
-	script_editor.insert_text_at_caret(" #! ignore-remote")
+	script_editor.insert_text_at_caret(" #! " + DependencyTags.IGNORE)
 
 static func add_exported_flag(script_editor):
 	var line = script_editor.get_caret_line()

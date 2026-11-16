@@ -103,7 +103,7 @@ static func _export() -> bool:
 
 
 ## What the export decided to place where: exclusions, transfers, relocation, tagged dependencies,
-## licenses and the singleton-module manifest.
+## licenses and the singleton_modules manifest.
 static func _test_layout() -> void:
 	var dir = _dirs.get(BASELINE, "")
 	if dir == "":
@@ -151,7 +151,9 @@ static func _test_layout() -> void:
 	_check("docs: source folder still excluded", _exists(dir, "export_ignore/doc/index.md"), false)
 	_check("docs: hidden folder reaches the zip", _zipped(dir, ".doc/index.md"), true)
 	_check("singleton module manifest", _has(dir, ".export_data", "PETSingletonMod"), true)
-	_check("singleton module version from tag", _has(dir, ".export_data", "0.2.0"), true)
+	var cfg = ConfigFile.new()
+	cfg.load("res://addons/%s/plugin.cfg" % PLUGIN)
+	_check("singleton module version from cfg", _has(dir, ".export_data", str(cfg.get_value("plugin", "version"))), true)
 	_check("min version written to cfg", _has(dir, "plugin.cfg", "minimum_version="), true)
 
 
@@ -193,13 +195,13 @@ static func _test_rewrites() -> void:
 			_has(_dirs[variant], "src/utils_remote.gd", "_lib/util_r/src//"), false)
 		_check("%s: untagged hub dependency copied" % variant,
 			_found(_dirs[variant], "/u_window.gd"), true)
-		_check("%s: preload hub needs no remote tag" % variant,
-			_has(_dirs[variant], "src/utils_remote.gd", "#! remote"), false)
-	_check("ignore-remote path untouched", _has(dir, "src/core/consumer.gd",
-		'"res://addons/_lib/util_r/LICENSE" #! ignore-remote'), true)
+		_check("%s: preload hub needs no replace tag" % variant,
+			_has(_dirs[variant], "src/utils_remote.gd", "#! gdp-replace"), false)
+	_check("gdp-ignore path untouched", _has(dir, "src/core/consumer.gd",
+		'"res://addons/_lib/util_r/LICENSE" #! gdp-ignore'), true)
 	_check("namespace directive stripped", _has(dir, "src/core/tags.gd", "#! namespace"), false)
 
-	_check("strip-cast: built-in name", _has(dir, "src/core/tags.gd",
+	_check("strip-cast: self const via file tag", _has(dir, "src/core/tags.gd",
 		"-> PE_STRIP_CAST_SCRIPT"), false)
 	_check("strip-cast: from strip_cast.txt", _has(dir, "src/core/tags.gd",
 		"-> PETStripped"), false)
@@ -210,7 +212,7 @@ static func _test_rewrites() -> void:
 	_check("strip-cast: dotted return stripped", _has(dir, "src/core/tags.gd", "static func dotted(value):"), true)
 	_check("strip-cast: dotted var stripped", _has(dir, "src/core/tags.gd", "var inner = value"), true)
 
-	# "#! remote" + extends: the stub is replaced wholesale by the script it extended.
+	# "#! gdp-replace" + extends: the stub is replaced wholesale by the script it extended.
 	_check("remote extends replaced by target", _has(dir, "src/remote_extends.gd",
 		"static func get_major_version"), true)
 	_check("remote extends stub gone", _has(dir, "src/remote_extends.gd",
@@ -385,7 +387,7 @@ static func _test_external() -> void:
 	_check("external: uid preload left as uid", _has(dir, "src/core/consumer.gd", 'preload("uid://leuersl04lis")'), true)
 	# package.cfg has no UID, so the tagged path is kept as written rather than vendored.
 	_check("external: tagged path untouched", _has(dir, "src/utils_remote.gd",
-		'"res://addons/_lib/yaml_parser/package.cfg" #! dependency'), true)
+		'"res://addons/_lib/yaml_parser/package.cfg" #! gdp-dependency'), true)
 
 	_check("external: spec added to the released require", _has(dir, "plugin.cfg", "godot-yaml-parser"), true)
 	_check("external: require merge stayed in its variant",
@@ -508,7 +510,7 @@ static func _test_every_reference_resolves() -> void:
 				continue
 			var text = FileAccess.get_file_as_string(file)
 			if ext == "gd":
-				text = ExportFileUtils.ScanGD.mask_ignored_lines(text, ["ignore-remote"])
+				text = ExportFileUtils.ScanGD.mask_ignored_lines(text, [UtilsLocal.DependencyTags.IGNORE])
 			var regex = preload_regex if ext == "gd" else ext_resource_regex
 			for m in regex.search_all(text):
 				var target:String = m.get_string(1)

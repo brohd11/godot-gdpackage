@@ -1,12 +1,5 @@
 extends "res://addons/gdpackage/src/class/export/parse/parse_base.gd"
 
-const CAST_STRIP_NAMES = [
-	"PE_STRIP_CAST_SCRIPT",
-	"ScriptListManager"
-]
-
-const STRIP_CAST_TAG = "#! strip-cast"
-
 var _cast_strip_names = []
 
 var _cast_strip_callables = []
@@ -18,9 +11,6 @@ func _init() -> void:
 func set_parse_settings(settings):
 	# Copied: what follows appends to this list, and the settings dictionary belongs to the caller.
 	_cast_strip_names = settings.get("strip_cast", []).duplicate()
-	for nm in CAST_STRIP_NAMES:
-		if not nm in _cast_strip_names:
-			_cast_strip_names.append(nm)
 	
 	for file in ExportFileUtils.get_global_singleton_module_scripts():
 		var script = load(file) as GDScript
@@ -39,19 +29,19 @@ func pre_export() -> void:
 	pass
 
 func post_export_edit_file(_file_path:String, file_lines:Variant=null) -> Variant:
+	# `#! gdp-strip-cast A, B` covers the whole file, wherever the tag sits.
+	var tag = "#! " + DependencyTags.STRIP_CAST
 	var local_strip_callables = []
+	for line:String in file_lines:
+		if not line.begins_with(tag):
+			continue
+		for n in line.get_slice(tag, 1).get_slice("#", 0).split(",", false):
+			if n.strip_edges() != "":
+				_build_single_regex(n.strip_edges(), local_strip_callables)
+	
 	for i:int in file_lines.size():
 		var line:String = file_lines[i]
-		if line.begins_with(STRIP_CAST_TAG):
-			var names_str = line.get_slice(STRIP_CAST_TAG, 1)
-			names_str = names_str.get_slice("#", 0)
-			if not names_str.contains(","):
-				_build_single_regex(names_str.strip_edges(), local_strip_callables)
-			else:
-				var names = names_str.split(",")
-				for n in names:
-					_build_single_regex(n.strip_edges(), local_strip_callables)
-			#print("MADE CALLS::", local_strip_callables)
+		if line.begins_with(tag):
 			continue
 		
 		for callable in _cast_strip_callables:

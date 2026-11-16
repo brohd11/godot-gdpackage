@@ -84,8 +84,8 @@ Passed to the file parsers. General keys sit beside the `parse_*` blocks, apply 
   - Chains are followed through aliases (`const UFile = UtilsRemote.UFile`) and stop at the deepest segment that names a script file, so a trailing inner class or enum is kept: `A.B.UProfile.TimeFunction` -> `B_UProfile.TimeFunction`.
   - A hub outside the source is skipped when every mention of it reduces. One bare use or method call keeps it, as does a subclass or another file still reaching through it.
   - A hub inside the plugin's source ships whole regardless, so a local const pointing at one is left as written.
-  - A file containing a `#! dependency` tag, or one a chain crosses, is never skipped. A const line carrying the tag is never removed.
-  - Dynamic reads (`get("UtilsRemote")`, `get_script_constant_map()`) cannot be seen. Put `#! ignore-remote` on the declaration to keep it, or set this to false.
+  - A file containing a `#! gdp-dependency` tag, or one a chain crosses, is never skipped. A const line carrying the tag is never removed.
+  - Dynamic reads (`get("UtilsRemote")`, `get_script_constant_map()`) cannot be seen. Put `#! gdp-ignore` on the declaration to keep it, or set this to false.
 - `backport_string_renames` - dictionary. Key is the method to replace, value is a dictionary with "replace":"replace_as" and "min_ver": backport_target as int.
 
 ##### parse_cs
