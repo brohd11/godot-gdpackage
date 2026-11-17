@@ -3,7 +3,8 @@ extends RefCounted
 ## Package-level dependency graph from declared requires, read as `require check` reads them.
 ## BFS from the root: a package sits in the first layer that reaches it, and the edge that found
 ## it is its tree edge. Nested requires come from each dep's local checkout, not the declared tag.
-## node.flags / node.files are empty here; a usage pass (RequireReport.build) is meant to fill them.
+## apply_usage() then lays RequireReport's crawl over it: the files each package contributes, and
+## drift between what is declared and what is used.
 
 const DepResolver = preload("res://addons/gdpackage/src/class/release/dep_resolver.gd")
 const RequireConsumers = preload("res://addons/gdpackage/src/class/release/require_consumers.gd")
@@ -14,8 +15,9 @@ const ADDONS = "res://addons/"
 
 
 ## {root, nodes: {id: node}, edges: [edge], errors}, nodes in BFS order.
-## node: {id, dir, name, layer, declared_tag, kind, local_version, resolved, requires, flags, files}
-## edge: {from, to, keys, tag, tree}
+## node: {id, dir, name, layer, declared_tag, kind, local_version, resolved, requires, flags, files,
+##   usage_loaded}
+## edge: {from, to, keys, tag, tree, state}; state is "", "undeclared" or "unused" (apply_usage)
 ## opts: include_tests (false); index (repo_id -> dir, else ExternalDeps.local_index());
 ## read_declared / read_version (Callable(dir)) to stub disk in tests.
 static func build(package_dir:String, opts:Dictionary = {}) -> Dictionary:
@@ -58,7 +60,7 @@ static func build(package_dir:String, opts:Dictionary = {}) -> Dictionary:
 					keys.append(key)
 					keys.sort_custom(func(a, b): return KEYS.find(a) < KEYS.find(b))
 				continue
-			var edge = {"from": node.id, "to": to, "keys": [key], "tag": req.dep.tag, "tree": false}
+			var edge = {"from": node.id, "to": to, "keys": [key], "tag": req.dep.tag, "tree": false, "state": ""}
 			if not nodes.has(to):
 				var dep_node = _node(to, _norm(index.get(to, "")), node.layer + 1, read_version)
 				dep_node.declared_tag = req.dep.tag
@@ -74,6 +76,74 @@ static func build(package_dir:String, opts:Dictionary = {}) -> Dictionary:
 	return out
 
 
+## Lays a RequireReport.build() result over `graph`, in place. A used package with no declared edge
+## gets an "undeclared" edge, and a node of its own if the graph never reached it. "unused" is only
+## judged on the root, as RequireReport does; compile-only requires are never crawled, so are skipped.
+static func apply_usage(graph:Dictionary, report:Dictionary) -> void:
+	var nodes:Dictionary = graph.nodes
+	var by_dir = {}
+	for id in nodes:
+		if nodes[id].dir != "":
+			by_dir[nodes[id].dir] = id
+	var edge_index = {}
+	for edge in graph.edges:
+		edge_index[edge.from + "|" + edge.to] = edge
+
+	var files = {} # node id -> {path: true}
+	var root = nodes[graph.root]
+	for path in report.get("files", []):
+		_add_file(files, root.id, path)
+
+	for from_dir in report.get("groups", {}):
+		var from_id = by_dir.get(_norm(from_dir), "")
+		for row in report.groups[from_dir].rows:
+			var dir = _norm(row.dir)
+			var to_id = by_dir.get(dir, "")
+			if to_id == "" and nodes.has(row.id):
+				to_id = row.id
+			if to_id == "":
+				if from_id == "":
+					continue # used only from outside any package in the graph: nowhere to hang it
+				to_id = row.id if row.id != "" else dir
+				var added = _node(to_id, dir, nodes[from_id].layer + 1, func(d): return _local_version(d))
+				added.usage_loaded = true
+				nodes[to_id] = added
+				by_dir[dir] = to_id
+			for ref in row.refs:
+				_add_file(files, to_id, ref.to)
+			if from_id == "" or from_id == to_id or edge_index.has(from_id + "|" + to_id):
+				continue
+			var edge = {"from": from_id, "to": to_id, "keys": [], "tag": "", "tree": false, "state": "undeclared"}
+			graph.edges.append(edge)
+			edge_index[from_id + "|" + to_id] = edge
+			_flag(nodes[to_id], "undeclared")
+
+	for id in report.get("unused", {}).get(report.get("target", ""), []):
+		var edge = edge_index.get(root.id + "|" + id)
+		if edge == null or not "build" in edge.keys:
+			continue
+		edge.state = "unused"
+		_flag(nodes[id], "unused")
+
+	for id in nodes:
+		var node = nodes[id]
+		node.usage_loaded = true
+		var paths = files.get(id, {}).keys()
+		paths.sort()
+		node.files = paths
+
+
+static func _add_file(files:Dictionary, id:String, path:String) -> void:
+	if not files.has(id):
+		files[id] = {}
+	files[id][path] = true
+
+
+static func _flag(node:Dictionary, flag:String) -> void:
+	if not flag in node.flags:
+		node.flags.append(flag)
+
+
 ## 1 local checkout ahead of the declared tag, -1 behind, 0 same or not comparable.
 static func version_state(node:Dictionary) -> int:
 	if node.local_version == "" or node.declared_tag == "":
@@ -87,7 +157,7 @@ static func _node(id:String, dir:String, layer:int, read_version:Callable) -> Di
 	return {"id": id, "dir": dir, "name": display_name(dir) if resolved else id, "layer": layer,
 		"declared_tag": "", "kind": DepResolver.KIND_SOURCE,
 		"local_version": String(read_version.call(dir)) if resolved else "",
-		"resolved": resolved, "requires": [], "flags": [], "files": []}
+		"resolved": resolved, "requires": [], "flags": [], "files": [], "usage_loaded": false}
 
 
 ## Relative to res://addons with _lib/ dropped, so nested libs stay apart (gdpackage/spec).

@@ -17,6 +17,8 @@ static func run_tests() -> Dictionary:
 	_test_tests_opt()
 	_test_root_in_index()
 	_test_version_state()
+	_test_usage()
+	_test_usage_compile_only()
 	var output:Array[String] = ["package_graph: %d passed, %d failed" % [_passed, _failures.size()]]
 	for failure in _failures:
 		output.append("  FAIL  " + failure)
@@ -98,6 +100,52 @@ static func _test_version_state() -> void:
 	_check("no tag", PackageGraph.version_state(node), 0)
 	_check("display_name", ["res://addons/_lib/gdpackage/spec", "res://addons/gdpackage", "user://x/lib"].map(PackageGraph.display_name),
 		["gdpackage/spec", "gdpackage", "lib"])
+
+
+static func _report() -> Dictionary:
+	var a = _id("o/a")
+	return {"target": "res://r", "files": ["res://r/main.gd", "res://r/b.gd"], "unused": {"res://r": [_id("o/b")]},
+		"groups": {
+			"res://r/": {"rows": [_row("res://a", a, ["res://a/2.gd", "res://a/1.gd"]), _row("res://c", _id("o/c"), ["res://c/1.gd"])]},
+			"res://b": {"rows": [_row("res://a", a, ["res://a/1.gd", "res://a/3.gd"])]},
+			"res://c": {"rows": [_row("res://z", _id("o/z"), ["res://z/z.gd"])]},
+			"": {"rows": [_row("res://a", a, ["res://a/4.gd"])]},
+		}}
+
+
+static func _row(dir:String, id:String, tos:Array) -> Dictionary:
+	return {"dir": dir, "id": id, "refs": tos.map(func(t): return {"to": t})}
+
+
+static func _test_usage() -> void:
+	var g = PackageGraph.build("res://r", _opts())
+	var before = _edges(g, true) + _edges(g, false)
+	PackageGraph.apply_usage(g, _report())
+	var a = _id("o/a"); var b = _id("o/b"); var c = _id("o/c"); var z = _id("o/z")
+	_check("root files from the crawl roots", g.nodes["res://r"].files, ["res://r/b.gd", "res://r/main.gd"])
+	_check("files unioned over every consumer, sorted", g.nodes[a].files, ["res://a/1.gd", "res://a/2.gd", "res://a/3.gd", "res://a/4.gd"])
+	_check("declared edges keep state", g.edges.filter(func(e): return [e.from, e.to] in before and e.state == "undeclared"), [])
+	var undeclared = g.edges.filter(func(e): return e.state == "undeclared").map(func(e): return [e.from, e.to])
+	_check("undeclared edges, none from outside a package", undeclared, [["res://r", c], [b, a], [c, z]])
+	_check("undeclared package gets a node one layer past its user", [g.nodes[z].layer, g.nodes[z].dir, g.nodes[z].files], [3, "res://z", ["res://z/z.gd"]])
+	_check("undeclared flags", [g.nodes[c].flags, g.nodes[a].flags, g.nodes[z].flags], [["undeclared"], ["undeclared"], ["undeclared"]])
+	var unused = g.edges.filter(func(e): return e.state == "unused").map(func(e): return [e.from, e.to])
+	_check("unused judged on the root edge", [unused, g.nodes[b].flags], [[["res://r", b]], ["unused"]])
+	_check("usage_loaded everywhere, x has no files", [g.nodes.values().all(func(n): return n.usage_loaded), g.nodes[_id("o/x")].files], [true, []])
+
+	var clean = PackageGraph.build("res://r", _opts())
+	PackageGraph.apply_usage(clean, {"target": "res://r", "files": [], "unused": {},
+		"groups": {"res://r": {"rows": [_row("res://a", a, ["res://a/1.gd"])]}}})
+	_check("no drift when use matches declared", [clean.edges.all(func(e): return e.state == ""), clean.nodes.values().all(func(n): return n.flags.is_empty())], [true, true])
+
+
+static func _test_usage_compile_only() -> void:
+	var fixture = _fixture()
+	fixture["res://r"].append(_req("o/t", "compile"))
+	var g = PackageGraph.build("res://r", _opts({"read_declared": func(dir): return {"requires": fixture.get(dir, []), "error": ""}}))
+	PackageGraph.apply_usage(g, {"target": "res://r", "files": [], "groups": {}, "unused": {"res://r": [_id("o/t")]}})
+	var edge = g.edges.filter(func(e): return e.to == _id("o/t"))[0]
+	_check("compile-only require never flagged unused", [edge.keys, edge.state, g.nodes[_id("o/t")].flags], [["compile"], "", []])
 
 
 static func _req(spec:String, key:String = "build") -> Dictionary:

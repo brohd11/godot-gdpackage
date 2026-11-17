@@ -8,6 +8,7 @@ const DepGraphUI = UtilsRemote.DepGraphUI
 const DependencyTags = UtilsLocal.DependencyTags
 const PackageGraph = preload("res://addons/gdpackage/src/class/package_graph.gd")
 const PackageGraphView = preload("res://addons/gdpackage/src/gui/panels/package_graph_view.gd")
+const RequireReport = preload("res://addons/gdpackage/src/class/release/require_report.gd")
 
 enum ViewMode { FILES_TREE, FILES_ALL, PACKAGES }
 const VIEW_LABELS = {"Files - Tree": ViewMode.FILES_TREE, "Files - All": ViewMode.FILES_ALL, "Packages": ViewMode.PACKAGES}
@@ -17,6 +18,7 @@ signal package_drill_in(dir:String)
 
 var dep_graph:DepGraphUI
 var package_graph:PackageGraphView
+var status_label:Label
 
 var view_mode:ViewMode = ViewMode.FILES_TREE
 var current_files:Array = []
@@ -30,11 +32,21 @@ var package_dir:String = ""
 var include_test_requires:bool = false
 var _package_index = null # repo_id -> dir; null until first needed, since it runs git per repo
 var _package_graph_dirty:bool = true
+## Files per package come from RequireReport: the export's dependency crawl over the source
+## (ExportData, nothing written). Seconds long, so opt-in.
+var show_package_files:bool = false
+var _usage_report = null # RequireReport.build() for package_dir; null until first needed
+var _crawling:bool = false
 
 func _init() -> void:
 	name = "Dependency View"
 
 func _ready() -> void:
+	status_label = Label.new()
+	status_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	status_label.hide()
+	add_child(status_label)
+
 	dep_graph = DepGraphUI.new()
 	add_child(dep_graph)
 	UControl.expand(dep_graph)
@@ -44,6 +56,7 @@ func _ready() -> void:
 	add_child(package_graph)
 	UControl.expand(package_graph)
 	package_graph.package_activated.connect(package_drill_in.emit)
+	package_graph.file_activated.connect(set_current_file)
 	_apply_view_mode()
 
 func set_current_file(path:String):
@@ -73,6 +86,7 @@ func focus_package(dir:String) -> bool:
 
 func set_package_dir(dir:String):
 	package_dir = dir
+	_usage_report = null
 	_package_graph_dirty = true
 	if view_mode == ViewMode.PACKAGES:
 		_create_package_graph()
@@ -80,6 +94,7 @@ func set_package_dir(dir:String):
 func clear():
 	dep_graph.clear_graph()
 	package_graph.clear_graph()
+	_usage_report = null
 	_package_graph_dirty = true
 
 func set_view_mode(mode:ViewMode):
@@ -118,7 +133,33 @@ func _create_package_graph():
 	var data = PackageGraph.build(package_dir, {"index": _package_index, "include_tests": include_test_requires})
 	for error in data.errors:
 		push_warning("GDPackage: " + error)
+	if show_package_files:
+		if _usage_report == null:
+			if _crawling:
+				return # the crawl in flight rebuilds when it lands
+			await _crawl_usage()
+			# rebuild from current settings: the package or toggles may have changed meanwhile
+			_create_package_graph()
+			return
+		PackageGraph.apply_usage(data, _usage_report)
 	package_graph.set_graph(data)
+
+## The crawl blocks the editor; the label gets two frames to paint first.
+func _crawl_usage():
+	_crawling = true
+	var dir = package_dir
+	status_label.text = "Crawling %s dependencies for used files..." % PackageGraph.display_name(dir)
+	status_label.show()
+	await get_tree().process_frame
+	await get_tree().process_frame
+	var report = RequireReport.build(dir)
+	status_label.hide()
+	_crawling = false
+	if dir != package_dir:
+		return
+	for error in report.errors:
+		push_warning("GDPackage: " + error)
+	_usage_report = report
 
 func get_options() -> Options:
 	var options = Options.new()
@@ -126,6 +167,7 @@ func get_options() -> Options:
 	if view_mode == ViewMode.PACKAGES:
 		options.add_radio_option("Show All Edges", _toggle_all_edges, package_graph.show_all_edges)
 		options.add_radio_option("Include Test Requires", _toggle_test_requires, include_test_requires)
+		options.add_radio_option("Show Used Files (slow crawl)", _toggle_package_files, show_package_files)
 		options.add_option("Refresh Packages", _refresh_packages)
 	elif collapse_pass_through:
 		var label = "Hide Pass-Through Files" if show_pass_through else "Show Pass-Through Files"
@@ -143,7 +185,12 @@ func _toggle_test_requires():
 	include_test_requires = not include_test_requires
 	_create_package_graph()
 
-## Re-runs the repo index too, for a checkout added or re-pointed since the first build.
+func _toggle_package_files():
+	show_package_files = not show_package_files
+	_create_package_graph()
+
+## Re-runs the repo index and the file crawl too, for a checkout added or re-pointed since the first build.
 func _refresh_packages():
 	_package_index = null
+	_usage_report = null
 	_create_package_graph()
