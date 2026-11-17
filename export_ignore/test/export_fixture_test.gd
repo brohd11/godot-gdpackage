@@ -152,7 +152,8 @@ static func _test_layout() -> void:
 	var cfg = ConfigFile.new()
 	cfg.load("res://addons/%s/plugin.cfg" % PLUGIN)
 	_check("singleton module version from cfg", _has(dir, ".export_data", str(cfg.get_value("plugin", "version"))), true)
-	_check("min version written to cfg", _has(dir, "plugin.cfg", "minimum_version="), true)
+	_check("min version written to cfg", _has(dir, "plugin.cfg", "minimum_engine_version="), true)
+	_check("legacy min version key not written", _has(dir, "plugin.cfg", "\nminimum_version="), false)
 
 
 ## The per-line rewrites every export performs.
