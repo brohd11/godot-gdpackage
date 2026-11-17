@@ -60,6 +60,14 @@ A standard Godot plugin/project structure also works if there is only 1 folder i
 
 An example of a [plugin.cfg](./plugin.cfg) that declares dependencies.
 
+The package fields are:
+- `name`
+- `version`
+- `require`
+- `path`
+- `url` (optional)
+- `minimum_engine_version` (optional)
+
 ## Quick Start
 
 Enable GDPackage in **Project Settings -> Plugins**. For an existing plugin at `res://addons/my_plugin`, you can initialize, open the gui, and export:
@@ -70,9 +78,14 @@ Enable GDPackage in **Project Settings -> Plugins**. For an existing plugin at `
 gdpackage init plugin my_plugin
 gdpackage open gui my_plugin
 gdpackage export my_plugin
+
+gdpackage ci test_workflow my_plugin
+gdpackage ci release_workflow my_plugin
 ```
 
 The `init` command creates `_export_ignore/export.yml`, where build/release settings are stored. See [Setup](export_ignore/doc/setup.md) for package creation and GUI instructions.
+
+Test and release workflows can be generated from the console. They point at the gdpackage repo, so they get updates to the workflow without needing to be updated in the package.
 
 ## Other plugins
 - [Namespace](https://github.com/brohd11/godot-namespace.git) recognizes the package format and will build its global classes within your package.
