@@ -103,21 +103,6 @@ var export_file_data:Dictionary = {}
 
 var export_valid:bool = true
 
-func get_backport_files(backport_target):
-	var required_backport_files = _UtilsLocal.Backport.get_required_files(backport_target)
-	
-	for file in required_backport_files:
-		if file in source_files:
-			continue
-		unique_files.append(file)
-		var export_path = get_remote_file_local_path(file)
-		other_transfers.append({
-			_KeysData.FROM: file,
-			_KeysData.TO: export_path,
-			_KeysData.CUSTOM_TREE_MESSAGE:" <- (Backport Dependency)"
-		})
-
-
 func get_valid_files_for_transfer():
 	test_files.class_paths = export_data.class_list.duplicate()
 	test_files.index_classes(source_files)

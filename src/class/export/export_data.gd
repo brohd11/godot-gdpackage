@@ -200,9 +200,6 @@ func _init(export_config_path, _reporter = null):
 		export_obj.parser_overide_settings = overide_settings
 		export_obj.file_parser.set_parser_settings(overide_settings)
 		
-		var backport_target = parse_gd_settings.get("backport_target", 100)
-		export_obj.get_backport_files(backport_target)
-		
 		export_obj.get_valid_files_for_transfer()
 		export_obj.sort_valid_files()
 		export_obj.get_global_classes_used_in_valid_files()

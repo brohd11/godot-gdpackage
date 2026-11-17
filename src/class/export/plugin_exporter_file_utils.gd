@@ -566,5 +566,5 @@ class KeysConfig:
 
 		const PARSER_SETTINGS = "parser_settings"
 		# the per-parser keys inside these (class_rename_ignore, use_relative_paths,
-		# reduce_access_paths, backport_target, ...) are still read as string literals
+		# reduce_access_paths, ...) are still read as string literals
 		const PARSER_OVERIDE_SETTINGS = "parser_overide_settings"

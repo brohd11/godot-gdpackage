@@ -19,7 +19,6 @@ options:
     parse_cs: {}
     parse_gd:
       class_rename_ignore: []
-      backport_string_renames: {}
     parse_tscn: {}
     parse_tres: {}
 plugin_folder: "GDPackage/GDPackage{{version=gdpackage}}"

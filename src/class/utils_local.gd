@@ -19,5 +19,3 @@ const ParseTres = preload("res://addons/gdpackage/src/class/export/parse/parse_t
 
 const ExportIgnore = preload("uid://c4pt5djyuf8c") #! resolve GDPackageSpec.ExportIgnore
 
-const Backport = preload("res://addons/gdpackage/src/class/export/parse/gd/backport.gd")
-const CompatData = preload("res://addons/gdpackage/src/class/export/backport/compat_data.gd")

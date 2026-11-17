@@ -90,26 +90,3 @@ static func affine(value: int, scale: int) -> int:
 - `#! inline; substitute` allows argument substitution that can skip, repeat, or reorder effectful arguments. Use it only when the callers can tolerate that.
 
 For export validation commands, see [GDPackage development checks](testing.md#gdpackage-development-checks).
-
-## Backport - **Deprecated**
-
-Set `options.parser_settings.backport_target` in `export.yml` to the Godot 4 minor version to target. `3` targets Godot 4.3.x:
-
-```yaml
-options:
-  parser_settings:
-    backport_target: 3
-```
-
-The default `100` disables backports. Transformations depend on the target: static variables can stay for 4.3 but are rewritten for 4.0, while EditorContextMenuPlugin needs a compatibility implementation.
-
-Covered:
-
-- EditorInterface singleton access and EditorContextMenuPlugin compatibility classes.
-- Static variables converted to singleton storage with static getters and setters.
-- Typed loop variables and dictionaries, raw strings, `X is not Y`, and `@abstract` syntax.
-- Selected methods recreated in compatibility classes, and DPITexture resources converted to SVG.
-
-It does not cover every API or property change. Use [`gdpackage min_version`](commands.md#compatibility-inspection) to inspect exported files, and test on the target engine.
-
-To branch on the exported target in code, declare `const BACKPORTED = 100`. The exporter replaces it with the configured minor version when backporting.

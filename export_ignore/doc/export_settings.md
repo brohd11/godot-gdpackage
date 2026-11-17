@@ -72,11 +72,9 @@ Passed to the file parsers. General keys sit beside the `parse_*` blocks, apply 
 ##### general - applies to all extensions
 
 - `use_relative_paths` - uses paths relative to the current file for preloads and other script-relative references. Literal runtime `load()` paths stay absolute, because Godot resolves them from the project root.
-- `backport_target` - Godot 4 minor version as an integer, e.g. `3` for 4.3.x. Default `100` disables backports. See [Backporting](optimization.md#backport---deprecated).
 
 ##### parse_gd
 
-- `replace_editor_interface` - replaces direct `EditorInterface` access with `Engine.get_singleton(&"EditorInterface")`.
 - `class_rename_ignore` - array of class names to leave global instead of stripping and preloading.
 - `reduce_access_paths` - bool, default true. Rewrites dotted const chains to direct preloads, so a script ships with what it needs and not the container it went through.
   - `ALibRuntime.Utils.UFile` becomes `Utils_UFile`, with `const Utils_UFile = preload("...")` added unless the script already has a const for that file.
@@ -86,7 +84,6 @@ Passed to the file parsers. General keys sit beside the `parse_*` blocks, apply 
   - A hub inside the plugin's source ships whole regardless, so a local const pointing at one is left as written.
   - A file containing a `#! gdp-dependency` tag, or one a chain crosses, is never skipped. A const line carrying the tag is never removed.
   - Dynamic reads (`get("UtilsRemote")`, `get_script_constant_map()`) cannot be seen. Put `#! gdp-ignore` on the declaration to keep it, or set this to false.
-- `backport_string_renames` - dictionary. Key is the method to replace, value is a dictionary with "replace":"replace_as" and "min_ver": backport_target as int.
 
 ##### parse_cs
 
@@ -109,7 +106,7 @@ options:
 ```
 
 - A config that omits the block or its `enabled` key has the optimizer enabled. Other omitted keys take the defaults above.
-- `enabled: false` bypasses the whole optimizer, including validation of the other optimizer keys. Packaging, path relocation, and backporting still run.
+- `enabled: false` bypasses the whole optimizer, including validation of the other optimizer keys. Packaging and path relocation still run.
 - When enabled, an invalid optimizer key or value invalidates the export before files are copied.
 - `struct_mode` and `inline_mode` select tagged definitions, discover eligible ones automatically, or turn the pass off.
 - `aggressive` admits reference/Variant types and relaxes inline conversions and lifetimes. Struct usage checks remain.

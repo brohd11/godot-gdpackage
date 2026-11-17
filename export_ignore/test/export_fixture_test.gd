@@ -3,7 +3,7 @@ extends EditorScript
 
 ## End-to-end coverage of the exporter, driven by the addons/plugin_exporter_test fixture plugin.
 ## That plugin's source is written to trip every feature worth checking, and its config exports it
-## six ways - baseline, reduced, relative, renamed, backported, external - so the same fixtures have
+## five ways - baseline, reduced, relative, renamed, external - so the same fixtures have
 ## to come out correct under settings that are mutually exclusive with each other.
 ##
 ## Needs the editor: an export reaches for EditorInterface. Test CI runs it in a headless editor,
@@ -25,7 +25,6 @@ const BASELINE = "plugin-exporter-test"
 const REDUCED = "pet-reduced"
 const RELATIVE = "pet-relative"
 const RENAMED = "pet-renamed"
-const BACKPORT = "pet-backport"
 const EXTERNAL = "pet-external"
 
 static var _failures:Array[String] = []
@@ -52,7 +51,6 @@ static func run_tests() -> Dictionary:
 		_test_reduction()
 		_test_relative()
 		_test_renamed()
-		_test_backport()
 		_test_external()
 		_test_struct()
 		_test_optimizer()
@@ -353,18 +351,6 @@ static func _test_renamed() -> void:
 	_check("renamed: docs landed inside the export", _exists(dir, ".doc/index.md"), true)
 
 
-static func _test_backport() -> void:
-	var dir = _dirs.get(BACKPORT, "")
-	if dir == "":
-		return
-
-	# The fixture's docstring deliberately avoids naming the annotation, so the only occurrence
-	# would be the real one on line 1.
-	_check("backport: @abstract stripped", _has(dir, "src/core/backport_bits.gd", "@abstract"), false)
-	_check("backport: EditorInterface replaced", _has(dir, "src/core/backport_bits.gd",
-		'Engine.get_singleton(&"EditorInterface")'), true)
-
-
 ## `external`: yaml_parser is referenced by class name, uid preload and a tagged path, and none of it
 ## may be bundled or rewritten, while util_r beside it still is.
 static func _test_external() -> void:
@@ -467,14 +453,14 @@ static func _test_optimizer() -> void:
 ## adopting an earlier one's setting. The per-variant tests above would barely notice: they only
 ## assert a setting is on where it belongs, never that it is off everywhere else.
 static func _test_no_cross_contamination() -> void:
-	for variant in [BASELINE, RELATIVE, RENAMED, BACKPORT, EXTERNAL]:
+	for variant in [BASELINE, RELATIVE, RENAMED, EXTERNAL]:
 		var dir = _dirs.get(variant, "")
 		if dir == "":
 			continue
 		# Reduction is variant 2's alone; with it off the pass-through hub is still copied.
 		_check("%s: reduction did not leak in" % variant, _found(dir, "_ns/util_r.gd"), true)
 
-	for variant in [BASELINE, REDUCED, RENAMED, BACKPORT, EXTERNAL]:
+	for variant in [BASELINE, REDUCED, RENAMED, EXTERNAL]:
 		var dir = _dirs.get(variant, "")
 		if dir == "":
 			continue
@@ -482,14 +468,13 @@ static func _test_no_cross_contamination() -> void:
 		_check("%s: relative paths did not leak in" % variant, _has(dir, "src/core/consumer.gd",
 			'preload("res://'), true)
 
-	for variant in [BASELINE, REDUCED, RELATIVE, RENAMED, EXTERNAL]:
+	for variant in [BASELINE, REDUCED, RELATIVE, RENAMED]:
 		var dir = _dirs.get(variant, "")
 		if dir == "":
 			continue
-		# The backport is variant 5's alone, and it is the last entry - so this catches a leak
-		# running the other way, from a later export into an earlier one.
-		_check("%s: backport did not leak in" % variant, _has(dir, "src/core/backport_bits.gd",
-			"@abstract"), true)
+		# External is the last entry, so this catches a leak running the other way, from a later
+		# export into an earlier one.
+		_check("%s: external did not leak in" % variant, _found(dir, "_lib/yaml_parser/yaml.gd"), true)
 
 
 ## The check that catches what the targeted ones miss: after every rewrite, does each reference

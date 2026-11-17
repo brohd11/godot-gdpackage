@@ -9,7 +9,6 @@ const URegex = UtilsRemote.URegex
 const UClassDetail = UtilsRemote.UClassDetail
 const ExportFileUtils = UtilsLocal.ExportFileUtils
 const KeysData = ExportFileUtils.KeysData
-const CompatData = UtilsLocal.CompatData
 const DependencyTags = UtilsLocal.DependencyTags
 
 const DepScanner = UtilsRemote.DepScanner
@@ -218,28 +217,6 @@ func _string_safe_regex_sub(line: String, processor: Callable) -> String:
 	return line
 
 
-func file_extends_class(file_lines:Array, backport_target:=100) -> bool:
-	var global_class_names = export_obj.export_data.class_list.keys()
-	var extends_class = false
-	for i in range(file_lines.size()):
-		var line = file_lines[i]
-		
-		var _class = get_extended_class(line)
-		if _class:
-			if _class.find('"') > -1:
-				extends_class = true
-			else:
-				if _class in global_class_names:
-					extends_class = true
-				elif _class not in ClassDB.get_class_list():
-					extends_class = true
-				if backport_target < 4:
-					if _class in CompatData.COMPAT_CLASSES:
-						extends_class = true
-				
-				break
-	return extends_class
-
 static func _check_for_comment(line, check_array) -> bool:
 	if check_array is String:
 		check_array = [check_array]
@@ -292,18 +269,6 @@ static func get_preload_path(line):
 	if _match:
 		var file_path = _match.get_string(2)
 		return file_path
-
-static func _construct_pre(class_nm:String, path:String):
-	var c = "const"
-	var p = 'preload("%s")' % path
-	var constructed = "%s %s = %s" % [c, class_nm, p]
-	return constructed
-
-static func get_extended_class(line:String):
-	if not _check_text_valid(line, "extends"):
-		return
-	var _class = line.get_slice("extends ", 1).strip_edges()
-	return _class
 
 static func line_has_tag(line:String, tag:String, prefix:="#!") -> bool:
 	var pre_idx = line.find(prefix)

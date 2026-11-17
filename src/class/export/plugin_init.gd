@@ -363,15 +363,12 @@ class PluginExportJSON:
 				KeysConfig.Options.INCLUDE_PROJECT_LICENSE: false,
 				KeysConfig.Options.PARSER_SETTINGS:{
 					"use_relative_paths":false,
-					"backport_target": 100,
 					"parse_cs":{
 						"namespace_rename":{}
 						},
 					"parse_gd":{
-						"replace_editor_interface":false,
 						"optimizer": _optimizer_defaults(),
 						"class_rename_ignore":[],
-						"backport_string_renames":{},
 						},
 					"parse_tscn":{},
 					"parse_tres":{},

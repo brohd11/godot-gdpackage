@@ -93,7 +93,7 @@ Scans exported files for version-gated syntax and API usage, and reports the min
 - `--min=VER` only shows findings introduced above that version. The scan and the reported minimum are unchanged. The console variable `$GDPACKAGE_MIN_VERSION` sets a persistent filter; the flag takes precedence.
 - `--full` is reserved for a deeper scan and currently runs the standard one.
 
-`gdpackage min_version generate_api` rebuilds the API index from the extension API dumps in GDPackage's export-ignore folder (maintainer use). See [Backporting](optimization.md#backport---deprecated) for export transformations.
+`gdpackage min_version generate_api` rebuilds the API index from the extension API dumps in GDPackage's export-ignore folder (maintainer use).
 
 ## Headless entry points
 

@@ -1,7 +1,5 @@
 class_name GDPackage
 
-const MiscBackport = preload("res://addons/gdpackage/src/class/export/backport/misc_backport_class.gd")
-
 const Plugin = preload("res://addons/gdpackage/plugin.gd")
 const UtilsRemote = preload("res://addons/gdpackage/src/class/utils_remote.gd")
 const UtilsLocal = preload("res://addons/gdpackage/src/class/utils_local.gd")

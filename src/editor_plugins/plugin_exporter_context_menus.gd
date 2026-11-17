@@ -12,7 +12,6 @@ const DEPENDENCY_TAGS = ["#! " + DependencyTags.TAG, "#! " + DependencyTags.IGNO
 
 const DEPENDENCY = "GDPackage/Dependency"
 const EXPORTED_FLAG = "GDPackage/Exported Flag"
-const BACKPORT_FLAG = "GDPackage/Backport Flag"
 const IGNORE = "GDPackage/Ignore"
 
 const STD_META = {
@@ -36,8 +35,6 @@ func _on_popup_pressed(data, item_name):
 		add_ignore_tag(script_editor)
 	elif item_name == EXPORTED_FLAG:
 		add_exported_flag(script_editor)
-	elif item_name == BACKPORT_FLAG:
-		add_backport_flag(script_editor)
 
 
 static func get_valid_items(script_editor:CodeEdit) -> Dictionary:
@@ -47,7 +44,6 @@ static func get_valid_items(script_editor:CodeEdit) -> Dictionary:
 	var text = script_editor.get_line(line)
 	if text == "":
 		valid_items[EXPORTED_FLAG] = STD_META
-		valid_items[BACKPORT_FLAG] = STD_META
 	
 	if text.count('"') == 2:
 		var valid_dep = true
@@ -81,7 +77,3 @@ static func add_exported_flag(script_editor):
 	var text = script_editor.get_line(line)
 	script_editor.insert_text_at_caret("const PLUGIN_EXPORTED = false")
 
-static func add_backport_flag(script_editor):
-	var line = script_editor.get_caret_line()
-	var text = script_editor.get_line(line)
-	script_editor.insert_text_at_caret("const BACKPORTED = 100")
