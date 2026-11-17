@@ -24,6 +24,7 @@ static func run_tests() -> Dictionary:
 
 	_test_entries()
 	_test_resolve()
+	_test_local_index()
 	_test_require()
 
 	Runner.remove_dir(ProjectSettings.globalize_path(ROOT))
@@ -79,6 +80,17 @@ static func _test_resolve() -> void:
 	_check("dir_repo_id: from url=", ExternalDeps.dir_repo_id(ROOT.path_join("lib_a")),
 		DepResolver.parse_dep("owner/lib-a").repo_id)
 	_check("dir_repo_id: no url=", ExternalDeps.dir_repo_id(ROOT.path_join("lib_b")), "")
+
+
+static func _test_local_index() -> void:
+	var a = DepResolver.parse_dep("owner/lib-a").repo_id
+	var c = DepResolver.parse_dep("owner/lib-c").repo_id
+	var git = {a: ROOT.path_join("lib_c"), c: ROOT.path_join("lib_c") + "/"}
+	_check("local_index: url= beats git origin, dirs trimmed", ExternalDeps.local_index(ROOT, git, ""),
+		{a: ROOT.path_join("lib_a"), c: ROOT.path_join("lib_c")})
+	# installed.json from _test_resolve maps lib-a to lib_b
+	_check("local_index: install map beats url=", ExternalDeps.local_index(ROOT, {}, ROOT.path_join("installed.json"))[a],
+		ROOT.path_join("lib_b"))
 
 
 static func _test_require() -> void:

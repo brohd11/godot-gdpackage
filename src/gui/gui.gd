@@ -161,6 +161,7 @@ func _ready() -> void:
 	dep_view = DependencyView.new()
 	tab_container.add_tab(dep_view, EditorIcons.get_icon_white("GraphEdit"))
 	UControl.expand(dep_view)
+	dep_view.package_drill_in.connect(_on_package_drill_in)
 	
 	export_editor = ExportEditor.new()
 	tab_container.add_tab(export_editor, EditorIcons.get_icon_white("CodeEdit"))
@@ -187,9 +188,10 @@ func _on_options_pressed():
 	right_click_handler.display_on_control(options, options_button)
 
 func _show_all_deps():
+	if current_export_data == null or current_export_data.exports.is_empty():
+		return
 	_sync_dep_view()
-	dep_view.current_files = current_export_data.exports[0].valid_files_for_transfer.keys()
-	dep_view._create_graph()
+	dep_view.show_files(current_export_data.exports[0].valid_files_for_transfer.keys())
 
 func _show_dependency(path:String):
 	_sync_dep_view()
@@ -201,6 +203,26 @@ func _sync_dep_view():
 	var export = current_export_data.exports[0]
 	dep_view.collapse_pass_through = export.reduce_access_paths
 	dep_view.keep_dirs = [export.source]
+
+## The export's file graph, narrowed to `dir`'s files; the root package shows it whole.
+func _on_package_drill_in(dir:String):
+	if current_export_data == null:
+		if not _export_valid_file():
+			return
+		_parse_export_data()
+	if not current_export_data.data_valid or current_export_data.exports.is_empty():
+		return
+	_show_all_deps()
+	if dir.trim_suffix("/") == _package_dir_of(file_path_line.text):
+		return
+	if not dep_view.focus_package(dir):
+		push_warning("GDPackage: this export references no files from " + dir)
+
+## The package an export config belongs to: <package>/export_ignore/<config>.
+static func _package_dir_of(export_file_path:String) -> String:
+	if not FileAccess.file_exists(export_file_path):
+		return ""
+	return export_file_path.get_base_dir().get_base_dir()
 
 func _on_tab_options_pressed():
 	var current_tab_control = tab_container.get_current_tab_control()
@@ -244,7 +266,9 @@ func _set_file_path(file_path:String):
 	export_editor.load_file(file_path)
 	_set_doc_path(file_path)
 	
-	dep_view.dep_graph.clear_graph()
+	current_export_data = null # belonged to the previous config
+	dep_view.clear()
+	dep_view.set_package_dir(_package_dir_of(file_path))
 	file_tree.clear()
 	tree_helper.clear_items()
 	summary_panel.clear()

@@ -88,6 +88,19 @@ static func cfg_url_index(root:String = "res://addons") -> Dictionary:
 	return out
 
 
+## repo_id -> res:// dir (no trailing "/") for every local package, with resolve()'s precedence:
+## install map, then cfg url=, then git origin. Eager, so the git scan always runs unless
+## `dev_repos` is passed; resolve() stays lazy for that reason.
+static func local_index(root:String = "res://addons", dev_repos = null, installed_map:String = INSTALLED_MAP) -> Dictionary:
+	if dev_repos == null:
+		dev_repos = DepResolver.scan_dev_repos()
+	var out = {}
+	for source in [dev_repos, cfg_url_index(root), _read_map(installed_map)]:
+		for id in source:
+			out[id] = String(source[id]).simplify_path().trim_suffix("/")
+	return out
+
+
 ## `specs` merged into `require` without repeating a repo already listed in any spelling.
 static func merge_require(require:Array, specs:Array) -> Array:
 	var out = require.duplicate()

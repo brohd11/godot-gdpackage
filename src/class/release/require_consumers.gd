@@ -23,11 +23,11 @@ static func find(target:String, root:String = "res://addons") -> Dictionary:
 		return out
 	out.id = target_dep.repo_id
 	for package in PackageDiscovery.discover(root, PackageDiscovery.Filter.ALL):
-		var declared = _declared(root.path_join(package))
-		if declared.error != "":
-			out.warnings.append("%s: %s" % [package, declared.error])
+		var found = declared(root.path_join(package))
+		if found.error != "":
+			out.warnings.append("%s: %s" % [package, found.error])
 		var by_spec = {} # spec -> {key: true}
-		for req in declared.requires:
+		for req in found.requires:
 			if req.dep.repo_id != out.id:
 				continue
 			var spec = RequireCheck._spec(req.dep)
@@ -59,7 +59,7 @@ static func format(result:Dictionary) -> String:
 static func required_ids(root:String = "res://addons") -> Array:
 	var ids = {}
 	for package in PackageDiscovery.discover(root, PackageDiscovery.Filter.ALL):
-		for req in _declared(root.path_join(package)).requires:
+		for req in declared(root.path_join(package)).requires:
 			ids[RequireUpdate.short_id(req.dep.repo_id)] = true
 	var out = ids.keys()
 	out.sort()
@@ -67,7 +67,8 @@ static func required_ids(root:String = "res://addons") -> Array:
 
 
 ## {requires: [{dep, compile, test}], error}, the same sources RequireCheck.check_tags reads.
-static func _declared(dir:String) -> Dictionary:
+## Also read by PackageGraph.
+static func declared(dir:String) -> Dictionary:
 	var cfg_path = DepResolver.PackageCfg.find(dir)
 	var cfg_text = FileAccess.get_file_as_string(cfg_path) if cfg_path != "" else ""
 	for path in DepResolver.ExportIgnore.candidates(dir, DepResolver.CONFIG_NAMES):
