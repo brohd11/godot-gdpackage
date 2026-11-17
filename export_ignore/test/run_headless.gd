@@ -11,6 +11,7 @@ const SUITES:PackedStringArray = [
 	"res://addons/gdpackage/export_ignore/test/license_resolution_test.gd",
 	"res://addons/gdpackage/export_ignore/test/dep_resolver_test.gd",
 	"res://addons/gdpackage/export_ignore/test/require_update_test.gd",
+	"res://addons/gdpackage/export_ignore/test/min_version_stamp_test.gd",
 	"res://addons/gdpackage/export_ignore/test/require_check_test.gd",
 	"res://addons/gdpackage/export_ignore/test/require_consumers_test.gd",
 	"res://addons/gdpackage/export_ignore/test/repo_cache_test.gd",

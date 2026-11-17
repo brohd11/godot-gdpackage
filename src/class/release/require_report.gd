@@ -15,6 +15,7 @@ const DepScanner = UtilsRemote.DepScanner
 const DepEdge = DepScanner.DepEdge
 const DepResolver = preload("res://addons/gdpackage/src/class/release/dep_resolver.gd")
 const RequireUpdate = preload("res://addons/gdpackage/src/class/release/require_update.gd")
+const MinVersionStamp = preload("res://addons/gdpackage/src/editor_plugins/console_command/min_version/min_version_stamp.gd")
 
 const CFG_NAMES = DepResolver.CFG_NAMES
 
@@ -23,10 +24,11 @@ const CFG_NAMES = DepResolver.CFG_NAMES
 ## declared, refs}]}}, loose: {dir: files}, unused: {from_package: [id]}, errors}. `declared` is
 ## "build", "compile" or "". `refs` is every reference behind the row, {from, line, kind, raw, to},
 ## sorted - `files` counts distinct targets, refs where each is made. A from_package of "" is a
-## dependent outside any package.
+## dependent outside any package. Top-level `files` is the crawl's roots and `external_dirs` the
+## packages it left out, both for the minimum_engine_version stamp.
 static func build(plugin_name:String) -> Dictionary:
 	var report = {"target": "", "plugin_name": "", "config_path": "", "groups": {}, "loose": {},
-		"unused": {}, "errors": []}
+		"unused": {}, "errors": [], "files": [], "external_dirs": []}
 	var package_dir = ExportFileUtils.ExportPaths.resolve_target(plugin_name)
 	if package_dir == "":
 		report.errors.append("Invalid package target (expected a path inside this project): " + plugin_name)
@@ -52,9 +54,14 @@ static func build(plugin_name:String) -> Dictionary:
 	var refs = {} # "from package|required package" -> [{from, line, kind, raw, to}]
 
 	var roots = {}
+	var external_dirs = {}
 	for export in data.exports:
 		for file:String in export.valid_files_for_transfer:
 			roots[file] = true
+		for dir in export.external_dirs:
+			external_dirs[dir] = true
+	report.files = roots.keys()
+	report.external_dirs = external_dirs.keys()
 	var graph = _scan_files(roots.keys(), data.class_list)
 
 	# Every edge, so a file referenced from inside and outside its package still counts the outside.
@@ -169,26 +176,9 @@ static func format(report:Dictionary, verbose:bool = false) -> String:
 	return "\n".join(lines)
 
 
-## Nearest ancestor dir holding a package cfg; "" when none does. Memoized per
-## directory - a crawl visits the same few dirs hundreds of times.
+## Nearest ancestor dir holding a package cfg; "" when none does.
 static func _package_dir(path:String, cache:Dictionary) -> String:
-	var dir = path.get_base_dir()
-	var walked = []
-	var found = ""
-	while dir.begins_with("res://"):
-		if cache.has(dir):
-			found = cache[dir]
-			break
-		walked.append(dir)
-		if DepResolver.PackageCfg.has_cfg(dir):
-			found = dir
-			break
-		if dir == "res://":
-			break
-		dir = dir.get_base_dir()
-	for w in walked:
-		cache[w] = found
-	return found
+	return MinVersionStamp.package_dir(path, cache)
 
 
 static func _scan_files(roots:Array, class_map:Dictionary):

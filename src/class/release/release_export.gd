@@ -18,8 +18,9 @@ const CompileCheck = preload("res://addons/gdpackage/src/class/release/compile_c
 const Toolchain = preload("res://addons/gdpackage/src/class/release/toolchain.gd")
 const ReleaseCache = preload("res://addons/gdpackage/src/class/release/release_cache.gd")
 const PackageFetcher = preload("res://addons/gdpackage/src/class/release/package_fetcher.gd")
-const VersionScanner = preload("res://addons/gdpackage/src/editor_plugins/console_command/min_version/version_scanner.gd")
-const VersionApi = VersionScanner.VersionApi
+const MinVersionStamp = preload("res://addons/gdpackage/src/editor_plugins/console_command/min_version/min_version_stamp.gd")
+const VersionScanner = MinVersionStamp.VersionScanner
+const VersionApi = MinVersionStamp.VersionApi
 const TestFiles = preload("res://addons/gdpackage/src/class/export/test_files.gd")
 
 const LOCK_FILE = ".export_lock.json"
@@ -186,7 +187,8 @@ static func _export_release(plugin_name:String, refresh:bool, local:bool, tree_d
 
 ## Scans the workspace's sources (target and deps, not the toolchain) against the API index before
 ## its Godot run: an older engine fails to parse newer syntax on import and drops those classes
-## quietly. Returns why this engine can't, or "".
+## quietly. The scan can miss things, so a higher minimum_engine_version stored in any scanned
+## package's cfg wins. Returns why this engine can't, or "".
 static func engine_error(ws:String, _reporter = null, ignore_tests:bool = false) -> String:
 	var out = Reporter.or_default(_reporter)
 	var scanner = VersionScanner.new()
@@ -204,25 +206,30 @@ static func engine_error(ws:String, _reporter = null, ignore_tests:bool = false)
 		classifier.index_classes(files)
 		files = files.filter(func(path): return not classifier.is_test(path))
 	var scan = scanner.scan_files(files)
+	var prefix = ws.trim_suffix("/") + "/"
 	for f in scan.findings:
-		f.location = String(f.location).trim_prefix(ws.trim_suffix("/") + "/")
-	var err = engine_check(scan.min_version, scan.findings, Engine.get_version_info())
+		f.location = String(f.location).trim_prefix(prefix)
+	var folded = MinVersionStamp.fold_stored(scan.min_version, MinVersionStamp.package_dirs_for(files, {}, ws))
+	var via = String(folded.via).trim_prefix(prefix)
+	var err = engine_check(folded.version, scan.findings, Engine.get_version_info(), via)
 	if err == "":
-		out.info("  sources need Godot %s" % scan.min_version)
+		out.info("  sources need Godot %s%s" % [folded.version, " (stored in %s)" % via if via != "" else ""])
 	return err
 
 
 ## "" when `engine` (Engine.get_version_info()) runs code needing `min_version`, else why not, citing
-## the first finding at that version. An unparseable min_version passes - the index can't judge it.
-static func engine_check(min_version:String, findings:Array, engine:Dictionary) -> String:
+## the first finding at that version, or `via` - the package whose stored cfg value set it. An
+## unparseable min_version passes - the index can't judge it.
+static func engine_check(min_version:String, findings:Array, engine:Dictionary, via:String = "") -> String:
 	var need = VersionApi.version_code(min_version)
 	if need < 0 or need <= int(engine.major) * 1000 + int(engine.minor):
 		return ""
-	var where = ""
-	for f in findings:
-		if f.version == min_version:
-			where = " (%s at %s)" % [f.feature, f.location]
-			break
+	var where = " (%s in %s)" % [MinVersionStamp.KEY, via] if via != "" else ""
+	if via == "":
+		for f in findings:
+			if f.version == min_version:
+				where = " (%s at %s)" % [f.feature, f.location]
+				break
 	return "sources need Godot %s%s, but this export runs on %s; set godot-version in .github/workflows/release.yml, or export from a newer editor" % [
 		min_version, where, engine.get("string", "%d.%d" % [engine.major, engine.minor])]
 

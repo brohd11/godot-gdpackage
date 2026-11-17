@@ -24,8 +24,11 @@ static func run_tests() -> Dictionary:
 	var major = ReleaseExport.engine_check("5.0", [], ENGINE_46)
 	_expect(failures, "newer major errors: " + major, major.contains("need Godot 5.0"))
 	_expect(failures, "4.10 above 4.9", ReleaseExport.engine_check("4.10", [], {"major": 4, "minor": 9}) != "")
+	var stored = ReleaseExport.engine_check("4.7", FINDINGS, ENGINE_46, "addons/lib")
+	_expect(failures, "stored value cited over findings: " + stored, stored.contains("minimum_engine_version in addons/lib") and not stored.contains("Foo.new_api"))
 	_test_reporting(failures)
 	_test_excluded_sources(failures)
+	_test_stored_version(failures)
 
 	var output:Array[String] = ["release_engine: %d failed" % failures.size()]
 	output.append_array(failures)
@@ -62,6 +65,24 @@ static func _test_excluded_sources(failures:Array[String]) -> void:
 	_expect(failures, "release preflight excludes test-only APIs", ReleaseExport.engine_error(root, reporter, true) == "")
 	var err = ReleaseExport.engine_error(root, reporter)
 	_expect(failures, "test CI retains test-only API requirements", (err != "") == (Engine.get_version_info().minor < 7))
+	runner.remove_dir(root)
+
+
+## A cfg-stored minimum_engine_version above the scan fails the check even with clean sources.
+static func _test_stored_version(failures:Array[String]) -> void:
+	var runner = ReleaseExport.ReleaseRunner
+	var root = ProjectSettings.globalize_path("user://pe_engine_test_stored")
+	runner.remove_dir(root)
+	var lib = root.path_join("addons/lib")
+	DirAccess.make_dir_recursive_absolute(lib)
+	FileAccess.open(lib.path_join("a.gd"), FileAccess.WRITE).store_string("extends RefCounted\n")
+	FileAccess.open(lib.path_join("package.cfg"), FileAccess.WRITE).store_string('[package]\nversion="1"\nminimum_engine_version="99.0"\n')
+	var reporter = Reporter.new()
+	reporter.sink = func(_text:String, _level:int): pass
+	var err = ReleaseExport.engine_error(root, reporter)
+	_expect(failures, "stored cfg value fails the check: " + err, err.contains("need Godot 99.0") and err.contains("minimum_engine_version in addons/lib"))
+	FileAccess.open(lib.path_join("package.cfg"), FileAccess.WRITE).store_string('[package]\nversion="1"\nminimum_engine_version="4.0"\n')
+	_expect(failures, "a low stored value passes", ReleaseExport.engine_error(root, reporter) == "")
 	runner.remove_dir(root)
 
 

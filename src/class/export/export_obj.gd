@@ -19,7 +19,7 @@ const _UFile = _UtilsRemote.UFile
 const _GetFiles = _UtilsRemote.GetFiles
 const _PackageCfg = preload("uid://ddo8w07hts45v") #! resolve GDPackageSpec.Cfg
 const _Docs = preload("uid://01wqb0kamr3o") #! resolve GDPackageSpec.Docs
-const _VersionScanner = preload("res://addons/gdpackage/src/editor_plugins/console_command/min_version/version_scanner.gd")
+const _MinVersionStamp = preload("res://addons/gdpackage/src/editor_plugins/console_command/min_version/min_version_stamp.gd")
 const TestFiles = preload("res://addons/gdpackage/src/class/export/test_files.gd")
 
 var export_data: _ExportData
@@ -541,7 +541,7 @@ func update_plugin_cfg():
 	
 	var as_string = FileAccess.get_file_as_string(plugin_cfg_path)
 	var lines = as_string.split("\n")
-	var section = _PackageCfg.key_section(as_string, "version") # minimum_version sits beside version
+	var section = _PackageCfg.key_section(as_string, "version")
 	if use_tag:
 		var rev_parse_result = _ExportFileUtils.run_git_exec(source, ["rev-parse", "--show-toplevel"])
 		if rev_parse_result.exit == 0:
@@ -572,25 +572,25 @@ func update_plugin_cfg():
 						lines[i] = 'version="%s"' % new_string
 					break
 	
+	var text = "\n".join(lines)
 	if include_min:
-		var scanner = _VersionScanner.new()
-		if scanner.api.has_index():
-			# Scans only this export's files, so variants can differ.
-			var min_version = scanner.scan_files(files_to_copy.keys())["min_version"]
-			var min_msg = 'minimum_version="%s"' % min_version
-			var section_lines = _section_lines(lines, section)
-			if section_lines.is_empty():
-				section_lines = range(lines.size())
-			for i in range(section_lines.size() - 1, -1, -1):
-				if lines[section_lines[i]].strip_edges() != "":
-					lines.insert(section_lines[i] + 1, min_msg)
-					break
-		else:
-			reporter.warn("No min_version API index found, minimum_version not written: %s" % plugin_cfg_path)
-	
+		text = _stamp_min_version(text, plugin_cfg_path)
 	
 	var file_access = FileAccess.open(plugin_cfg_path, FileAccess.WRITE)
-	file_access.store_string("\n".join(lines))
+	file_access.store_string(text)
+
+## Scans only this export's files, so variants can differ, but never below a value stored in the
+## source cfg (carried in the copy) or in any bundled or external package's cfg.
+func _stamp_min_version(text:String, plugin_cfg_path:String) -> String:
+	var files = files_to_copy.keys()
+	var dirs = _MinVersionStamp.package_dirs_for(files) + external_dirs
+	var result = _MinVersionStamp.compute(files, dirs) # the source's own dir only repeats `stored`
+	if not result.has_index:
+		reporter.warn("No min_version API index found, %s not written: %s" % [_MinVersionStamp.KEY, plugin_cfg_path])
+		return text
+	var stored = _UtilsRemote.UString.unquote(_PackageCfg.section(text).get(_MinVersionStamp.KEY, ""))
+	var decision = _MinVersionStamp.decide(stored, result.version)
+	return _MinVersionStamp.set_in_text(text, decision.value if decision.value != "" else result.version)
 
 ## Bundled deps ship inside the package, so the released cfg lists only what an installer must add.
 func _update_deps(plugin_cfg_path:String):

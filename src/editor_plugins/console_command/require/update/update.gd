@@ -4,6 +4,7 @@ const RequireReport = preload("res://addons/gdpackage/src/class/release/require_
 const RequireUpdate = preload("res://addons/gdpackage/src/class/release/require_update.gd")
 const PECommandUtils = preload("res://addons/gdpackage/src/editor_plugins/console_command/command_utils.gd")
 const PackageCfg = preload("uid://ddo8w07hts45v") #! resolve GDPackageSpec.Cfg
+const MinVersionStamp = preload("res://addons/gdpackage/src/editor_plugins/console_command/min_version/min_version_stamp.gd")
 
 const _HELP = \
 "Write the packages the export crawl found into the target's own require list: its cfg require= by
@@ -11,11 +12,14 @@ default, which build_require and test_require read through their @require defaul
 required package's cfg version=, and a version not tagged in its checkout yet only warns. Packages
 under compile_require are left out - they install beside the package, not inside it.
   --export-config  write the export config's build_require instead (an explicit list, @require dropped)
-Usage: gdpackage require update [--overwrite] [--prune] [--export-config] <plugin_name>"
+  --min-version    also stamp the cfg's minimum_engine_version: the crawl's scan or any touched
+                   package's stored value, whichever is higher. Never lowers - see min_version --update
+Usage: gdpackage require update [--overwrite] [--prune] [--export-config] [--min-version] <plugin_name>"
 
 var overwrite_flag := false
 var prune_flag := false
 var export_config_flag := false
+var min_version_flag := false
 
 static func get_command_name() -> String:
 	return "update"
@@ -31,6 +35,7 @@ func _get_flags() -> Dictionary:
 	options.add_option("--overwrite", {&"help": "Re-pin entries the config already lists to their current tag."})
 	options.add_option("--prune", {&"help": "Drop entries the crawl did not find."})
 	options.add_option("--export-config", {&"help": "Write the export config's build_require instead of the cfg's require=."})
+	options.add_option("--min-version", {&"help": "Also raise the cfg's minimum_engine_version to what the crawl needs."})
 	return options.get_options()
 
 func _get_completions(ctx:Completion):
@@ -67,5 +72,23 @@ func _execute(ctx:Context):
 	if not result.kept.is_empty():
 		lines.append("kept       %d" % result.kept.size())
 	lines.append(("wrote " if result.changed else "already up to date: ") + result.path)
+	if min_version_flag:
+		var stamped = MinVersionStamp.stamp(report.target, report.files, _touched_dirs(report))
+		if not stamped.ok:
+			ctx.append_output("\n".join(lines))
+			ctx.append_error(stamped.error)
+			return ExitCode.FAIL
+		lines.append(stamped.line)
 	ctx.append_output("\n".join(lines))
 	return ExitCode.OK
+
+## Every package the crawl reached or left out as external; the stamp drops the target itself.
+static func _touched_dirs(report:Dictionary) -> Array:
+	var dirs = {}
+	for from in report.groups:
+		dirs[from] = true
+		for row in report.groups[from].rows:
+			dirs[row.dir] = true
+	for dir in report.external_dirs:
+		dirs[dir] = true
+	return dirs.keys()
