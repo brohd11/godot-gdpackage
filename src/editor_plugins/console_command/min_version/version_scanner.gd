@@ -9,6 +9,7 @@ extends RefCounted
 ## parser-based scan; members missing from the index are assumed user-defined.
 
 const URegex = preload("uid://d0rbf4as6kpns") #! resolve UtilR.Strings.URegex
+const StringMap = preload("uid://btml0a8r6vbbn") #! resolve UtilR.Strings.StringMap
 const VersionApi = preload("res://addons/gdpackage/src/editor_plugins/console_command/min_version/version_api.gd")
 const SyntaxRules = preload("res://addons/gdpackage/src/editor_plugins/console_command/min_version/syntax_rules.gd")
 
@@ -75,31 +76,69 @@ func scan_file(file_path: String) -> Dictionary:
 		result.erase("_seen")
 		return result
 
-	# For .gd, resolve the script's native base class so bare/self calls can be
-	# dated against it. "" means unresolved -> bare-call dating is skipped.
-	var base := ""
 	if ext == "gd":
-		base = _resolve_base_type(file_path)
-
-	var line_no := 0
-	while not f.eof_reached():
-		line_no += 1
-		var line := f.get_line()
-		if ext == "gd":
-			_scan_gd_line(line, line_no, result, base)
-		else:
-			_scan_resource_line(line, line_no, result)
-	f.close()
+		var lines := _sanitize_gd(f.get_as_text())
+		f.close()
+		# Resolve the native base so bare/self calls can be dated against it. "" means
+		# unresolved -> bare-call dating is skipped.
+		var base := _resolve_base_type(file_path, "\n".join(lines))
+		for i in lines.size():
+			_scan_gd_line(lines[i], i + 1, result, base)
+	else:
+		var line_no := 0
+		while not f.eof_reached():
+			line_no += 1
+			_scan_resource_line(f.get_line(), line_no, result)
+		f.close()
 
 	result.erase("_seen")
 	return result
 
 
+## Code lines with every string literal replaced by a placeholder and comments cut. Whole-file, so
+## a triple-quoted string spanning lines is masked too; it keeps its newlines to hold line numbers.
+func _sanitize_gd(text: String) -> PackedStringArray:
+	var map := StringMap.create(text, StringMap.Mode.STRING)
+	if map.has_errors: # unterminated string - the file won't parse anyway, best effort per line
+		var out := PackedStringArray()
+		for line in text.split("\n"):
+			out.append(_sanitize_line(line))
+		return out
+
+	var starts := map.string_map.keys()
+	starts.sort()
+	var parts := PackedStringArray()
+	var prev := 0
+	for i in starts.size():
+		var start: int = starts[i]
+		var end: int = map.quote_map[start]
+		parts.append(text.substr(prev, start - prev))
+		parts.append(URegex.STRING_PLACEHOLDER_FMT % i)
+		parts.append("\n".repeat(text.count("\n", start, end + 1)))
+		prev = end + 1
+	parts.append(text.substr(prev))
+
+	var lines := "".join(parts).split("\n")
+	for n in lines.size():
+		var cut := lines[n].find("#") # strings are gone, so this is a comment
+		if cut != -1:
+			lines[n] = lines[n].left(cut)
+	return lines
+
+
+func _sanitize_line(line: String) -> String:
+	# Lambdas capture locals by value, so use a by-reference Array holder to
+	# get the sanitized string back out.
+	var holder := [""]
+	URegex.string_safe_regex_read(line, func(c): holder[0] = c, _string_regex)
+	return holder[0]
+
+
 ## Native base type of a .gd script via Script.get_instance_base_type(); "" if it
-## can't be loaded as a script.
-func _resolve_base_type(file_path: String) -> String:
+## can't be loaded as a script. No-load mode reads `extends` from the sanitized `code`.
+func _resolve_base_type(file_path: String, code: String) -> String:
 	if not load_scripts:
-		var m := _extends_regex.search(FileAccess.get_file_as_string(file_path))
+		var m := _extends_regex.search(code)
 		return m.get_string(1) if m and api.has_class(m.get_string(1)) else ""
 	var res = load(file_path)
 	if res is Script:
@@ -107,16 +146,10 @@ func _resolve_base_type(file_path: String) -> String:
 	return ""
 
 
-func _scan_gd_line(line: String, line_no: int, result: Dictionary, base: String) -> void:
-	var stripped := line.strip_edges()
-	if stripped == "" or stripped.begins_with("#"):
+## `sanitized` comes from _sanitize_gd: strings are placeholders, comments are cut.
+func _scan_gd_line(sanitized: String, line_no: int, result: Dictionary, base: String) -> void:
+	if sanitized.strip_edges() == "":
 		return
-
-	# Lambdas capture locals by value, so use a by-reference Array holder to
-	# get the sanitized string back out.
-	var holder := [""]
-	URegex.string_safe_regex_read(line, func(c): holder[0] = c, _string_regex)
-	var sanitized: String = holder[0]
 
 	for rule in _syntax.get_rules():
 		if (rule["regex"] as RegEx).search(sanitized) != null:
