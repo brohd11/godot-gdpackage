@@ -1,7 +1,6 @@
 extends VBoxContainer
 
 const UtilsRemote = preload("res://addons/gdpackage/src/class/utils_remote.gd")
-const Options = UtilsRemote.Options
 const UControl = UtilsRemote.UControl
 const Confirmation = UtilsRemote.Confirmation
 
@@ -59,10 +58,6 @@ func _save_file():
 	print("GONAN SAVE")
 	# confirm?
 	pass
-
-func get_options() -> Options:
-	var options = Options.new()
-	return options
 
 
 

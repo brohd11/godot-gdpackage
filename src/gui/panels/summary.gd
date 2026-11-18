@@ -1,8 +1,5 @@
 extends ScrollContainer
 
-const UtilsRemote = preload("res://addons/gdpackage/src/class/utils_remote.gd")
-const Options = UtilsRemote.Options
-
 const UtilsLocal = preload("res://addons/gdpackage/src/class/utils_local.gd")
 const PluginExporterStatic = UtilsLocal.PluginExporterStatic
 const ExportData = UtilsLocal.ExportData
@@ -61,7 +58,3 @@ func _new_line(text:String):
 	label.add_theme_stylebox_override("normal", _label_sb)
 	label.text = text
 	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-
-func get_options() -> Options:
-	var options = Options.new()
-	return options

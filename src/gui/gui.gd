@@ -54,7 +54,6 @@ var options_button:Button
 
 var split_container:HSplitContainer
 
-var tab_options_button:Button
 var tab_container:TabBarContainer
 
 var tree_vbox:VBoxContainer
@@ -150,12 +149,6 @@ func _ready() -> void:
 	split_container.add_child(tab_container)
 	UControl.expand(tab_container)
 	
-	tab_options_button = Button.new()
-	tab_container.get_tab_bar_hbox().add_child(tab_options_button)
-	tab_options_button.pressed.connect(_on_tab_options_pressed)
-	tab_options_button.theme_type_variation = &"FlatButton"
-	tab_options_button.icon = EditorInterface.get_editor_theme().get_icon(&"Tools", &"EditorIcons")
-	
 	summary_panel = Summary.new()
 	tab_container.add_tab(summary_panel, EditorInterface.get_editor_theme().get_icon(&"ExternalLink", &"EditorIcons"))
 	UControl.expand(summary_panel)
@@ -183,14 +176,6 @@ func _ready() -> void:
 	tab_container.add_tab(doc_viewer, EditorIcons.get_icon_white("Help"))
 	doc_viewer.clear()
 	UControl.expand(doc_viewer)
-
-	tab_container.tab_changed.connect(func(_t): _update_tab_options_button())
-	_update_tab_options_button()
-
-## The graph tabs carry their options in the graph's own toolbar.
-func _update_tab_options_button():
-	var control = tab_container.get_current_tab_control()
-	tab_options_button.visible = control != null and control.has_method(&"get_options")
 
 func _on_options_pressed():
 	var options = Options.new()
@@ -274,13 +259,6 @@ static func _package_dir_of(export_file_path:String) -> String:
 	if not FileAccess.file_exists(export_file_path):
 		return ""
 	return export_file_path.get_base_dir().get_base_dir()
-
-func _on_tab_options_pressed():
-	var current_tab_control = tab_container.get_current_tab_control()
-	if not current_tab_control.has_method(&"get_options"):
-		return
-	var options = current_tab_control.call(&"get_options")
-	right_click_handler.display_on_control(options, tab_options_button)
 
 func _on_tree_left_click():
 	var local = _get_tree_selected_path()
