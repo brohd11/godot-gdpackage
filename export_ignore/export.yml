@@ -15,7 +15,6 @@ options:
   overwrite: true
   parser_settings:
     use_relative_paths: false
-    replace_editor_interface: false
     parse_cs: {}
     parse_gd:
       class_rename_ignore: []
