@@ -182,6 +182,14 @@ func _on_zoom_or_scroll(_offset:Vector2) -> void:
 	DepGraphUI.apply_zoom_line_thickness(self)
 
 
+## Every node back to its computed place, then the whole graph in view.
+func reset_layout() -> void:
+	if _nodes.is_empty():
+		return
+	_layout()
+	_fit_view()
+
+
 func _update_detail() -> void:
 	var detailed = zoom >= DETAIL_ZOOM
 	if detailed == _detailed:

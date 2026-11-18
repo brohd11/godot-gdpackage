@@ -161,17 +161,19 @@ func _ready() -> void:
 	UControl.expand(summary_panel)
 	
 	dep_view = DependencyView.new()
-	tab_container.add_tab(dep_view, EditorIcons.get_icon_white("GraphEdit"))
-	UControl.expand(dep_view)
-	dep_view.dep_graph.file_clicks.right_click_pressed = _on_graph_file_context
-
 	package_view = PackageView.new()
 	tab_container.add_tab(package_view, EditorIcons.get_icon_white("PackedScene"))
 	UControl.expand(package_view)
+	tab_container.add_tab(dep_view, EditorIcons.get_icon_white("GraphEdit"))
+	UControl.expand(dep_view)
+	dep_view.dep_graph.file_clicks.right_click_pressed = _on_graph_file_context
 	# the drill-in needs the export files and the menu points into the export tree, both ours
 	package_view.package_graph.package_clicks.left_click_double = _on_package_drill_in
 	package_view.package_graph.file_clicks.left_click_double = dep_view.set_current_file
 	package_view.package_graph.file_clicks.right_click_pressed = _on_graph_file_context
+	for panel in [dep_view, package_view]:
+		panel.tools_button.pressed.connect(func():
+			right_click_handler.display_on_control(panel.get_graph_options(), panel.tools_button))
 	
 	export_editor = ExportEditor.new()
 	tab_container.add_tab(export_editor, EditorIcons.get_icon_white("CodeEdit"))
@@ -181,6 +183,14 @@ func _ready() -> void:
 	tab_container.add_tab(doc_viewer, EditorIcons.get_icon_white("Help"))
 	doc_viewer.clear()
 	UControl.expand(doc_viewer)
+
+	tab_container.tab_changed.connect(func(_t): _update_tab_options_button())
+	_update_tab_options_button()
+
+## The graph tabs carry their options in the graph's own toolbar.
+func _update_tab_options_button():
+	var control = tab_container.get_current_tab_control()
+	tab_options_button.visible = control != null and control.has_method(&"get_options")
 
 func _on_options_pressed():
 	var options = Options.new()
@@ -342,6 +352,11 @@ func _parse_export_data(reparse:=false):
 	var export_data = current_export_data
 	summary_panel.set_export_data(export_data)
 	_build_tree()
+	# graphs draw only after a Parse, never on load: each tab builds when it next shows
+	if export_data.data_valid and not export_data.exports.is_empty():
+		_sync_dep_view()
+		dep_view.request_files(export_data.exports[0].valid_files_for_transfer.keys())
+		package_view.request_build()
 
 func _build_tree():
 	file_tree.clear()

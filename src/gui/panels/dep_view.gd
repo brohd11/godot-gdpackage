@@ -6,11 +6,13 @@ const UControl = UtilsRemote.UControl
 const Options = UtilsRemote.Options
 const DepGraphUI = UtilsRemote.DepGraphUI
 const DependencyTags = UtilsLocal.DependencyTags
+const GraphToolbar = preload("res://addons/gdpackage/src/gui/panels/graph_toolbar.gd")
 
 enum ViewMode { FILES_TREE, FILES_ALL }
 const VIEW_LABELS = {"Tree": ViewMode.FILES_TREE, "All": ViewMode.FILES_ALL}
 
 var dep_graph:DepGraphUI
+var tools_button:Button
 
 var view_mode:ViewMode = ViewMode.FILES_TREE
 var current_files:Array = []
@@ -19,16 +21,38 @@ var current_files:Array = []
 var collapse_pass_through:bool = false
 var keep_dirs:Array = []
 var show_pass_through:bool = false
+var _pending:bool = false # a Parse asked for a build the tab hasn't shown for yet
 
 # Children are built here, not in _ready, so the host can assign click callbacks straight
 # after new().
 func _init() -> void:
-	name = "Dependency View"
+	name = "Dep Graph"
 	dep_graph = DepGraphUI.new()
 	add_child(dep_graph)
 	UControl.expand(dep_graph)
 	dep_graph.set_edge_mode(DepGraphUI.EdgeMode.TREE)
 	dep_graph.file_clicks.left_click_double = set_current_file # that file's own deps
+	tools_button = GraphToolbar.setup(dep_graph)
+
+# Deferred: during this notification the children still read as hidden in tree, so nodes built
+# here measure without their rows.
+func _notification(what:int) -> void:
+	if what == NOTIFICATION_VISIBILITY_CHANGED and _pending and is_visible_in_tree():
+		_build_pending.call_deferred()
+
+## Like show_files, but never takes the tab: draws now if it shows, else on its next show.
+func request_files(paths:Array):
+	current_files = paths
+	_pending = true
+	if is_visible_in_tree():
+		_build_pending.call_deferred()
+
+func _build_pending():
+	if not _pending:
+		return
+	_pending = false
+	dep_graph.focus_paths = PackedStringArray()
+	_create_graph()
 
 func set_current_file(path:String):
 	show_files([path])
@@ -36,6 +60,7 @@ func set_current_file(path:String):
 ## show() also switches the host's TabBarContainer to this tab, so a request from another tab lands here.
 func show_files(paths:Array):
 	show()
+	_pending = false
 	current_files = paths
 	dep_graph.focus_paths = PackedStringArray() # set directly: set_focus() would rebuild the old graph
 	_create_graph()
@@ -54,6 +79,7 @@ func focus_package(dir:String) -> bool:
 
 func clear():
 	dep_graph.clear_graph()
+	_pending = false
 
 func set_view_mode(mode:ViewMode):
 	view_mode = mode
@@ -71,13 +97,18 @@ func _create_graph():
 	dep_graph.scan_collapse_keep_dirs = keep_dirs
 	dep_graph.set_files(current_files)
 
-func get_options() -> Options:
+func get_graph_options() -> Options:
 	var options = Options.new()
 	options.add_enum_radio("View", set_view_mode, VIEW_LABELS, view_mode)
 	if collapse_pass_through:
 		var label = "Hide Pass-Through Files" if show_pass_through else "Show Pass-Through Files"
 		options.add_option(label, _toggle_pass_through)
+	GraphToolbar.add_graph_options(options, dep_graph, _reset_layout)
 	return options
+
+func _reset_layout():
+	dep_graph.relayout()
+	dep_graph.reset_view()
 
 func _toggle_pass_through():
 	show_pass_through = not show_pass_through
