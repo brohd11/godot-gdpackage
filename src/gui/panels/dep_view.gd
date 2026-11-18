@@ -15,6 +15,8 @@ const VIEW_LABELS = {"Files - Tree": ViewMode.FILES_TREE, "Files - All": ViewMod
 
 ## Double-click on a package node; the host owns the export files the drill-in needs.
 signal package_drill_in(dir:String)
+## Right-click on a file node; the host owns the menu and the export tree it points into.
+signal file_context_requested(path:String)
 
 var dep_graph:DepGraphUI
 var package_graph:PackageGraphView
@@ -51,6 +53,8 @@ func _ready() -> void:
 	add_child(dep_graph)
 	UControl.expand(dep_graph)
 	dep_graph.set_edge_mode(DepGraphUI.EdgeMode.TREE)
+	dep_graph.file_activated.connect(set_current_file) # double-click: that file's own deps
+	dep_graph.file_right_clicked.connect(file_context_requested.emit)
 
 	package_graph = PackageGraphView.new()
 	add_child(package_graph)

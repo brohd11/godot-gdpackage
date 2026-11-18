@@ -162,6 +162,7 @@ func _ready() -> void:
 	tab_container.add_tab(dep_view, EditorIcons.get_icon_white("GraphEdit"))
 	UControl.expand(dep_view)
 	dep_view.package_drill_in.connect(_on_package_drill_in)
+	dep_view.file_context_requested.connect(_on_graph_file_context)
 	
 	export_editor = ExportEditor.new()
 	tab_container.add_tab(export_editor, EditorIcons.get_icon_white("CodeEdit"))
@@ -217,6 +218,37 @@ func _on_package_drill_in(dir:String):
 		return
 	if not dep_view.focus_package(dir):
 		push_warning("GDPackage: this export references no files from " + dir)
+
+func _on_graph_file_context(path:String):
+	var options = Options.new()
+	if _export_path_of(path) != "":
+		options.add_option("Show in Tree", _show_in_export_tree.bind(path), ["FileTree"])
+	options.add_option("Show in FileSystem", func(): EditorInterface.select_file(path), ["Filesystem"])
+	options.add_option("Inspect Dependencies", _show_dependency.bind(path), [EditorIcons.get_icon_white("GraphEdit")])
+	if ResourceLoader.exists(path):
+		options.add_option("Open", func(): EditorInterface.edit_resource(load(path)), ["Load"])
+	right_click_handler.display_popup(options)
+
+## Where `path` lands in the parsed export, which is what the export tree is keyed by; "" if absent.
+func _export_path_of(path:String) -> String:
+	if current_export_data == null:
+		return ""
+	for export:Export in current_export_data.exports:
+		var data = export.files_to_copy.get(path)
+		if data != null:
+			return data.get(KeysData.TO, "")
+	return ""
+
+func _show_in_export_tree(path:String):
+	if filter_line_edit.text != "":
+		filter_line_edit.clear()
+		file_tree.update_filter()
+	var item = tree_helper.get_tree_item(_export_path_of(path))
+	if not is_instance_valid(item):
+		return
+	tree_helper.uncollapse_items([item])
+	file_tree.set_selected(item, 0)
+	file_tree.scroll_to_item(item, true)
 
 ## The package an export config belongs to: <package>/export_ignore/<config>.
 static func _package_dir_of(export_file_path:String) -> String:
