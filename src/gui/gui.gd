@@ -17,6 +17,7 @@ const YAMLHighlighter = preload("uid://com2gj0t82d8f") #! resolve SyntaxHighligh
 
 const Summary = preload("res://addons/gdpackage/src/gui/panels/summary.gd")
 const DependencyView = preload("res://addons/gdpackage/src/gui/panels/dep_view.gd")
+const PackageView = preload("res://addons/gdpackage/src/gui/panels/package_view.gd")
 const ExportEditor = preload("res://addons/gdpackage/src/gui/panels/export_editor.gd")
 const DocViewer = preload("uid://bp8qk7hu5ohs7") #! resolve GDPackageUser.DocViewer
 const Docs = preload("uid://01wqb0kamr3o") #! resolve GDPackageSpec.Docs
@@ -63,6 +64,7 @@ var tree_helper:FSTreeClasses.FSTreeHelper
 
 var summary_panel:Summary
 var dep_view:DependencyView
+var package_view:PackageView
 var export_editor:ExportEditor
 var doc_viewer:DocViewer
 
@@ -161,10 +163,15 @@ func _ready() -> void:
 	dep_view = DependencyView.new()
 	tab_container.add_tab(dep_view, EditorIcons.get_icon_white("GraphEdit"))
 	UControl.expand(dep_view)
-	# the drill-in needs the export files and the menu points into the export tree, both ours
-	dep_view.package_graph.package_clicks.left_click_double = _on_package_drill_in
-	dep_view.package_graph.file_clicks.right_click_pressed = _on_graph_file_context
 	dep_view.dep_graph.file_clicks.right_click_pressed = _on_graph_file_context
+
+	package_view = PackageView.new()
+	tab_container.add_tab(package_view, EditorIcons.get_icon_white("PackedScene"))
+	UControl.expand(package_view)
+	# the drill-in needs the export files and the menu points into the export tree, both ours
+	package_view.package_graph.package_clicks.left_click_double = _on_package_drill_in
+	package_view.package_graph.file_clicks.left_click_double = dep_view.set_current_file
+	package_view.package_graph.file_clicks.right_click_pressed = _on_graph_file_context
 	
 	export_editor = ExportEditor.new()
 	tab_container.add_tab(export_editor, EditorIcons.get_icon_white("CodeEdit"))
@@ -184,7 +191,7 @@ func _on_options_pressed():
 	options.add_option("Show All Deps", _show_all_deps)
 	var valid_plugins = PluginExporter.get_addons_dirs(PluginExporter.TargetAddons.VALID)
 	for p in valid_plugins:
-		options.add_option("Load".path_join(p), _load_plugin.bind(p), ["Load", null])
+		options.add_option("Load/" + Options.escape(p), _load_plugin.bind(p), ["Load", null])
 	
 	options.add_separator()
 	options.add_option("DockManager", func():dock_button.pressed.emit(), ["MakeFloating"])
@@ -302,7 +309,8 @@ func _set_file_path(file_path:String):
 	
 	current_export_data = null # belonged to the previous config
 	dep_view.clear()
-	dep_view.set_package_dir(_package_dir_of(file_path))
+	package_view.clear()
+	package_view.set_package_dir(_package_dir_of(file_path))
 	file_tree.clear()
 	tree_helper.clear_items()
 	summary_panel.clear()

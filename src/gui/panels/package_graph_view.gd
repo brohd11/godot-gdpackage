@@ -61,10 +61,10 @@ func _ready() -> void:
 	right_disconnects = false
 	connection_lines_curvature = 0.4
 	connection_lines_antialiased = true
-	connection_lines_thickness = 2.5
+	connection_lines_thickness = DepGraphUI.LINE_THICKNESS
 	zoom_min = 0.05
 	zoom_max = 2.0
-	scroll_offset_changed.connect(func(_o): _update_detail()) # zooming moves the offset too
+	scroll_offset_changed.connect(_on_zoom_or_scroll) # zooming moves the offset too
 	add_theme_color_override(&"activity", DepGraphUI.ACTIVE_LINE_COLOR)
 	node_selected.connect(func(_n): _queue_activity())
 	node_deselected.connect(func(_n): _queue_activity())
@@ -175,6 +175,11 @@ func _on_expanded_changed(id:String) -> void:
 	for n in _nodes.values():
 		n.reset_size() # GraphNode keeps its old size until told; layout reads the new minimum
 	_layout()
+
+
+func _on_zoom_or_scroll(_offset:Vector2) -> void:
+	_update_detail()
+	DepGraphUI.apply_zoom_line_thickness(self)
 
 
 func _update_detail() -> void:
@@ -302,6 +307,7 @@ func _fit_view() -> void:
 	bounds = bounds.grow(VIEW_MARGIN * EditorInterface.get_editor_scale())
 	zoom = clampf(minf(size.x / bounds.size.x, size.y / bounds.size.y), zoom_min, 1.0)
 	scroll_offset = bounds.get_center() * zoom - size * 0.5
+	DepGraphUI.apply_zoom_line_thickness(self)
 
 
 class PackageNode extends GraphNode:
