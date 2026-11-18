@@ -161,8 +161,10 @@ func _ready() -> void:
 	dep_view = DependencyView.new()
 	tab_container.add_tab(dep_view, EditorIcons.get_icon_white("GraphEdit"))
 	UControl.expand(dep_view)
-	dep_view.package_drill_in.connect(_on_package_drill_in)
-	dep_view.file_context_requested.connect(_on_graph_file_context)
+	# the drill-in needs the export files and the menu points into the export tree, both ours
+	dep_view.package_graph.package_clicks.left_click_double = _on_package_drill_in
+	dep_view.package_graph.file_clicks.right_click_pressed = _on_graph_file_context
+	dep_view.dep_graph.file_clicks.right_click_pressed = _on_graph_file_context
 	
 	export_editor = ExportEditor.new()
 	tab_container.add_tab(export_editor, EditorIcons.get_icon_white("CodeEdit"))

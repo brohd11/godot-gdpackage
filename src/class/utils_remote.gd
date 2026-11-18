@@ -19,6 +19,7 @@ const EditorIcons = preload("uid://viocyrti6wce") #! resolve UIPlugin.EditorIcon
 const Options = preload("uid://dxdxq2n3imf4q") #! resolve UtilR.Nodes.PopupMenus.Options
 
 const UControl = preload("uid://cdo8rcof3ilt1") #! resolve UtilR.Nodes.UControl
+const ClickCallback = preload("uid://nlyakecug1es") #! resolve UtilR.Inputs.ClickCallback
 
 const FSTreeClasses = preload("res://addons/_lib/editor_filesystem/src/components/tree/fs_tree_classes.gd")
 

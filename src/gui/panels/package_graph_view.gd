@@ -6,6 +6,7 @@ extends GraphEdit
 
 const UtilsRemote = preload("res://addons/gdpackage/src/class/utils_remote.gd")
 const KindStyle = UtilsRemote.DepGraphUI.KindStyle
+const ClickCallback = UtilsRemote.ClickCallback
 const PackageGraph = preload("res://addons/gdpackage/src/class/package_graph.gd")
 
 const ROOT_COLOR = Color("6aa9e3")
@@ -33,8 +34,10 @@ const SLOT_TREE = 0
 const SLOT_SECONDARY = 1
 const SLOT_UNDECLARED = 2
 
-signal package_activated(dir:String)
-signal file_activated(path:String)
+## Clicks on package nodes; callbacks get (dir:String). Unresolved packages have no dir, so never fire.
+var package_clicks := ClickCallback.new()
+## Clicks on the file rows drawn inside nodes; callbacks get (path:String).
+var file_clicks := ClickCallback.new()
 
 var v_gap:float = 24.0
 var show_all_edges:bool = false:
@@ -97,11 +100,11 @@ func _rebuild() -> void:
 		add_child(node)
 		node.setup(_data.nodes[id], id == _data.root, PackageGraph.new_requires(_data, id),
 			in_slots.get(id, {}), out_slots.get(id, {}), _required_by(id))
-		node.activated.connect(package_activated.emit)
+		node.clicks = package_clicks
 		if node.canvas != null:
 			node.canvas.expanded = _expanded.has(id)
 			node.canvas.set_detailed(_detailed)
-			node.canvas.file_activated.connect(file_activated.emit)
+			node.canvas.clicks = file_clicks
 			node.canvas.expanded_changed.connect(_on_expanded_changed.bind(id))
 		_nodes[id] = node
 	_layout()
@@ -286,9 +289,8 @@ func _fit_view() -> void:
 
 
 class PackageNode extends GraphNode:
-	signal activated(dir:String)
-
 	var dir:String = ""
+	var clicks:ClickCallback
 	var canvas:FileCanvas
 	## slot -> port index. GraphEdit numbers ports per side over enabled slots only.
 	var in_port_of:Dictionary = {}
@@ -375,17 +377,14 @@ class PackageNode extends GraphNode:
 		return "%s  (local %s)" % [tag, local]
 
 	func _gui_input(event:InputEvent) -> void:
-		if event is InputEventMouseButton and event.pressed and event.double_click \
-				and event.button_index == MOUSE_BUTTON_LEFT and dir != "":
-			activated.emit(dir)
-			accept_event()
+		if clicks != null and dir != "":
+			clicks.handle_input(event, [dir], self)
 
 
 ## The files a package contributes, drawn rather than built from Controls: a node can carry
 ## hundreds, and at low zoom they collapse to coloured blocks. Long lists stop at MAX_ROWS
 ## behind a "+N more" row that toggles the rest.
 class FileCanvas extends Control:
-	signal file_activated(path:String)
 	signal expanded_changed
 
 	const MAX_ROWS = 30
@@ -395,6 +394,7 @@ class FileCanvas extends Control:
 	const OTHER_COLOR = Color("a0a4a8")
 
 	var files:Array = []
+	var clicks:ClickCallback
 	var expanded:bool = false:
 		set(value):
 			expanded = value
@@ -462,15 +462,15 @@ class FileCanvas extends Control:
 		return files[row] if row >= 0 and row < _shown() else ""
 
 	func _gui_input(event:InputEvent) -> void:
-		if not (event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT):
+		if not event is InputEventMouseButton:
 			return
 		var row = _row_at(event.position)
 		if row < 0:
 			return
 		if row == _shown() and _has_more():
-			expanded = not expanded
-			expanded_changed.emit()
-			accept_event()
-		elif event.double_click and row < _shown():
-			file_activated.emit(files[row])
-			accept_event()
+			if event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+				expanded = not expanded
+				expanded_changed.emit()
+				accept_event()
+		elif row < _shown() and clicks != null:
+			clicks.handle_input(event, [files[row]], self)

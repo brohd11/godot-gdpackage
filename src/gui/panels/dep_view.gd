@@ -13,11 +13,6 @@ const RequireReport = preload("res://addons/gdpackage/src/class/release/require_
 enum ViewMode { FILES_TREE, FILES_ALL, PACKAGES }
 const VIEW_LABELS = {"Files - Tree": ViewMode.FILES_TREE, "Files - All": ViewMode.FILES_ALL, "Packages": ViewMode.PACKAGES}
 
-## Double-click on a package node; the host owns the export files the drill-in needs.
-signal package_drill_in(dir:String)
-## Right-click on a file node; the host owns the menu and the export tree it points into.
-signal file_context_requested(path:String)
-
 var dep_graph:DepGraphUI
 var package_graph:PackageGraphView
 var status_label:Label
@@ -40,10 +35,10 @@ var show_package_files:bool = false
 var _usage_report = null # RequireReport.build() for package_dir; null until first needed
 var _crawling:bool = false
 
+# Children are built here, not in _ready, so the host can assign click callbacks straight
+# after new().
 func _init() -> void:
 	name = "Dependency View"
-
-func _ready() -> void:
 	status_label = Label.new()
 	status_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	status_label.hide()
@@ -53,14 +48,12 @@ func _ready() -> void:
 	add_child(dep_graph)
 	UControl.expand(dep_graph)
 	dep_graph.set_edge_mode(DepGraphUI.EdgeMode.TREE)
-	dep_graph.file_activated.connect(set_current_file) # double-click: that file's own deps
-	dep_graph.file_right_clicked.connect(file_context_requested.emit)
+	dep_graph.file_clicks.left_click_double = set_current_file # that file's own deps
 
 	package_graph = PackageGraphView.new()
 	add_child(package_graph)
 	UControl.expand(package_graph)
-	package_graph.package_activated.connect(package_drill_in.emit)
-	package_graph.file_activated.connect(set_current_file)
+	package_graph.file_clicks.left_click_double = set_current_file
 	_apply_view_mode()
 
 func set_current_file(path:String):
