@@ -19,6 +19,7 @@ static func run_tests() -> Dictionary:
 	_test_version_state()
 	_test_usage()
 	_test_usage_compile_only()
+	_test_flow_columns()
 	var output:Array[String] = ["package_graph: %d passed, %d failed" % [_passed, _failures.size()]]
 	for failure in _failures:
 		output.append("  FAIL  " + failure)
@@ -146,6 +147,23 @@ static func _test_usage_compile_only() -> void:
 	PackageGraph.apply_usage(g, {"target": "res://r", "files": [], "groups": {}, "unused": {"res://r": [_id("o/t")]}})
 	var edge = g.edges.filter(func(e): return e.to == _id("o/t"))[0]
 	_check("compile-only require never flagged unused", [edge.keys, edge.state, g.nodes[_id("o/t")].flags], [["compile"], "", []])
+
+
+static func _test_flow_columns() -> void:
+	var g = PackageGraph.build("res://r", _opts())
+	var cols = PackageGraph.flow_columns(g)
+	var a = _id("o/a"); var b = _id("o/b"); var c = _id("o/c"); var x = _id("o/x")
+	_check("longest path from the root", [cols["res://r"], cols[a], cols[b], cols[c], cols[x]], [0, 1, 2, 3, 4])
+	var backward = g.edges.filter(func(e): return cols[e.to] <= cols[e.from]).map(func(e): return [e.from, e.to])
+	_check("only the cycle-closing edge points back", backward, [[c, a]])
+	_check("flow deterministic", str(PackageGraph.flow_columns(PackageGraph.build("res://r", _opts()))), str(cols))
+	_check("new_requires", [PackageGraph.new_requires(g, "res://r"), PackageGraph.new_requires(g, a), PackageGraph.new_requires(g, b)], [2, 1, 0])
+
+	# c -> z undeclared: z lands one past c
+	PackageGraph.apply_usage(g, {"target": "res://r", "files": [], "unused": {},
+		"groups": {"res://x": {"rows": []}, "res://c": {"rows": [_row("res://z", _id("o/z"), ["res://z/z.gd"])]}}})
+	var with_z = PackageGraph.flow_columns(g)
+	_check("undeclared edges take part", with_z[_id("o/z")], 4)
 
 
 static func _req(spec:String, key:String = "build") -> Dictionary:

@@ -133,6 +133,73 @@ static func apply_usage(graph:Dictionary, report:Dictionary) -> void:
 		node.files = paths
 
 
+## {id: column} for a left-to-right flow: the longest path from the root over `edges`, so no
+## drawn edge points backwards. Edges closing a cycle (found by a sorted DFS) are left out of the
+## ranking; a node they cannot reach keeps its BFS layer.
+static func flow_columns(graph:Dictionary, edges = null) -> Dictionary:
+	if edges == null:
+		edges = graph.edges
+	var out_of = {} # id -> [to], sorted
+	for edge in edges:
+		if not out_of.has(edge.from):
+			out_of[edge.from] = []
+		if not edge.to in out_of[edge.from]:
+			out_of[edge.from].append(edge.to)
+	for id in out_of:
+		out_of[id].sort()
+
+	# iterative DFS: an edge into a node still on the stack closes a cycle
+	var back = {} # "from|to" -> true
+	var state = {} # id -> 1 on stack, 2 done
+	var stack = [[graph.root, 0]]
+	state[graph.root] = 1
+	while not stack.is_empty():
+		var top = stack[-1]
+		var targets:Array = out_of.get(top[0], [])
+		if top[1] >= targets.size():
+			state[top[0]] = 2
+			stack.pop_back()
+			continue
+		var to = targets[top[1]]
+		top[1] += 1
+		match state.get(to, 0):
+			1:
+				back[top[0] + "|" + to] = true
+			0:
+				state[to] = 1
+				stack.append([to, 0])
+
+	var indegree = {}
+	for from in out_of:
+		if not state.has(from):
+			continue
+		for to in out_of[from]:
+			if not back.has(from + "|" + to):
+				indegree[to] = indegree.get(to, 0) + 1
+	var columns = {graph.root: 0}
+	var queue = [graph.root]
+	var i = 0
+	while i < queue.size():
+		var from = queue[i]
+		i += 1
+		for to in out_of.get(from, []):
+			if back.has(from + "|" + to):
+				continue
+			columns[to] = maxi(columns.get(to, 0), columns[from] + 1)
+			indegree[to] -= 1
+			if indegree[to] == 0:
+				queue.append(to)
+	for id in graph.nodes:
+		if not columns.has(id):
+			columns[id] = graph.nodes[id].layer
+	return columns
+
+
+## Requires `id` brought into the graph itself, i.e. its tree edges; the rest were placed earlier.
+static func new_requires(graph:Dictionary, id:String) -> int:
+	return graph.edges.filter(func(e): return e.tree and e.from == id).size()
+
+
 static func _add_file(files:Dictionary, id:String, path:String) -> void:
 	if not files.has(id):
 		files[id] = {}

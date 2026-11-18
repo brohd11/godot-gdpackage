@@ -21,6 +21,13 @@ const NODE_WIDTH_FILES = 300.0
 const VIEW_MARGIN = 40.0
 ## Below this zoom file names are unreadable, so canvases draw blocks instead.
 const DETAIL_ZOOM = 0.45
+## Column gap for both layouts, unscaled. It stretches up to the max to match the view's aspect,
+## so the graph fills the panel instead of a strip.
+const COLUMN_GAP = 260.0
+const COLUMN_GAP_MAX = 700.0
+## Show All Edges only: roomier rows, and barycenter passes over the columns.
+const FLOW_V_GAP = 48.0
+const FLOW_SWEEPS = 4
 
 const SLOT_TREE = 0
 const SLOT_SECONDARY = 1
@@ -29,7 +36,6 @@ const SLOT_UNDECLARED = 2
 signal package_activated(dir:String)
 signal file_activated(path:String)
 
-var h_gap:float = 120.0
 var v_gap:float = 24.0
 var show_all_edges:bool = false:
 	set(value):
@@ -40,6 +46,7 @@ var show_all_edges:bool = false:
 var _data:Dictionary = {}
 var _nodes:Dictionary = {} # package id -> PackageNode
 var _expanded:Dictionary = {} # package id -> true; survives rebuilds of the same graph
+var _drawn:Array = [] # edges with a line on screen; the flow layout ranks over these
 var _detailed:bool = true
 
 
@@ -74,10 +81,10 @@ func _rebuild() -> void:
 	clear_graph()
 	if _data.is_empty():
 		return
-	var drawn = _data.edges.filter(_edge_drawn)
+	_drawn = _data.edges.filter(_edge_drawn)
 	var in_slots = {} # id -> {slot: true}
 	var out_slots = {}
-	for edge in drawn:
+	for edge in _drawn:
 		_mark(out_slots, edge.from, _slot_of(edge))
 		_mark(in_slots, edge.to, _slot_of(edge))
 
@@ -88,7 +95,8 @@ func _rebuild() -> void:
 		node.name = "p%d" % i
 		i += 1
 		add_child(node)
-		node.setup(_data.nodes[id], id == _data.root, in_slots.get(id, {}), out_slots.get(id, {}), _required_by(id))
+		node.setup(_data.nodes[id], id == _data.root, PackageGraph.new_requires(_data, id),
+			in_slots.get(id, {}), out_slots.get(id, {}), _required_by(id))
 		node.activated.connect(package_activated.emit)
 		if node.canvas != null:
 			node.canvas.expanded = _expanded.has(id)
@@ -97,7 +105,7 @@ func _rebuild() -> void:
 			node.canvas.expanded_changed.connect(_on_expanded_changed.bind(id))
 		_nodes[id] = node
 	_layout()
-	for edge in drawn:
+	for edge in _drawn:
 		var slot = _slot_of(edge)
 		var from = _nodes[edge.from]
 		var to = _nodes[edge.to]
@@ -160,44 +168,107 @@ func _update_detail() -> void:
 			node.canvas.set_detailed(detailed)
 
 
-# Columns by layer; within one, ordered by the tree parent's row so tree edges cross least.
+## Tree mode: a column per BFS layer. Show All Edges: a left-to-right flow over every drawn edge
+## (PackageGraph.flow_columns), reordered by barycenter sweeps with roomier rows.
 func _layout() -> void:
 	var scale = EditorInterface.get_editor_scale()
+	var flow = show_all_edges
+	var col_of = PackageGraph.flow_columns(_data, _drawn) if flow else {}
+	var by_col = {}
+	for id in _data.nodes:
+		var col:int = col_of[id] if flow else _data.nodes[id].layer
+		if not by_col.has(col):
+			by_col[col] = []
+		by_col[col].append(id)
+	var keys = by_col.keys()
+	keys.sort()
+	var columns:Array = keys.map(func(k): return by_col[k])
+	_order_by_tree_parent(columns)
+	if flow:
+		_order_by_barycenter(columns)
+
+	var v_space = (FLOW_V_GAP if flow else v_gap) * scale
+	var widths:Array[float] = []
+	var heights:Array[float] = []
+	for ids in columns:
+		var width = 0.0
+		var height = v_space * maxi(ids.size() - 1, 0)
+		for id in ids:
+			var min_size = _nodes[id].get_combined_minimum_size()
+			width = maxf(width, min_size.x)
+			height += min_size.y
+		widths.append(width)
+		heights.append(height)
+
+	var h_space = COLUMN_GAP * scale
+	if columns.size() > 1 and size.y > 0.0:
+		var total_width = widths.reduce(func(acc, w): return acc + w, 0.0)
+		var fill = (heights.max() * size.x / size.y - total_width) / (columns.size() - 1)
+		h_space = clampf(fill, COLUMN_GAP * scale, COLUMN_GAP_MAX * scale)
+
+	var x = 0.0
+	for c in columns.size():
+		var y = -heights[c] * 0.5
+		for id in columns[c]:
+			_nodes[id].position_offset = Vector2(x, y)
+			y += _nodes[id].get_combined_minimum_size().y + v_space
+		x += widths[c] + h_space
+
+
+# Within a column, follow the tree parent's row so tree edges cross least; ties by name.
+func _order_by_tree_parent(columns:Array) -> void:
 	var parent_of = {}
 	for edge in _data.edges:
 		if edge.tree:
 			parent_of[edge.to] = edge.from
-	var columns = {} # layer -> [id]
-	for id in _data.nodes:
-		var layer:int = _data.nodes[id].layer
-		if not columns.has(layer):
-			columns[layer] = []
-		columns[layer].append(id)
-
 	var row_of = {}
-	var x = 0.0
-	var layers = columns.keys()
-	layers.sort()
-	for layer in layers:
-		var ids:Array = columns[layer]
+	for ids in columns:
 		ids.sort_custom(func(a, b):
 			var ra = row_of.get(parent_of.get(a, ""), -1)
 			var rb = row_of.get(parent_of.get(b, ""), -1)
 			return ra < rb if ra != rb else _data.nodes[a].name < _data.nodes[b].name)
-		var height = 0.0
-		var width = 0.0
-		for id in ids:
-			var size = _nodes[id].get_combined_minimum_size()
-			height += size.y
-			width = maxf(width, size.x)
-		height += v_gap * scale * maxi(ids.size() - 1, 0)
-		var y = -height * 0.5
 		for r in ids.size():
-			var id = ids[r]
-			row_of[id] = r
-			_nodes[id].position_offset = Vector2(x, y)
-			y += _nodes[id].get_combined_minimum_size().y + v_gap * scale
-		x += width + h_gap * scale
+			row_of[ids[r]] = r
+
+
+# Alternating sweeps: sort each column by the mean position of its neighbours in the column just
+# fixed - predecessors going right, successors going left. Positions are normalised to 0..1, so
+# columns of different heights compare; a node with no such neighbours keeps its slot.
+func _order_by_barycenter(columns:Array) -> void:
+	var preds = {}
+	var succs = {}
+	for edge in _drawn:
+		_append(preds, edge.to, edge.from)
+		_append(succs, edge.from, edge.to)
+	var pos = {}
+	for ids in columns:
+		_record_positions(ids, pos)
+	for sweep in FLOW_SWEEPS:
+		var forward = sweep % 2 == 0
+		var neighbours = preds if forward else succs
+		var order = range(1, columns.size()) if forward else range(columns.size() - 2, -1, -1)
+		for c in order:
+			var ids:Array = columns[c]
+			var key = {}
+			for id in ids:
+				var near = neighbours.get(id, []).filter(func(n): return pos.has(n))
+				if near.is_empty():
+					key[id] = pos[id]
+				else:
+					key[id] = near.reduce(func(acc, n): return acc + pos[n], 0.0) / near.size()
+			ids.sort_custom(func(a, b): return key[a] < key[b] if key[a] != key[b] else pos[a] < pos[b])
+			_record_positions(ids, pos)
+
+
+static func _append(map:Dictionary, key:String, value:String) -> void:
+	if not map.has(key):
+		map[key] = []
+	map[key].append(value)
+
+
+static func _record_positions(ids:Array, pos:Dictionary) -> void:
+	for r in ids.size():
+		pos[ids[r]] = (r + 0.5) / ids.size()
 
 
 func _fit_view() -> void:
@@ -223,7 +294,7 @@ class PackageNode extends GraphNode:
 	var in_port_of:Dictionary = {}
 	var out_port_of:Dictionary = {}
 
-	func setup(node:Dictionary, is_root:bool, in_slots:Dictionary, out_slots:Dictionary, required_by:Array) -> void:
+	func setup(node:Dictionary, is_root:bool, new_count:int, in_slots:Dictionary, out_slots:Dictionary, required_by:Array) -> void:
 		var scale = EditorInterface.get_editor_scale()
 		var show_files = node.usage_loaded and not node.files.is_empty()
 		dir = node.dir
@@ -235,7 +306,7 @@ class PackageNode extends GraphNode:
 		var state = PackageGraph.version_state(node)
 		if state != 0:
 			version.add_theme_color_override("font_color", AHEAD_COLOR if state > 0 else BEHIND_COLOR)
-		var info = _row(("%d requires" % node.requires.size()) if node.resolved else "not in project")
+		var info = _row(_requires_text(node, new_count))
 		info.add_theme_color_override("font_color", MUTED_COLOR)
 		var colors = {SLOT_TREE: UNRESOLVED_COLOR if not node.resolved else EDGE_COLOR,
 			SLOT_SECONDARY: MUTED_COLOR, SLOT_UNDECLARED: UNDECLARED_COLOR}
@@ -286,6 +357,13 @@ class PackageNode extends GraphNode:
 		label.custom_minimum_size.y = 22.0 * EditorInterface.get_editor_scale()
 		add_child(label)
 		return label
+
+	## "new" are the requires this package brought into the graph; the rest were placed earlier.
+	static func _requires_text(node:Dictionary, new_count:int) -> String:
+		if not node.resolved:
+			return "not in project"
+		var count = node.requires.size()
+		return "Requires: %d (%d new)" % [count, new_count] if count > 0 else "Requires: 0"
 
 	static func _version_text(node:Dictionary) -> String:
 		var tag = node.declared_tag
