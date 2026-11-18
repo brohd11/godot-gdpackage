@@ -5,7 +5,8 @@ extends GraphEdit
 ## has no per-connection style. With usage applied, a node also draws the files it contributes.
 
 const UtilsRemote = preload("res://addons/gdpackage/src/class/utils_remote.gd")
-const KindStyle = UtilsRemote.DepGraphUI.KindStyle
+const DepGraphUI = UtilsRemote.DepGraphUI
+const KindStyle = DepGraphUI.KindStyle
 const ClickCallback = UtilsRemote.ClickCallback
 const PackageGraph = preload("res://addons/gdpackage/src/class/package_graph.gd")
 
@@ -51,6 +52,7 @@ var _nodes:Dictionary = {} # package id -> PackageNode
 var _expanded:Dictionary = {} # package id -> true; survives rebuilds of the same graph
 var _drawn:Array = [] # edges with a line on screen; the flow layout ranks over these
 var _detailed:bool = true
+var _activity_queued:bool = false
 
 
 func _ready() -> void:
@@ -63,6 +65,9 @@ func _ready() -> void:
 	zoom_min = 0.05
 	zoom_max = 2.0
 	scroll_offset_changed.connect(func(_o): _update_detail()) # zooming moves the offset too
+	add_theme_color_override(&"activity", DepGraphUI.ACTIVE_LINE_COLOR)
+	node_selected.connect(func(_n): _queue_activity())
+	node_deselected.connect(func(_n): _queue_activity())
 
 
 func set_graph(data:Dictionary) -> void:
@@ -113,10 +118,21 @@ func _rebuild() -> void:
 		var from = _nodes[edge.from]
 		var to = _nodes[edge.to]
 		connect_node(from.name, from.out_port_of[slot], to.name, to.in_port_of[slot])
+	_queue_activity()
 	_fit_view()
 	if is_inside_tree():
 		# GraphEdit clamps scroll against bounds it has not measured yet on the build frame
 		get_tree().process_frame.connect(_fit_view, CONNECT_ONE_SHOT | CONNECT_DEFERRED)
+
+
+# Coalesced like GraphUI's: a box select fires node_selected once per node.
+func _queue_activity() -> void:
+	if _activity_queued:
+		return
+	_activity_queued = true
+	(func():
+		_activity_queued = false
+		DepGraphUI.highlight_selected_connections(self)).call_deferred()
 
 
 func _edge_drawn(edge:Dictionary) -> bool:
@@ -400,9 +416,13 @@ class FileCanvas extends Control:
 			expanded = value
 			_update_size()
 	var _detailed:bool = true
+	var _hover_row:int = -1
+	## Held while the right-click menu is open, which takes the mouse off the canvas.
+	var _pinned_row:int = -1
 
 	func _init() -> void:
 		mouse_filter = MOUSE_FILTER_PASS # clicks still reach the node, so it drags from here too
+		mouse_exited.connect(_set_hover.bind(-1))
 
 	func _ready() -> void:
 		_update_size()
@@ -433,6 +453,12 @@ class FileCanvas extends Control:
 		var icon_size = 14.0 * scale
 		var text_color = get_theme_color(&"font_color", &"Label")
 		var baseline = (row_h + font.get_ascent(font_size) - font.get_descent(font_size)) * 0.5
+		if _detailed:
+			var accent = get_theme_color(&"accent_color", &"Editor")
+			for row in [_hover_row, _pinned_row]:
+				if row >= 0 and row < _shown():
+					var alpha = 0.32 if row == _pinned_row else 0.18
+					draw_rect(Rect2(0.0, row * row_h, size.x, row_h), Color(accent, alpha))
 		for i in _shown():
 			var path:String = files[i]
 			var y = i * row_h
@@ -462,6 +488,10 @@ class FileCanvas extends Control:
 		return files[row] if row >= 0 and row < _shown() else ""
 
 	func _gui_input(event:InputEvent) -> void:
+		if event is InputEventMouseMotion:
+			var at = _row_at(event.position)
+			_set_hover(at if at < _shown() else -1)
+			return
 		if not event is InputEventMouseButton:
 			return
 		var row = _row_at(event.position)
@@ -473,4 +503,29 @@ class FileCanvas extends Control:
 				expanded_changed.emit()
 				accept_event()
 		elif row < _shown() and clicks != null:
+			if event.pressed and event.button_index == MOUSE_BUTTON_RIGHT \
+					and clicks.has_slot(ClickCallback.State.RMB_PRESSED):
+				_pin(row)
 			clicks.handle_input(event, [files[row]], self)
+
+	# Reaching another row means the menu is gone; the same row may just be the way to the menu.
+	func _set_hover(row:int) -> void:
+		var unpin = _pinned_row >= 0 and row >= 0 and row != _pinned_row
+		if row == _hover_row and not unpin:
+			return
+		_hover_row = row
+		if unpin:
+			_pinned_row = -1
+		queue_redraw()
+
+	# The menu is its own window: closing it hands focus back to ours.
+	func _pin(row:int) -> void:
+		_pinned_row = row
+		var window = get_window()
+		if not window.focus_entered.is_connected(_unpin):
+			window.focus_entered.connect(_unpin, CONNECT_ONE_SHOT)
+		queue_redraw()
+
+	func _unpin() -> void:
+		_pinned_row = -1
+		queue_redraw()
