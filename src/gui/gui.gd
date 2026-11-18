@@ -150,12 +150,12 @@ func _ready() -> void:
 	UControl.expand(tab_container)
 	
 	summary_panel = Summary.new()
-	tab_container.add_tab(summary_panel, EditorInterface.get_editor_theme().get_icon(&"ExternalLink", &"EditorIcons"))
+	tab_container.add_tab(summary_panel, EditorInterface.get_editor_theme().get_icon(&"Info", &"EditorIcons"))
 	UControl.expand(summary_panel)
 	
 	dep_view = DependencyView.new()
 	package_view = PackageView.new()
-	tab_container.add_tab(package_view, EditorIcons.get_icon_white("PackedScene"))
+	tab_container.add_tab(package_view, EditorIcons.get_icon_white("ResourcePreloader"))
 	UControl.expand(package_view)
 	tab_container.add_tab(dep_view, EditorIcons.get_icon_white("GraphEdit"))
 	UControl.expand(dep_view)
@@ -181,9 +181,9 @@ func _on_options_pressed():
 	var options = Options.new()
 	options.add_option("Parse", _parse_export_data.bind(true), ["FileList"])
 	if _export_valid_file():
-		options.add_option("Export", _run_export, ["ResourcePreloader"])
+		options.add_option("Export", _run_export, ["ActionCopy"])
 		options.add_option("Open Dir", _open_folder, ["Folder"])
-	options.add_option("Show All Deps", _show_all_deps)
+	options.add_option("Show All Deps", _show_all_deps, [EditorIcons.get_icon_white("GraphEdit")])
 	var valid_plugins = PluginExporter.get_addons_dirs(PluginExporter.TargetAddons.VALID)
 	for p in valid_plugins:
 		options.add_option("Load/" + Options.escape(p), _load_plugin.bind(p), ["Load", null])
