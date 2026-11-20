@@ -510,7 +510,8 @@ class ExportTree extends FSTreeClasses.MinTree:
 		# Export dirs may not exist on disk yet, so the helper passes them here; show only as ancestors.
 		if path.ends_with("/"):
 			return false
-		return filter_line_edit.text.is_subsequence_ofn(path.get_file())
+		# Match the path under the export root; the shared root prefix would fuzzy-match almost anything.
+		return filter_line_edit.text.is_subsequence_ofn(path.trim_prefix(filter_root))
 
 	func _make_custom_tooltip(_for_text: String) -> Object:
 		var item = get_item_at_position(get_local_mouse_position())
