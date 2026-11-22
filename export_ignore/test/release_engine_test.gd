@@ -29,6 +29,7 @@ static func run_tests() -> Dictionary:
 	_test_reporting(failures)
 	_test_excluded_sources(failures)
 	_test_stored_version(failures)
+	_test_expected_errors(failures)
 
 	var output:Array[String] = ["release_engine: %d failed" % failures.size()]
 	output.append_array(failures)
@@ -50,6 +51,19 @@ static func _test_reporting(failures:Array[String]) -> void:
 		_expect(failures, label + " fails", ok == false)
 		_expect(failures, label + " error reported", reporter.count(Reporter.Level.ERROR) == 1)
 		_expect(failures, label + " sink gets error then result", sent == [Reporter.Level.ERROR, Reporter.Level.NOTE])
+
+
+## Fixtures with expected_error in their path fail on purpose, on the error line or its "at:" line.
+static func _test_expected_errors(failures:Array[String]) -> void:
+	var output = "\n".join([
+		"  SCRIPT ERROR: Invalid call. Nonexistent function 'a' in base 'Nil'.",
+		"     at: _execute (user://x_expected_error/crash.gd:5)",
+		"SCRIPT ERROR: user://y_expected_error.gd failed",
+		"SCRIPT ERROR: Invalid call. Nonexistent function 'b' in base 'Nil'.",
+		"   at: _run (res://addons/lib/real.gd:9)",
+	])
+	var errors = TestCI.runtime_errors(output)
+	_expect(failures, "only the unexpected runtime error counts: %s" % errors, errors.size() == 1 and errors[0].contains("real.gd:9"))
 
 
 static func _test_excluded_sources(failures:Array[String]) -> void:

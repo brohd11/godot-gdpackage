@@ -19,6 +19,8 @@ const Reporter = ReleaseExport.Reporter
 const TestCommands = preload("res://addons/gdpackage/src/class/release/test_commands.gd")
 
 const SKIP_PREFIX = "SKIP:"
+## Fixtures that fail on purpose put this in their path; their runtime errors don't fail the run.
+const EXPECTED_ERROR = "expected_error"
 
 ## The running test_package call's reporter; null between calls, see ReleaseExport.reporter.
 static var reporter: Reporter
@@ -173,7 +175,8 @@ static func _escape(text:String) -> String:
 	return text.replace("[", "[lb]")
 
 
-## Runtime "SCRIPT ERROR" lines, each with its "at:" line. Parse errors are ReleaseRunner.script_errors.
+## Runtime "SCRIPT ERROR" lines, each with its "at:" line, except those naming an EXPECTED_ERROR
+## path. Parse errors are ReleaseRunner.script_errors.
 static func runtime_errors(output:String) -> Array[String]:
 	var lines = output.split("\n")
 	var out:Array[String] = []
@@ -183,7 +186,7 @@ static func runtime_errors(output:String) -> Array[String]:
 			continue
 		if i + 1 < lines.size() and lines[i + 1].strip_edges().begins_with("at:"):
 			line += "  " + lines[i + 1].strip_edges()
-		if not line in out:
+		if not EXPECTED_ERROR in line and not line in out:
 			out.append(line)
 	return out
 

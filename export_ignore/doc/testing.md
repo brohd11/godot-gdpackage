@@ -16,6 +16,7 @@ static func run_tests() -> Dictionary:
 - Suites can await frames.
 - A script that cannot load, or returns a non-dictionary, fails. Files without an entry point are reported as invalid.
 - CI fails when no suites run.
+- A runtime `SCRIPT ERROR` during the run fails CI even when every suite passes. Fixtures that fail on purpose put `expected_error` in their path (e.g. `user://my_test_expected_error/crash.gd`), and their errors are skipped.
 
 Keep suites, fixtures, and runners in the package's `_export_ignore/test/` (or `export_ignore/test/`) folder and they never reach a release. Suites beside the code they test also work, see [Excluding tests from exports](#excluding-tests-from-exports).
 
