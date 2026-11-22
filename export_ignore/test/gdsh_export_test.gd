@@ -89,7 +89,7 @@ static func _export_fixture(fixture:String, with_host:bool) -> bool:
 	# The command-only root references nothing but CommandBase: a Host or Load preload would mask
 	# a missing loader, and is exactly what the host fixture adds.
 	_write(source.path_join("commands/root/root.gd"), (COMMAND % "root") + (HOST_LINE if with_host else ""))
-	_write(source.path_join("commands/root/child/child.gd"), (COMMAND % "child") + 'func _execute(ctx): ctx.append_output("relocated child")\n')
+	_write(source.path_join("commands/root/child/child.gd"), (COMMAND % "child") + 'func _execute(ctx): ctx.append_output("relocated child"); return ExitCode.OK\n')
 	var exports = []
 	for relative in [false, true]:
 		exports.append({
