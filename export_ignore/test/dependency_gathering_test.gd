@@ -20,6 +20,7 @@ static func run_tests() -> Dictionary:
 	_clear_fixtures(DIR)
 	_test_roots_and_recursion()
 	_test_ignores_and_rewrites()
+	_test_ignored_extends()
 	_test_classes_and_reduction()
 	_test_replacement()
 	_test_uid_sidecars()
@@ -88,6 +89,20 @@ static func _test_ignores_and_rewrites() -> void:
 		'const P = preload("%s"); var a = load("%s"); var b = ResourceLoader.load("%s")' % [export.get_rel_or_absolute_path(target), target, target])
 	_w("plugin/ignored.gd", '#! gdp-ignore\nconst Leaf = preload("%s")\n' % leaf)
 	_check("header does not disable file", _crawl([root]).files_to_copy.has(leaf), true)
+
+
+## An ignored extends names a base the release doesn't carry (a plugin's gdsh cmd/): neither the
+## base nor anything the file uses from it is gathered, with or without access reduction.
+static func _test_ignored_extends() -> void:
+	var leaf = _w("external/ie_leaf.gd", "extends RefCounted\nstatic func f(): pass\n")
+	var base = _w("external/ie_base.gd", 'extends RefCounted\nconst Leaf = preload("./ie_leaf.gd")\n')
+	var root = _w("plugin/ie_cmd.gd", 'extends "%s" #! gdp-ignore\nfunc g(): Leaf.f()\n' % base)
+	for reduce in [false, true]:
+		var export = _crawl([root], {"Unrelated": leaf}, reduce)
+		_check("ignored extends: base absent reduce=%s" % reduce, export.files_to_copy.has(base), false)
+		_check("ignored extends: inherited const target absent reduce=%s" % reduce, export.files_to_copy.has(leaf), false)
+	_w("plugin/ie_cmd.gd", 'extends "%s"\nfunc g(): Leaf.f()\n' % base)
+	_check("unignored extends still gathers its base", _crawl([root], {"Unrelated": leaf}, true).files_to_copy.has(base), true)
 
 
 static func _test_classes_and_reduction() -> void:

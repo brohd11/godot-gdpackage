@@ -34,6 +34,8 @@ var export_obj: UtilsLocal.ExportData.Export
 
 func _init() -> void:
 	preload_regex = UtilsRemote.URegex.get_preload_path()
+	# Every const lookup honours ignored lines, the scanner's own cache included.
+	DepScanner.ResolveAccess.set_ignore_tags(_const_cache, [DependencyTags.IGNORE])
 	
 
 ## Settings arrive keyed by extension: "parse_<ext>": {"my_setting": value}.
@@ -95,6 +97,7 @@ func _get_dep_scanner():
 		_dep_scanner_export = export_obj
 		_edge_cache.clear()
 		_const_cache.clear()
+		DepScanner.ResolveAccess.set_ignore_tags(_const_cache, [DependencyTags.IGNORE])
 	return _dep_scanner
 
 ## `class_map` non-empty turns on access-path resolution: the scan then reports where a dotted

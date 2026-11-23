@@ -5,6 +5,7 @@ extends RefCounted
 ## load() hands back a non-null GDScript even when compilation fails, so output is the real signal.
 ## Files tagged `#! gdp-skip-parse` (DependencyTags.SKIP_PARSE) are not loaded, e.g. a placeholder
 ## extends that Singletons.RuntimeExtend swaps at runtime and so can never compile as written.
+## Neither are .gdignore'd dirs, which Godot never loads either (e.g. a plugin's gdsh cmd/).
 
 const ReleaseRunner = preload("res://addons/gdpackage/src/class/release/release_runner.gd")
 const DependencyTags = preload("res://addons/gdpackage/src/class/export/dependency_tags.gd")
@@ -48,6 +49,8 @@ func _run() -> void:
 
 func _walk(dir:String) -> Array:
 	var out = []
+	if FileAccess.file_exists(dir.path_join(".gdignore")):
+		return out
 	for f in DirAccess.get_files_at(dir):
 		out.append(dir.path_join(f))
 	for d in DirAccess.get_directories_at(dir):
