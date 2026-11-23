@@ -36,7 +36,7 @@ func set_export_data(export_data:ExportData):
 		_new_line("Export %s" % i)
 		_new_line("Source: %s" % e.source)
 		_new_line("Files Count: %s" % e.files_to_copy.size())
-		_new_line("Remote Dir: %s" % e.remote_dir)
+		_new_line("Vendor Dir: %s" % e.remote_dir)
 		if not e.external_dirs.is_empty():
 			_new_line("External (not bundled): %s" % ", ".join(e.external_dirs))
 			for path in e.external_refs:

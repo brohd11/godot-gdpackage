@@ -22,7 +22,7 @@ Requirement keys accept a spec or a list of specs. See [Releases](releases.md#bu
 
 - `source` - source location of the plugin.
 - `exclude` - optional. Directories, file extensions, and files to ignore on export. The export-ignore folder is always skipped, so it never needs listing.
-- `remote_dir` - where files from outside the plugin are recreated. Defaults to `src/remote`.
+- `vendor_dir` - where files from outside the plugin are recreated (bundled copies, mirroring their `res://` path). Defaults to `vendor`. `remote_dir`, its old name, is still read. With `ignore_src`, a vendor dir outside `src/` gets its own `.gdignore`.
 - `export_name` - package folder under `export_root` + `plugin_folder`, zipped as a whole. Defaults to the last segment of `plugin_folder`.
 - `export_folder` - install path relative to `res://`, e.g. `addons/_lib/my_lib`. Recreated inside the package, so it extracts straight into a project. Defaults to `source`; a different path renames the plugin and rewrites its paths to match. No `{{version}}` templates.
 - `other_transfers` - other files to transfer into the plugin on export. Two sources resolving to the same destination abort the export. Each entry:

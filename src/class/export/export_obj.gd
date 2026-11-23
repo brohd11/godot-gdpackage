@@ -768,11 +768,16 @@ func get_class_renames():
 
 func get_remote_file_local_path(file_path:String) -> String:
 	var stripped_path = file_path.trim_prefix("res://")
-	
-	var remote_count = stripped_path.count("/remote/") ## This will remove duplicate files from exported plugins
-	if remote_count > 0:
-		stripped_path = stripped_path.get_slice("/remote/", remote_count)
-	
+	# A file already bundled by another export maps back to its original path, so copies never
+	# nest. vendor/ mirrors res:// paths (addons/...); src/remote/ is the pre-vendor layout.
+	var cut = -1
+	for marker in ["/remote/", "/vendor/addons/"]:
+		var idx = stripped_path.rfind(marker)
+		if idx > -1:
+			cut = maxi(cut, idx + marker.find("/", 1) + 1)
+	if cut > -1:
+		stripped_path = stripped_path.substr(cut)
+
 	var remote_dir_path = remote_dir.path_join(stripped_path)
 	
 	return remote_dir_path

@@ -544,7 +544,7 @@ static func _test_library_from_source() -> void:
 	var f = FakeFetcher.new()
 	var t = f.add("me/t", "v1", {"plugin.cfg": '[plugin]\n', EX: _ex(["me/l@v1.0.0", "me/u@v1.2.0"])})
 	f.add("me/l", "v1.0.0", {"version.cfg": '[plugin]\npath="addons/_lib/l"\n', "_export_ignore/plugin_export.yml": _ex(["me/u@v1.0.0"])})
-	f.add_release("me/l", "v1.0.0", {"addons/_lib/l/version.cfg": '[plugin]\npath="addons/_lib/l"\n', "addons/_lib/l/src/remote/u.gd": ""})
+	f.add_release("me/l", "v1.0.0", {"addons/_lib/l/version.cfg": '[plugin]\npath="addons/_lib/l"\n', "addons/_lib/l/vendor/u.gd": ""})
 	f.add("me/u", "v1.0.0", {"version.cfg": '[plugin]\npath="addons/_lib/u"\n'})
 	f.add("me/u", "v1.2.0", {"version.cfg": '[plugin]\npath="addons/_lib/u"\n'})
 	var r = DepResolver.new(f)

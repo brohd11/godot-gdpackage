@@ -537,7 +537,8 @@ class KeysConfig:
 	const EXPORTS = "exports"
 	class Export:
 		const SOURCE = "source"
-		const REMOTE_DIR = "remote_dir"
+		const VENDOR_DIR = "vendor_dir"
+		const REMOTE_DIR = "remote_dir" # pre-vendor name, still read
 		const EXPORT_NAME = "export_name"
 		const EXPORT_FOLDER = "export_folder"
 		const OTHER_TRANSFERS = "other_transfers"

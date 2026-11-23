@@ -196,6 +196,13 @@ static func _test_rewrites() -> void:
 			_found(_dirs[variant], "/u_window.gd"), true)
 		_check("%s: preload hub needs no replace tag" % variant,
 			_has(_dirs[variant], "src/utils_remote.gd", "#! gdp-replace"), false)
+	# Baseline keeps the old remote_dir key (under src/, hidden with it); the others set vendor_dir,
+	# which ignore_src hides on its own.
+	_check("remote_dir key still read", _found(_dirs.get(BASELINE, ""), "/src/remote/addons/_lib/util_r/src/node/u_window.gd"), true)
+	for variant in [REDUCED, RELATIVE, RENAMED]:
+		_check("%s: vendor_dir key places bundled copies" % variant,
+			_found(_dirs.get(variant, ""), "/vendor/addons/_lib/util_r/src/node/u_window.gd"), true)
+		_check("%s: ignore_src hides the vendor dir" % variant, _exists(_dirs.get(variant, ""), "vendor/.gdignore"), true)
 	_check("gdp-ignore path untouched", _has(dir, "src/core/consumer.gd",
 		'"res://addons/_lib/util_r/LICENSE" #! gdp-ignore'), true)
 	_check("namespace directive stripped", _has(dir, "src/core/tags.gd", "#! namespace"), false)
@@ -365,9 +372,9 @@ static func _test_external() -> void:
 			bundled.append(file.trim_prefix(dir))
 	_check("external: nothing bundled (%s)" % ", ".join(bundled), bundled.is_empty(), true)
 	_check("external: other libs still bundled", _found(dir, "/u_window.gd"), true)
-	# This entry omits remote_dir and other_transfers and doesn't list export_ignore; defaults must hold.
+	# This entry omits vendor_dir and other_transfers and doesn't list export_ignore; defaults must hold.
 	_check("optional keys: export_ignore still skipped", _exists(dir, "export_ignore/plugin_export.yml"), false)
-	_check("optional keys: default remote_dir", _found(dir, "src/remote/addons/_lib/util_r/src/node/u_window.gd"), true)
+	_check("optional keys: default vendor dir", _found(dir, "/vendor/addons/_lib/util_r/src/node/u_window.gd"), true)
 
 	_check("external: class name kept", _has(dir, "src/core/access_paths.gd", "return YAMLParser.dump({})"), true)
 	_check("external: no preload injected", _has(dir, "src/core/access_paths.gd", "const YAMLParser"), false)
@@ -556,7 +563,7 @@ static func _zipped(dir:String, relative:String) -> bool:
 
 
 ## True when any file in the export ends with `suffix` - for targets whose exact location inside
-## remote_dir is not the thing under test.
+## the vendor dir is not the thing under test.
 static func _found(dir:String, suffix:String) -> bool:
 	for file in _walk(dir):
 		if file.ends_with(suffix):

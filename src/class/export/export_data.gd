@@ -153,17 +153,24 @@ func _init(export_config_path, _reporter = null):
 		export_obj.exported_require = _ExternalDeps.merge_require(
 			_ExternalDeps.merge_require(exported_require, external.specs), own_external.specs)
 		
-		var default_remote_dir = export_obj.source.path_join("src/remote")
-		export_obj.remote_dir = export.get(KeysConfig.Export.REMOTE_DIR, default_remote_dir)
+		# Bundled copies live outside src/: third-party, export-generated, never edited by hand.
+		# remote_dir is the pre-vendor key, still read for older configs.
+		var default_vendor_dir = export_obj.source.path_join("vendor")
+		export_obj.remote_dir = export.get(KeysConfig.Export.VENDOR_DIR,
+			export.get(KeysConfig.Export.REMOTE_DIR, default_vendor_dir))
 		if not export_obj.remote_dir.begins_with(export_obj.source):
 			export_obj.remote_dir = export_obj.source.path_join(export_obj.remote_dir)
 		
 		export_obj.source_files = _UtilsRemote.GetFiles.scan(export_obj.source)
 		export_obj.export_dir_path = full_export_path.path_join(export_obj.export_name).path_join(export_obj.export_folder)
 		export_obj.other_transfers = _array(export.get(KeysConfig.Export.OTHER_TRANSFERS))
-		# Hides src/ in the release; should_move_global() has already pulled globals out of it.
-		if ignore_src and DirAccess.dir_exists_absolute(export_obj.source.path_join("src")):
-			export_obj.other_transfers.append({"to": "src/.gdignore"})
+		# Hides src/ and the bundled copies in the release; should_move_global() has already pulled
+		# globals out of both.
+		if ignore_src:
+			if DirAccess.dir_exists_absolute(export_obj.source.path_join("src")):
+				export_obj.other_transfers.append({"to": "src/.gdignore"})
+			if not export_obj.remote_dir.begins_with(export_obj.source.path_join("src") + "/"):
+				export_obj.other_transfers.append({"to": export_obj.remote_dir.path_join(".gdignore")})
 		# Documented as an option; older configs set it on the export entry.
 		export_obj.ignore_dependencies = export.get(KeysConfig.Options.IGNORE_DEPENDENCIES,
 			options.get(KeysConfig.Options.IGNORE_DEPENDENCIES, false))
