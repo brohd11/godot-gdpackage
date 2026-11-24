@@ -48,7 +48,7 @@ static func run_tests() -> Dictionary:
 		var data = ExportData.new(config)
 		_expect(failures, "config default and opt-out " + str(options), data.ignore_tests == options.get("ignore_tests", true))
 	_test_discovery(failures)
-	var commands = CommandLoader.load_directory("res://addons/gdpackage/src/editor_plugins/console_command/ci", true)
+	var commands = CommandLoader.load_directory("res://addons/gdpackage/cmd/gdpackage/ci", true)
 	_expect(failures, "run_test command remains discoverable", commands.has("run_test"))
 	if commands.has("run_test"):
 		var script = commands.run_test[CommandLoader.Types.ScopeDataKeys.SCRIPT]

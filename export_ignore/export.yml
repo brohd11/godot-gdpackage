@@ -9,6 +9,8 @@ exports:
     export_name: "gdpackage{{version=gdpackage}}"
     export_folder: "addons/gdpackage"
     source: "res://addons/gdpackage/"
+    other_transfers:
+      - to: cmd/.gdignore
 options:
   include_import: true
   include_uid: true

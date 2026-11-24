@@ -10,7 +10,6 @@ const SHOW_TOOL_MENU_ITEM = &"plugin/gdpackage/show_tool_menu_item"
 const DocViewer = preload("uid://bp8qk7hu5ohs7") #! resolve GDPackageUser.DocViewer
 const UtilsRemote = preload("res://addons/gdpackage/src/class/utils_remote.gd")
 
-const ConsoleCommand = preload("res://addons/gdpackage/src/editor_plugins/console_command/console_command.gd")
 const ContextMenuPlugin = preload("res://addons/gdpackage/src/editor_plugins/plugin_exporter_context_menus.gd")
 
 static var instance
@@ -79,16 +78,9 @@ func new_gui_instance():
 
 
 func _register_singletons():
-	_register_editor_console()
+	# The `gdpackage` gdsh command needs no registration: hosts find it in cmd/.
 	_register_code_completions()
 	_register_syntax_tags()
-
-func _register_editor_console():
-	var sing_name = "EditorConsoleSingleton"
-	if not Singletons.CheckInstance.check_valid(sing_name):
-		return
-	var singleton = Singletons.CheckInstance.get_instance(sing_name)
-	singleton.register_temp_scope("gdpackage", ConsoleCommand)
 
 func _register_code_completions():
 	var sing_name = "EditorCodeCompletionSingleton"

@@ -19,7 +19,7 @@ const _UFile = _UtilsRemote.UFile
 const _GetFiles = _UtilsRemote.GetFiles
 const _PackageCfg = preload("uid://ddo8w07hts45v") #! resolve GDPackageSpec.Cfg
 const _Docs = preload("uid://01wqb0kamr3o") #! resolve GDPackageSpec.Docs
-const _MinVersionStamp = preload("res://addons/gdpackage/src/editor_plugins/console_command/min_version/min_version_stamp.gd")
+const _MinVersionStamp = preload("res://addons/gdpackage/src/class/min_version/min_version_stamp.gd")
 const TestFiles = preload("res://addons/gdpackage/src/class/export/test_files.gd")
 
 var export_data: _ExportData

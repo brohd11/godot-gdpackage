@@ -15,7 +15,7 @@ const DepScanner = UtilsRemote.DepScanner
 const DepEdge = DepScanner.DepEdge
 const DepResolver = preload("res://addons/gdpackage/src/class/release/dep_resolver.gd")
 const RequireUpdate = preload("res://addons/gdpackage/src/class/release/require_update.gd")
-const MinVersionStamp = preload("res://addons/gdpackage/src/editor_plugins/console_command/min_version/min_version_stamp.gd")
+const MinVersionStamp = preload("res://addons/gdpackage/src/class/min_version/min_version_stamp.gd")
 
 const CFG_NAMES = DepResolver.CFG_NAMES
 

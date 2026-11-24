@@ -8,7 +8,7 @@ extends EditorScript
 
 const Reporter = preload("res://addons/gdpackage/src/class/utils_local.gd").Reporter
 const Level = Reporter.Level
-const PECommandUtils = preload("res://addons/gdpackage/src/editor_plugins/console_command/command_utils.gd")
+const PECommandUtils = preload("res://addons/gdpackage/src/class/command_utils.gd")
 
 static var _failures:Array[String] = []
 static var _passed:int = 0

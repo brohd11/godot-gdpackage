@@ -5,7 +5,7 @@ extends EditorScript
 ##
 ##     load("res://addons/gdpackage/export_ignore/test/min_version_stamp_test.gd").run_tests()
 
-const MinVersionStamp = preload("res://addons/gdpackage/src/editor_plugins/console_command/min_version/min_version_stamp.gd")
+const MinVersionStamp = preload("res://addons/gdpackage/src/class/min_version/min_version_stamp.gd")
 const ROOT = "user://gdpackage_min_version_stamp_tests"
 
 static var _failures:Array[String] = []

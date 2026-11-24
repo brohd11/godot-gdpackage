@@ -5,7 +5,7 @@ extends EditorScript
 ##
 ##     load("res://addons/gdpackage/export_ignore/test/version_scanner_test.gd").run_tests()
 
-const VersionScanner = preload("res://addons/gdpackage/src/editor_plugins/console_command/min_version/version_scanner.gd")
+const VersionScanner = preload("res://addons/gdpackage/src/class/min_version/version_scanner.gd")
 const ROOT = "user://gdpackage_version_scanner_tests"
 
 static var _failures:Array[String] = []
