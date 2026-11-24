@@ -10,6 +10,7 @@ const UtilsLocal = preload("res://addons/gdpackage/src/class/utils_local.gd")
 const UtilsRemote = preload("res://addons/gdpackage/src/class/utils_remote.gd")
 const ExportFileUtils = UtilsLocal.ExportFileUtils
 const ExportData = UtilsLocal.ExportData
+const KeysData = ExportFileUtils.KeysData
 const DependencyTags = UtilsLocal.DependencyTags
 const DepScanner = UtilsRemote.DepScanner
 const DepEdge = DepScanner.DepEdge
@@ -25,7 +26,8 @@ const CFG_NAMES = DepResolver.CFG_NAMES
 ## "build", "compile" or "". `refs` is every reference behind the row, {from, line, kind, raw, to},
 ## sorted - `files` counts distinct targets, refs where each is made. A from_package of "" is a
 ## dependent outside any package. Top-level `files` is the crawl's roots and `external_dirs` the
-## packages it left out, both for the minimum_engine_version stamp.
+## packages it left out, both for the minimum_engine_version stamp. other_transfers sources count
+## as references from the target (kind "other_transfers"), since nothing else may reach them.
 static func build(plugin_name:String) -> Dictionary:
 	var report = {"target": "", "plugin_name": "", "config_path": "", "groups": {}, "loose": {},
 		"unused": {}, "errors": [], "files": [], "external_dirs": []}
@@ -65,32 +67,31 @@ static func build(plugin_name:String) -> Dictionary:
 	var graph = _scan_files(roots.keys(), data.class_list)
 
 	# Every edge, so a file referenced from inside and outside its package still counts the outside.
-	var counted = {}
+	var tally = {"target": target, "cache": cache, "needed": needed, "refs": refs, "counted": {}, "loose": report.loose}
 	for edge in graph.edges:
 		# a load() target compiles without the file - same rule as the export, it needs "#! gdp-dependency"
 		if edge.to == "" or edge.kind == DepEdge.Kind.LOAD:
 			continue
-		var package = _package_dir(edge.to, cache)
-		if package == target and package != "":
-			continue # the plugin's own files are never a requirement
-		var from = _package_dir(edge.from, cache)
-		if package == from and package != "":
-			continue
-		if package != "":
-			var ref_key = "%s|%s" % [from, package]
-			if not refs.has(ref_key):
-				refs[ref_key] = []
-			refs[ref_key].append({"from": edge.from, "line": edge.line_no, "kind": edge.kind_name(), "raw": edge.raw, "to": edge.to})
-		var key = "%s|%s" % [edge.to, from]
-		if counted.has(key):
-			continue
-		counted[key] = true
-		if package == "":
-			report.loose[edge.to.get_base_dir()] = report.loose.get(edge.to.get_base_dir(), 0) + 1
-			continue
-		if not needed.has(from):
-			needed[from] = {}
-		needed[from][package] = needed[from].get(package, 0) + 1
+		var ref = {"from": edge.from, "line": edge.line_no, "kind": edge.kind_name(), "raw": edge.raw, "to": edge.to}
+		_count_link(tally, edge.to, _package_dir(edge.from, cache), ref)
+	# Transferred files may have no reference at all (e.g. a lib listed at runtime); the config is
+	# their dependent. Each file counts, but refs list each row's `from` once, not every file.
+	for export in data.exports:
+		for entry in ExportFileUtils.get_other_transfer_data(export):
+			var file:String = entry[KeysData.FROM]
+			if not file.begins_with(KeysData.VIRTUAL):
+				_count_link(tally, file, target, {})
+		for row in export.other_transfers:
+			var sources = row.get(KeysData.FROM)
+			for source in (sources if sources is Array else [sources]):
+				if source is String and not source.begins_with(KeysData.VIRTUAL):
+					var package = _package_dir(source.trim_suffix("/").path_join("_"), cache)
+					if package != target and package != "" and needed[target].has(package):
+						var ref = {"from": config_path, "line": 0, "kind": "other_transfers", "raw": source, "to": source}
+						var ref_key = "%s|%s" % [target, package]
+						if not refs.has(ref_key):
+							refs[ref_key] = []
+						refs[ref_key].append(ref)
 
 	var identities = {}
 	for from in needed:
@@ -174,6 +175,32 @@ static func format(report:Dictionary, verbose:bool = false) -> String:
 	if lines.is_empty():
 		lines.append("Nothing outside %s is pulled in." % report.target)
 	return "\n".join(lines)
+
+
+## One reference from package `from` to file `to`: a requirement unless `to` is the target's own
+## or in `from`'s package. A (file, from package) pair counts once; refs keep every occurrence
+## (an empty ref is counted but not listed).
+static func _count_link(tally:Dictionary, to:String, from:String, ref:Dictionary) -> void:
+	var package = _package_dir(to, tally.cache)
+	if package == tally.target and package != "":
+		return # the plugin's own files are never a requirement
+	if package == from and package != "":
+		return
+	if package != "" and not ref.is_empty():
+		var ref_key = "%s|%s" % [from, package]
+		if not tally.refs.has(ref_key):
+			tally.refs[ref_key] = []
+		tally.refs[ref_key].append(ref)
+	var key = "%s|%s" % [to, from]
+	if tally.counted.has(key):
+		return
+	tally.counted[key] = true
+	if package == "":
+		tally.loose[to.get_base_dir()] = tally.loose.get(to.get_base_dir(), 0) + 1
+		return
+	if not tally.needed.has(from):
+		tally.needed[from] = {}
+	tally.needed[from][package] = tally.needed[from].get(package, 0) + 1
 
 
 ## Nearest ancestor dir holding a package cfg; "" when none does.

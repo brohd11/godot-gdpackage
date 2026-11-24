@@ -9,6 +9,7 @@ extends EditorScript
 
 const RequireUpdate = preload("res://addons/gdpackage/src/class/release/require_update.gd")
 const DepResolver = RequireUpdate.DepResolver
+const RequireReport = preload("res://addons/gdpackage/src/class/release/require_report.gd")
 
 static var _failures:Array[String] = []
 static var _passed:int = 0
@@ -30,6 +31,7 @@ static func run_tests() -> Dictionary:
 	_test_apply_require_ref()
 	_test_apply_cfg()
 	_test_verbose_refs()
+	_test_other_transfers_required()
 
 	var output:Array[String] = []
 	output.append("require_update: %d passed, %d failed" % [_passed, _failures.size()])
@@ -259,6 +261,60 @@ static func _test_verbose_refs() -> void:
 	DirAccess.remove_absolute(root.path_join("lib/version.cfg"))
 	DirAccess.remove_absolute(root.path_join("lib"))
 	DirAccess.remove_absolute(root)
+
+
+## A package pulled in only by other_transfers (nothing references it) is still a requirement, so
+## prune keeps it. Its ref is the transfer row, once, however many files it copies.
+static func _test_other_transfers_required() -> void:
+	var root = "res://addons/gdpackage/export_ignore/test/fixtures/_require_transfer_%d" % Time.get_ticks_usec()
+	var pkg = root.path_join("pkg")
+	var lib = root.path_join("lib")
+	var config = pkg.path_join("_export_ignore/export.yml")
+	var config_head = 'export_root: "%s"\nplugin_folder: "Pkg"\noptions:\n  overwrite: true\nexports:\n  -\n    source: "%s"\n    export_name: "pkg"\n    export_folder: "addons/pkg"\n' \
+			% [root.path_join("exports"), pkg]
+	var transfers = '    other_transfers:\n      - to: cmd/.gdignore\n      -\n        from: "%s"\n        to: "vendor/lib/cmd"\n        recursive: true\n' \
+			% lib.path_join("cmd")
+	var files = {
+		lib.path_join("package.cfg"): '[package]\nname="lib"\nversion="1.0.0"\nurl="https://github.com/me/lib"\n',
+		lib.path_join("cmd/a/a.gd"): "extends RefCounted\n",
+		lib.path_join("cmd/b/b.gd"): "extends RefCounted\n",
+		pkg.path_join("package.cfg"): '[package]\nname="pkg"\nversion="0.1.0"\nrequire=[\n"me/lib@v1.0.0",\n]\n',
+		pkg.path_join("src/main.gd"): "extends RefCounted\n",
+		config: config_head + transfers,
+	}
+	for path in files:
+		DirAccess.make_dir_recursive_absolute(path.get_base_dir())
+		if not _write(path, files[path]):
+			_remove_tree(root)
+			return
+
+	var report = RequireReport.build(pkg)
+	_check("transfer report errors", report.errors, [])
+	var rows = report.get("groups", {}).get(pkg, {}).get("rows", [])
+	var lib_rows = rows.filter(func(r): return r.id == "github.com/me/lib")
+	_check("a transferred package is a row", lib_rows.size(), 1)
+	if lib_rows.size() == 1:
+		_check("every transferred file counts", lib_rows[0].files, 2)
+		_check("its ref is the transfer row, once", lib_rows[0].refs.map(func(r): return [r.kind, r.raw]),
+				[["other_transfers", lib.path_join("cmd")]])
+	_check("a transferred package is not unused", report.unused.get(pkg, []), [])
+	var result = RequireUpdate.apply(report, false, true)
+	_check("prune keeps a transferred package", result.pruned, [])
+	_check("prune leaves the cfg as it was", FileAccess.get_file_as_string(pkg.path_join("package.cfg")), files[pkg.path_join("package.cfg")])
+
+	_write(config, config_head)
+	report = RequireReport.build(pkg)
+	rows = report.get("groups", {}).get(pkg, {}).get("rows", [])
+	_check("without the transfer it is no row", rows.filter(func(r): return r.id == "github.com/me/lib").size(), 0)
+	_remove_tree(root)
+
+
+static func _remove_tree(dir:String) -> void:
+	for sub in DirAccess.get_directories_at(dir):
+		_remove_tree(dir.path_join(sub))
+	for file in DirAccess.get_files_at(dir):
+		DirAccess.remove_absolute(dir.path_join(file))
+	DirAccess.remove_absolute(dir)
 
 
 static func _write(path:String, content:String) -> bool:
