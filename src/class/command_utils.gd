@@ -21,6 +21,11 @@ static func console_reporter(ctx, verbose := false) -> Reporter:
 			ctx.append_output(text)
 	return reporter
 
+## Notes from a PluginInit write_* call: errors when it `failed`, otherwise warnings.
+static func report_notes(ctx, notes:Array[String], failed:bool) -> void:
+	for note in notes:
+		ctx.append_error(note if failed else "[color=#fedd66]Warning: %s[/color]" % note)
+
 static func plugin_name_completion(cmd, ctx,target_addons:=TargetAddons.VALID, target_position:int=0):
 	if not _completing_target(cmd, ctx, target_position):
 		return {}

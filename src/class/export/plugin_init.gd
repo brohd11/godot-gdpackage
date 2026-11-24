@@ -12,127 +12,171 @@ const ExportIgnore = ExportFileUtils.ExportIgnore
 const ExportPaths = ExportFileUtils.ExportPaths
 const PackageCfg = ExportFileUtils.PackageCfg
 
+## Editor entry points: dialogs where a choice is needed, output to the Output panel. Commands and
+## headless callers use the write_* funcs below, which never open a dialog.
 static func new_plugin(plugin_dir_name, create_export:=true):
-	var new_plugin_path = "res://addons/%s" % plugin_dir_name
-	if DirAccess.dir_exists_absolute(new_plugin_path):
-		print("Plugin already exists.")
-		return
-	
-	DirAccess.make_dir_recursive_absolute(new_plugin_path)
-	var plugin_cap_name = plugin_dir_name.capitalize()
-	
-	var plugin_gd_path = new_plugin_path.path_join("plugin.gd")
-	var file_access = FileAccess.open(plugin_gd_path, FileAccess.WRITE)
-	file_access.store_string(_NewPluginText.PLUGIN_GD_TEXT % plugin_cap_name)
-	file_access.close()
-	
-	var plugin_cfg_path = new_plugin_path.path_join("plugin.cfg")
-	
-	var cfg_file_access = FileAccess.open(plugin_cfg_path, FileAccess.WRITE)
-	cfg_file_access.store_string(_NewPluginText.PLUGIN_CFG_TEXT % plugin_cap_name)
-	cfg_file_access.close()
-	
-	print("Created plugin: %s" % plugin_cap_name)
-	
-	if create_export:
-		plugin_init(plugin_dir_name)
-	
-	EditorInterface.get_resource_filesystem().scan()
+	var notes:Array[String] = []
+	var plugin_dir = write_new_plugin(plugin_dir_name, notes)
+	_report("Created plugin", plugin_dir, notes)
+	if plugin_dir != "" and create_export:
+		await plugin_init(plugin_dir)
 
 static func plugin_init(plugin_name:=""):
-	var plugin_dir = ""
-	if plugin_name != "":
-		plugin_dir = ExportPaths.resolve_target(plugin_name)
-		if plugin_dir == "":
-			printerr("Invalid package target (expected a path inside this project): " + plugin_name)
-			return
-		if not DirAccess.dir_exists_absolute(plugin_dir):
-			printerr("Plugin directory does not exist: %s" % plugin_dir)
-			return
-	else:
+	var target = plugin_name
+	if target == "":
 		var dialog = FilePicker.Editor.dir()
 		dialog.dialog.title = "Pick plugin folder..."
 		var resp = await dialog.get_response()
 		if resp.cancelled:
 			return
-		var handled = resp.payload
-		plugin_dir = ExportPaths.resolve_target(handled)
-		if plugin_dir == "":
-			printerr("Selected package must be inside this project: " + handled)
+		target = resp.payload
+	var overwrite = false
+	var plugin_dir = ExportPaths.resolve_target(target)
+	if plugin_dir != "" and FileAccess.file_exists(export_config_path(plugin_dir)):
+		# handled emits a Response; Cancel gives payload false (closing the dialog, cancelled).
+		var resp = await Confirmation.new("Overwrite: %s?" % export_config_path(plugin_dir)).handled
+		if resp.cancelled or not (resp.payload is bool and resp.payload):
 			return
-	
+		overwrite = true
+	var notes:Array[String] = []
+	var path = write_plugin_init(target, notes, overwrite)
+	_report("Plugin init complete", path, notes)
+	return path
+
+## Turns any folder into a library package: a package cfg (`cfg_name`, one of PackageCfg.NAMES),
+## its own git repo, src/, then plugin_init.
+static func package_init(target:String, cfg_name:String = "package.cfg"):
+	var notes:Array[String] = []
+	var package_dir = write_package_files(target, cfg_name, notes)
+	_report("Package init complete", package_dir, notes)
+	if package_dir != "":
+		return await plugin_init(package_dir)
+
+
+## The plugin dir created, or "" (reason in `notes`).
+static func write_new_plugin(plugin_dir_name:String, notes:Array[String]) -> String:
+	var new_plugin_path = "res://addons/%s" % plugin_dir_name
+	if DirAccess.dir_exists_absolute(new_plugin_path):
+		notes.append("Plugin already exists: " + new_plugin_path)
+		return ""
+	DirAccess.make_dir_recursive_absolute(new_plugin_path)
+	var plugin_cap_name = plugin_dir_name.capitalize()
+	var files = {
+		"plugin.gd": _NewPluginText.PLUGIN_GD_TEXT % plugin_cap_name,
+		"plugin.cfg": _NewPluginText.PLUGIN_CFG_TEXT % plugin_cap_name,
+	}
+	for file_name in files:
+		if not _write_text(new_plugin_path.path_join(file_name), files[file_name], notes):
+			return ""
+	scan_filesystem()
+	return new_plugin_path
+
+## Writes a package's export config and its .gitignore. An existing config is kept unless
+## `overwrite`. Returns the config path, or "" (reason in `notes`).
+static func write_plugin_init(target:String, notes:Array[String], overwrite := false) -> String:
+	var plugin_dir = ExportPaths.resolve_target(target)
+	if plugin_dir == "":
+		notes.append("Invalid package target (expected a path inside this project): " + target)
+		return ""
+	if not DirAccess.dir_exists_absolute(plugin_dir):
+		notes.append("Plugin directory does not exist: %s" % plugin_dir)
+		return ""
+	var export_config_path = export_config_path(plugin_dir)
+	if FileAccess.file_exists(export_config_path) and not overwrite:
+		notes.append("%s exists; pass --force to overwrite it" % export_config_path)
+		return ""
+
 	var export_dir:String = ProjectSettings.localize_path(plugin_dir)
-	var export_ignore_dir = ExportIgnore.dir_or_default(export_dir) # keeps an existing folder's name
-	if not DirAccess.dir_exists_absolute(export_ignore_dir):
-		DirAccess.make_dir_recursive_absolute(export_ignore_dir)
+	var export_ignore_dir = export_config_path.get_base_dir()
+	DirAccess.make_dir_recursive_absolute(export_ignore_dir)
 	for sub in ExportIgnore.SUB_DIRS:
 		DirAccess.make_dir_recursive_absolute(export_ignore_dir.path_join(sub))
-	
-	#var export_config_path = export_ignore_dir.path_join("plugin_export.json")
-	var export_config_path = export_ignore_dir.path_join(ExportIgnore.CONFIG_NAMES[0])
-	if FileAccess.file_exists(export_config_path):
-		var conf = Confirmation.new("Overwrite: %s?" % export_config_path)
-		var conf_handled = await conf.handled
-		if not conf_handled:
-			return
 
 	var export_dir_name = export_dir.trim_suffix("/").get_file()
 	var template_data = PluginExportJSON.get_body_data()
 	template_data[KeysConfig.EXPORT_ROOT] = export_ignore_dir.path_join("exports")
 	var plugin_folder = export_dir_name.capitalize().replace(" ", "")
 	template_data[KeysConfig.PLUGIN_FOLDER] = "%s{{version=%s}}" % [plugin_folder, export_dir]
-	
+
 	var export = PluginExportJSON.get_export_obj_data()
 	export[KeysConfig.Export.SOURCE] = export_dir
 	var export_dir_name_dash = export_dir_name.replace("_", "-")
 	export[KeysConfig.Export.EXPORT_NAME] = "%s{{version=%s}}" % [export_dir_name_dash, export_dir]
 	export[KeysConfig.Export.EXPORT_FOLDER] = export_dir.trim_prefix("res://").trim_suffix("/")
-
 	template_data[KeysConfig.EXPORTS].append(export)
 
-	#UFile.write_to_json(template_data, export_config_path)
 	YAMLParser.dump_to_file(template_data, export_config_path)
-	
-	var gitignore_fa = FileAccess.open(export_ignore_dir.path_join(".gitignore"), FileAccess.WRITE)
-	gitignore_fa.store_line("exports/")
-	gitignore_fa.close()
-	
-	EditorInterface.get_resource_filesystem().scan()
-	
-	print("Plugin init complete: %s" % plugin_dir)
+	if not FileAccess.file_exists(export_config_path):
+		notes.append("Could not write " + export_config_path)
+		return ""
+	if not _write_text(export_ignore_dir.path_join(".gitignore"), "exports/\n", notes):
+		return ""
+	scan_filesystem()
 	return export_config_path
 
+## package_init without dialogs: write_package_files, then write_plugin_init. Returns the config
+## path, or "" (reason in `notes`).
+static func write_package_init(target:String, cfg_name:String, notes:Array[String], overwrite := false) -> String:
+	var package_dir = write_package_files(target, cfg_name, notes)
+	if package_dir == "":
+		return ""
+	return write_plugin_init(package_dir, notes, overwrite)
 
-## Turns any folder into a library package: a package cfg (`cfg_name`, one of PackageCfg.NAMES),
-## its own git repo, src/, then plugin_init.
-static func package_init(target:String, cfg_name:String = "package.cfg"):
+## The package cfg, git init (a failure is only a note) and src/. Returns the package dir, or "".
+static func write_package_files(target:String, cfg_name:String, notes:Array[String]) -> String:
 	if not cfg_name in PackageCfg.NAMES:
-		printerr("Invalid cfg name %s, expected one of: %s" % [cfg_name, ", ".join(PackageCfg.NAMES)])
-		return
+		notes.append("Invalid cfg name %s, expected one of: %s" % [cfg_name, ", ".join(PackageCfg.NAMES)])
+		return ""
 	var package_dir = ExportPaths.resolve_target(target)
 	if package_dir == "":
-		printerr("Invalid package target (expected a path inside this project): " + target)
-		return
-	DirAccess.make_dir_recursive_absolute(package_dir)
+		notes.append("Invalid package target (expected a path inside this project): " + target)
+		return ""
 	var existing = PackageCfg.find(package_dir)
 	if existing != "":
-		printerr("Already a package, %s exists: %s" % [existing.get_file(), package_dir])
-		return
-	
-	var cfg_f = FileAccess.open(package_dir.path_join(cfg_name), FileAccess.WRITE)
-	cfg_f.store_string(package_cfg_text(package_dir))
-	cfg_f.close()
-	
+		notes.append("Already a package, %s exists: %s" % [existing.get_file(), package_dir])
+		return ""
+	DirAccess.make_dir_recursive_absolute(package_dir)
+	if not _write_text(package_dir.path_join(cfg_name), package_cfg_text(package_dir), notes):
+		return ""
+
 	var global_dir = ProjectSettings.globalize_path(package_dir)
 	var git_path = package_dir.path_join(".git")
 	if not DirAccess.dir_exists_absolute(git_path) and not FileAccess.file_exists(git_path): # file form: worktree/submodule
 		var output = []
 		if OS.execute("git", ["-C", global_dir, "init"], output, true) != 0:
-			push_warning("git init failed in %s: %s" % [package_dir, "\n".join(PackedStringArray(output)).strip_edges()])
-	
+			notes.append("git init failed in %s: %s" % [package_dir, "\n".join(PackedStringArray(output)).strip_edges()])
+
 	DirAccess.make_dir_recursive_absolute(package_dir.path_join("src"))
-	print("Package init complete: %s" % package_dir)
-	return await plugin_init(package_dir)
+	return package_dir
+
+## Where plugin_init writes `plugin_dir`'s export config (an existing ignore folder keeps its name).
+static func export_config_path(plugin_dir:String) -> String:
+	var export_dir = ProjectSettings.localize_path(plugin_dir)
+	return ExportIgnore.dir_or_default(export_dir).path_join(ExportIgnore.CONFIG_NAMES[0])
+
+## Refreshes the FileSystem dock; the editor singleton is missing headless (gdsh CLI).
+static func scan_filesystem() -> void:
+	if Engine.is_editor_hint():
+		EditorInterface.get_resource_filesystem().scan()
+
+static func _write_text(path:String, text:String, notes:Array[String]) -> bool:
+	var file = FileAccess.open(path, FileAccess.WRITE)
+	if file == null:
+		notes.append("Could not write %s (%s)" % [path, error_string(FileAccess.get_open_error())])
+		return false
+	file.store_string(text)
+	file.close()
+	return true
+
+## Output-panel report for the editor entry points, like _report_workflow.
+static func _report(done:String, path:String, notes:Array[String]) -> void:
+	for note in notes:
+		if path == "":
+			printerr(note)
+		else:
+			push_warning(note)
+	if path != "":
+		print("%s: %s" % [done, path])
 
 static func package_cfg_text(package_dir:String) -> String:
 	var res_path = ProjectSettings.localize_path(package_dir).trim_suffix("/")

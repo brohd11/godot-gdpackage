@@ -28,6 +28,7 @@ static func generate(plugin_name:String, name:String, year:String, license_id:St
 	file.store_string(text)
 	file.close()
 
-	EditorInterface.get_resource_filesystem().scan()
+	if Engine.is_editor_hint(): # no editor singleton headless (gdsh CLI)
+		EditorInterface.get_resource_filesystem().scan()
 	ctx.append_output("Wrote %s license -> [url=%s]%s[/url]" % [license_id, license_path, license_path])
 	return true

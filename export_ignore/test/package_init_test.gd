@@ -1,6 +1,7 @@
 @tool
 extends EditorScript
-## package_init's package cfg template and the unpackaged-dir completion scan.
+## package_init's package cfg template, the dialog-free write_* scaffolding and the unpackaged-dir
+## completion scan.
 
 const Discovery = preload("res://addons/gdpackage/src/class/export/package_discovery.gd")
 const PluginInit = preload("res://addons/gdpackage/src/class/export/plugin_init.gd")
@@ -27,11 +28,14 @@ static func run_tests() -> Dictionary:
 	_test_release_workflow()
 	_test_test_workflow()
 	_test_project_root_workflow()
+	_test_plugin_init()
+	_test_package_init()
 	if ceiling == "":
 		OS.unset_environment(GIT_CEILING)
 	else:
 		OS.set_environment(GIT_CEILING, ceiling)
 	_test_godot_build_name()
+	_test_new_plugin()
 	var output:Array[String] = ["package_init: %d passed, %d failed" % [_passed, _failures.size()]]
 	for failure in _failures:
 		output.append("  FAIL  " + failure)
@@ -152,6 +156,57 @@ static func _test_project_root_workflow() -> void:
 	_check("own repo written at its root despite the flag", own_path, own.path_join(".github/workflows/release.yml"))
 	_check("own repo has no package-dir", "package-dir:" in FileAccess.get_file_as_string(own_path), false)
 	Runner.remove_dir(ProjectSettings.globalize_path(project))
+
+
+## Commands and the gdsh CLI rely on these never opening a dialog: an existing config is refused
+## unless overwrite is passed.
+static func _test_plugin_init() -> void:
+	var dir = FIXTURES.path_join("_plugin_init_%d" % Time.get_ticks_usec())
+	var notes:Array[String] = []
+	_check("missing dir refused", PluginInit.write_plugin_init(dir, notes), "")
+	DirAccess.make_dir_recursive_absolute(dir)
+	notes.clear()
+	var path = PluginInit.write_plugin_init(dir, notes)
+	_check("config written", [path, FileAccess.file_exists(path), notes], [PluginInit.export_config_path(dir), true, []])
+	var ignore_dir = path.get_base_dir()
+	_check("gitignore + sub dirs", [FileAccess.get_file_as_string(ignore_dir.path_join(".gitignore")),
+		DirAccess.dir_exists_absolute(ignore_dir.path_join("test"))], ["exports/\n", true])
+	_check("config names the source", ("source: \"%s\"" % dir) in FileAccess.get_file_as_string(path), true)
+	FileAccess.open(path, FileAccess.WRITE).store_string("edited")
+	notes.clear()
+	_check("existing refused", [PluginInit.write_plugin_init(dir, notes), FileAccess.get_file_as_string(path)], ["", "edited"])
+	_check("refusal hints --force", notes.size() == 1 and "--force" in notes[0], true)
+	notes.clear()
+	_check("overwrite replaces", PluginInit.write_plugin_init(dir, notes, true) == path and FileAccess.get_file_as_string(path) != "edited", true)
+	Runner.remove_dir(ProjectSettings.globalize_path(dir))
+
+
+static func _test_package_init() -> void:
+	var dir = FIXTURES.path_join("_package_init_%d" % Time.get_ticks_usec())
+	var notes:Array[String] = []
+	_check("bad cfg name refused", PluginInit.write_package_init(dir, "nope.cfg", notes), "")
+	notes.clear()
+	var path = PluginInit.write_package_init(dir, "package.cfg", notes)
+	_check("package config written", [path, notes], [PluginInit.export_config_path(dir), []])
+	_check("cfg, src, git", [FileAccess.file_exists(dir.path_join("package.cfg")), DirAccess.dir_exists_absolute(dir.path_join("src")),
+		DirAccess.dir_exists_absolute(dir.path_join(".git"))], [true, true, true])
+	notes.clear()
+	_check("already a package refused", PluginInit.write_package_init(dir, "package.cfg", notes), "")
+	Runner.remove_dir(ProjectSettings.globalize_path(dir))
+
+
+## new_plugin always writes under res://addons, so the folder is removed straight after.
+static func _test_new_plugin() -> void:
+	var name = "_pe_new_plugin_test_%d" % Time.get_ticks_usec()
+	var notes:Array[String] = []
+	var dir = PluginInit.write_new_plugin(name, notes)
+	_check("new plugin dir", dir, "res://addons/" + name)
+	var cfg = ConfigFile.new()
+	_check("plugin.cfg parses", cfg.load(dir.path_join("plugin.cfg")), OK)
+	_check("plugin name", cfg.get_value("plugin", "name", ""), name.capitalize())
+	_check("plugin.gd written", FileAccess.get_file_as_string(dir.path_join("plugin.gd")).begins_with("@tool"), true)
+	_check("existing plugin refused", PluginInit.write_new_plugin(name, notes), "")
+	Runner.remove_dir(ProjectSettings.globalize_path("res://addons/" + name))
 
 
 static func _write_cfg(package_dir:String) -> void:
