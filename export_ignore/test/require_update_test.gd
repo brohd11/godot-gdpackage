@@ -32,6 +32,7 @@ static func run_tests() -> Dictionary:
 	_test_apply_cfg()
 	_test_verbose_refs()
 	_test_other_transfers_required()
+	_test_folder_scan_fallback()
 
 	var output:Array[String] = []
 	output.append("require_update: %d passed, %d failed" % [_passed, _failures.size()])
@@ -306,6 +307,40 @@ static func _test_other_transfers_required() -> void:
 	report = RequireReport.build(pkg)
 	rows = report.get("groups", {}).get(pkg, {}).get("rows", [])
 	_check("without the transfer it is no row", rows.filter(func(r): return r.id == "github.com/me/lib").size(), 0)
+	_remove_tree(root)
+
+
+## A package with no export config (never exported) is scanned as a whole folder: its files'
+## references count, export-ignore dirs (tests) don't, and update writes what it found.
+static func _test_folder_scan_fallback() -> void:
+	# Not under fixtures/: the dep scanner skips anything inside an export-ignore dir.
+	var root = "res://addons/zz_require_folder_%d" % Time.get_ticks_usec()
+	var pkg = root.path_join("pkg")
+	var lib = root.path_join("lib")
+	var other = root.path_join("other")
+	var files = {
+		lib.path_join("package.cfg"): '[package]\nname="lib"\nversion="1.0.0"\nurl="https://github.com/me/lib"\n',
+		lib.path_join("src/l.gd"): "extends RefCounted\n",
+		other.path_join("package.cfg"): '[package]\nname="other"\nversion="2.0.0"\nurl="https://github.com/me/other"\n',
+		other.path_join("o.gd"): "extends RefCounted\n",
+		pkg.path_join("package.cfg"): '[package]\nname="pkg"\nversion="0.1.0"\n',
+		pkg.path_join("src/a.gd"): 'extends RefCounted\nconst L = preload("%s")\n' % lib.path_join("src/l.gd"),
+		pkg.path_join("_export_ignore/test/a_test.gd"): 'extends RefCounted\nconst O = preload("%s")\n' % other.path_join("o.gd"),
+	}
+	for path in files:
+		DirAccess.make_dir_recursive_absolute(path.get_base_dir())
+		if not _write(path, files[path]):
+			_remove_tree(root)
+			return
+
+	var report = RequireReport.build(pkg)
+	_check("folder scan errors", report.errors, [])
+	_check("folder scan is flagged", report.folder_scan, true)
+	var rows = report.get("groups", {}).get(pkg, {}).get("rows", [])
+	_check("folder scan finds the package's references, not its tests'", rows.map(func(r): return r.id), ["github.com/me/lib"])
+	var result = RequireUpdate.apply(report, false, false)
+	_check("folder scan update errors", result.errors, [])
+	_check("folder scan update adds the requirement", result.added, ["me/lib@v1.0.0"])
 	_remove_tree(root)
 
 

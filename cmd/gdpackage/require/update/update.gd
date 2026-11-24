@@ -52,6 +52,8 @@ func _execute(ctx:Context):
 
 	var result = RequireUpdate.apply(report, overwrite_flag, prune_flag, export_config_flag)
 	var lines:Array[String] = []
+	if report.folder_scan:
+		lines.append(RequireReport.folder_scan_note(report))
 	for w in result.warnings:
 		lines.append("warning: " + w)
 	for dir in report.loose:

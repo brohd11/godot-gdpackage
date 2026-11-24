@@ -50,6 +50,9 @@ func _execute(ctx:Context):
 			for e in report.errors:
 				ctx.append_error(e)
 			return ExitCode.FAIL
+		# stderr: stdout stays one spec per line for piping.
+		if report.folder_scan:
+			ctx.append_error(RequireReport.folder_scan_note(report))
 		sections.append(RequireReport.format(report, verbose_flag) if all_flag else "\n".join(RequireUpdate.self_list(report, verbose_flag)))
 	if not tags_flag:
 		ctx.append_output("\n\n".join(sections))

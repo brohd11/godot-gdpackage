@@ -28,9 +28,11 @@ const CFG_NAMES = DepResolver.CFG_NAMES
 ## dependent outside any package. Top-level `files` is the crawl's roots and `external_dirs` the
 ## packages it left out, both for the minimum_engine_version stamp. other_transfers sources count
 ## as references from the target (kind "other_transfers"), since nothing else may reach them.
+## Without an export config (a package that is never exported) every file in the package dir is
+## a root instead, and `folder_scan` is true.
 static func build(plugin_name:String) -> Dictionary:
 	var report = {"target": "", "plugin_name": "", "config_path": "", "groups": {}, "loose": {},
-		"unused": {}, "errors": [], "files": [], "external_dirs": []}
+		"unused": {}, "errors": [], "files": [], "external_dirs": [], "folder_scan": false}
 	var package_dir = ExportFileUtils.ExportPaths.resolve_target(plugin_name)
 	if package_dir == "":
 		report.errors.append("Invalid package target (expected a path inside this project): " + plugin_name)
@@ -38,33 +40,39 @@ static func build(plugin_name:String) -> Dictionary:
 	var config_path = ExportFileUtils.get_export_config_path(plugin_name)
 	report.plugin_name = package_dir
 	report.config_path = config_path
-	if not FileAccess.file_exists(config_path):
-		report.errors.append("no export config at " + config_path)
-		return report
-	var data = ExportData.new(config_path)
-	if not data.data_valid:
-		report.errors.append("the export crawl failed for %s:" % plugin_name)
-		for entry in data.reporter.entries:
-			if entry.level == UtilsLocal.Reporter.Level.ERROR:
-				report.errors.append("  " + entry.text)
-		return report
-
 	var cache = {}
 	var target = _package_dir(package_dir.path_join("plugin.cfg"), cache)
+	var roots = {}
+	var external_dirs = {}
+	var class_map = {}
+	var exports = []
+	if not FileAccess.file_exists(config_path):
+		report.folder_scan = true
+		for file in _folder_roots(package_dir, target, cache):
+			roots[file] = true
+		class_map = _global_class_map()
+	else:
+		var data = ExportData.new(config_path)
+		if not data.data_valid:
+			report.errors.append("the export crawl failed for %s:" % plugin_name)
+			for entry in data.reporter.entries:
+				if entry.level == UtilsLocal.Reporter.Level.ERROR:
+					report.errors.append("  " + entry.text)
+			return report
+		exports = data.exports
+		class_map = data.class_list
+		for export in exports:
+			for file:String in export.valid_files_for_transfer:
+				roots[file] = true
+			for dir in export.external_dirs:
+				external_dirs[dir] = true
+
 	report.target = target
 	var needed = {target: {}} # from package -> {required package -> file count}
 	var refs = {} # "from package|required package" -> [{from, line, kind, raw, to}]
-
-	var roots = {}
-	var external_dirs = {}
-	for export in data.exports:
-		for file:String in export.valid_files_for_transfer:
-			roots[file] = true
-		for dir in export.external_dirs:
-			external_dirs[dir] = true
 	report.files = roots.keys()
 	report.external_dirs = external_dirs.keys()
-	var graph = _scan_files(roots.keys(), data.class_list)
+	var graph = _scan_files(roots.keys(), class_map)
 
 	# Every edge, so a file referenced from inside and outside its package still counts the outside.
 	var tally = {"target": target, "cache": cache, "needed": needed, "refs": refs, "counted": {}, "loose": report.loose}
@@ -76,7 +84,7 @@ static func build(plugin_name:String) -> Dictionary:
 		_count_link(tally, edge.to, _package_dir(edge.from, cache), ref)
 	# Transferred files may have no reference at all (e.g. a lib listed at runtime); the config is
 	# their dependent. Each file counts, but refs list each row's `from` once, not every file.
-	for export in data.exports:
+	for export in exports:
 		for entry in ExportFileUtils.get_other_transfer_data(export):
 			var file:String = entry[KeysData.FROM]
 			if not file.begins_with(KeysData.VIRTUAL):
@@ -201,6 +209,35 @@ static func _count_link(tally:Dictionary, to:String, from:String, ref:Dictionary
 	if not tally.needed.has(from):
 		tally.needed[from] = {}
 	tally.needed[from][package] = tally.needed[from].get(package, 0) + 1
+
+
+## Every file a never-exported package holds: not under an export-ignore dir (tests, fixtures) or
+## a nested package. GetFiles already skips dot dirs and .gdignore'd ones.
+static func _folder_roots(package_dir:String, target:String, cache:Dictionary) -> Array:
+	var roots = []
+	var scan = UtilsRemote.GetFiles.open(package_dir)
+	scan.ignore_dir_names = DepResolver.ExportIgnore.NAMES.duplicate()
+	for file:String in scan.get_files():
+		if file.get_extension() in ["uid", "import"]:
+			continue
+		if _package_dir(file, cache) == target:
+			roots.append(file)
+	return roots
+
+
+## Says the requirements come from the whole folder, not an export crawl; "" otherwise.
+static func folder_scan_note(report:Dictionary) -> String:
+	if not report.get("folder_scan", false):
+		return ""
+	return "note: %s has no export config, so every file in it was scanned" % report.plugin_name
+
+
+## class name -> script path, as ExportData builds it.
+static func _global_class_map() -> Dictionary:
+	var out = {}
+	for entry in ProjectSettings.get_global_class_list():
+		out[String(entry.get("class"))] = entry.get("path")
+	return out
 
 
 ## Nearest ancestor dir holding a package cfg; "" when none does.
