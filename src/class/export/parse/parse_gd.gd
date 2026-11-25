@@ -61,6 +61,8 @@ func _retain_crossed_consts(file_path:String, direct_dependencies:Dictionary) ->
 		if expression == "" or plan.has(expression):
 			continue
 		for hop:Dictionary in edge.meta.get(DepEdge.META_CROSSED, []):
+			if _rewritten_away(hop):
+				continue
 			export_obj.retain_const(hop.file, hop.name)
 			if not direct_dependencies.has(hop.path):
 				direct_dependencies[hop.path] = {}
@@ -70,6 +72,16 @@ func _retain_crossed_consts(file_path:String, direct_dependencies:Dictionary) ->
 		var name:String = plan[expression].name
 		if inherited.has(name):
 			export_obj.retain_const(inherited[name], name)
+
+
+## The hop lies inside another file's const value (`const UString = UtilR.Strings.UString`), and
+## that file's own plan turns the declaration into a direct preload, so the export never walks it.
+## A skip-parse file is copied as written, so its hops still count.
+func _rewritten_away(hop:Dictionary) -> bool:
+	for owner:Dictionary in hop.get("via", []):
+		if reductions_for(owner.file).has(owner.expr) and not DependencyTags.file_skips_parse(owner.file):
+			return true
+	return false
 
 
 func post_export_edit_file(file_path:String, file_lines:Variant=null):

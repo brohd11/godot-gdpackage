@@ -22,6 +22,7 @@ static func run_tests() -> Dictionary:
 	_test_ignores_and_rewrites()
 	_test_ignored_extends()
 	_test_classes_and_reduction()
+	_test_local_hub_alias()
 	_test_replacement()
 	_test_uid_sidecars()
 	_test_scan_consumers()
@@ -140,6 +141,26 @@ static func _test_classes_and_reduction() -> void:
 	export.file_parser.current_file_path_parsing = root
 	rendered = export.file_parser.default_parsers.gd.post_export_edit_file(root)
 	_check("ignored global does not inject preload", "\n".join(rendered).contains("preload("), false)
+
+
+## A local hub aliasing a global sub-hub (`const Leaf = Root.Sub.Leaf`) gets rewritten to a direct
+## preload, so a use through the local hub must not keep the sub-hub and everything it preloads.
+static func _test_local_hub_alias() -> void:
+	var leaf = _w("external/lh_leaf.gd", "extends RefCounted\n")
+	var other = _w("external/lh_other.gd", "extends RefCounted\n")
+	var sub = _w("external/lh_sub.gd", 'const Leaf = preload("./lh_leaf.gd")\nconst Other = preload("./lh_other.gd")\n')
+	var root_ns = _w("external/lh_root.gd", 'const Sub = preload("./lh_sub.gd")\n')
+	var hub = _w("plugin/lh_hub.gd", "const Leaf = Root.Sub.Leaf\n")
+	var user = _w("plugin/lh_user.gd", 'const H = preload("%s")\nvar x = H.Leaf\n' % hub)
+	var classes = {"Root": root_ns}
+	var export = _crawl([user], classes, true)
+	_check("local hub alias: target copied", export.files_to_copy.has(leaf), true)
+	_check("local hub alias: sub-hub absent", export.files_to_copy.has(sub), false)
+	_check("local hub alias: sub-hub member absent", export.files_to_copy.has(other), false)
+	_check("local hub alias: own const retained", export.const_retained(hub, "Leaf"), true)
+	_w("plugin/lh_hub.gd", "#! gdp-skip-parse\nconst Leaf = Root.Sub.Leaf\n")
+	export = _crawl([user], classes, true)
+	_check("skip-parse alias keeps its sub-hub", export.files_to_copy.has(sub), true)
 
 
 static func _test_replacement() -> void:
