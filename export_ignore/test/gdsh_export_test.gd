@@ -15,7 +15,8 @@ const COMMAND = '''extends "res://addons/_lib/gdsh/src/core/command_base.gd"
 static func get_command_name(): return "%s"
 static func get_self_command_data(): return _command_data({&"help": "Exported command fixture"})
 '''
-const HOST_LINE = 'const Host = preload("res://addons/_lib/gdsh/src/core/host.gd")\n'
+# Not `Host`: CommandBase declares that (the $GDSH_HOST names), and a redeclaration won't parse.
+const HOST_LINE = 'const ShellHost = preload("res://addons/_lib/gdsh/src/core/host.gd")\n'
 
 const PROBE = '''extends SceneTree
 const WITH_HOST = %s
@@ -42,7 +43,7 @@ func _run():
 		var child = children.child.get_command.call()
 		_check(child.get_command_name() == "child", "option callback instantiates child")
 	if WITH_HOST:
-		var host = entry.Host
+		var host = entry.ShellHost
 		var ctx = host.Context.new()
 		_check(ctx.scopes_hidden.has("echo"), "context loads builtins")
 		var loaded = ctx.load("res://addons/gdsh_loader_fixture/commands/root/root.gd")
@@ -86,7 +87,7 @@ static func _export_fixture(fixture:String, with_host:bool) -> bool:
 	var source = ROOT.path_join("source_" + fixture)
 	_write(source.path_join("plugin.cfg"), '[plugin]\nname="GDSh Loader Fixture"\nversion="0.1.0"\nscript="plugin.gd"\n')
 	_write(source.path_join("plugin.gd"), "@tool\nextends EditorPlugin\n")
-	# The command-only root references nothing but CommandBase: a Host or Load preload would mask
+	# The command-only root references nothing but CommandBase: a ShellHost or Load preload would mask
 	# a missing loader, and is exactly what the host fixture adds.
 	_write(source.path_join("commands/root/root.gd"), (COMMAND % "root") + (HOST_LINE if with_host else ""))
 	_write(source.path_join("commands/root/child/child.gd"), (COMMAND % "child") + 'func _execute(ctx): ctx.append_output("relocated child"); return ExitCode.OK\n')
