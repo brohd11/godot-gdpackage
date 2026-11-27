@@ -10,6 +10,10 @@ extends RefCounted
 const UtilsRemote = preload("res://addons/gdpackage/src/class/utils_remote.gd")
 const UFile = UtilsRemote.UFile
 
+## Absolute so export rewrites it to the install path; a relative one gets absolutized
+## too, which breaks it as a path_join argument.
+const INDEX_PATH := "res://addons/gdpackage/src/class/min_version/extension_api/api_min_version.json"
+
 ## Lowest version the index covers; findings at/below it don't raise the floor.
 ## Derived from the index's baked "versions" list (fallback if the index lacks it).
 var baseline := "4.0"
@@ -22,9 +26,8 @@ func _ensure_loaded() -> void:
 	if _loaded:
 		return
 	_loaded = true
-	var path: String = get_script().resource_path.get_base_dir().path_join("extension_api/api_min_version.json")
-	if FileAccess.file_exists(path):
-		_index = UFile.read_from_json(path)
+	if FileAccess.file_exists(INDEX_PATH):
+		_index = UFile.read_from_json(INDEX_PATH)
 		var versions: Array = _index.get("versions", [])
 		if not versions.is_empty():
 			baseline = versions[0]
