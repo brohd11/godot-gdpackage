@@ -43,7 +43,9 @@ static func export_by_name(plugin_dir_name, reporter = null):
 
 static func _print_result(success:bool, export_config_path:String, reporter):
 	var plugin_name = _plugin_label(export_config_path, reporter)
-	var accent_color = EditorInterface.get_editor_theme().get_color("accent_color", &"Editor").to_html()
+	var accent_color = "70bafa" # the default editor accent; no editor theme headless (gdsh CLI)
+	if Engine.is_editor_hint():
+		accent_color = EditorInterface.get_editor_theme().get_color("accent_color", &"Editor").to_html()
 	var details = []
 	if success and reporter.stats.has("files"):
 		details.append("%d files (%d external)" % [reporter.stats.files, reporter.stats.external])

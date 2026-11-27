@@ -206,7 +206,9 @@ static func check_export_script_valid(script_path, func_name, reporter = null):
 static func _run_export_script(script_path, func_name, export_data):
 	var script = load(script_path)
 	var script_ins = script.new()
-	EditorInterface.get_base_control().add_child(script_ins)
+	# Headless (gdsh CLI) there's no editor GUI, so the tree root hosts it.
+	var parent = EditorInterface.get_base_control() if Engine.is_editor_hint() else Engine.get_main_loop().root
+	parent.add_child(script_ins)
 	if script_ins.has_method("_configure"): # duck-typed: plain Node scripts predate ExportScript
 		script_ins._configure(export_data)
 	await script_ins.call(func_name)

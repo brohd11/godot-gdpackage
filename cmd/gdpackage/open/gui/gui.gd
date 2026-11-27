@@ -20,6 +20,9 @@ func _get_completions(ctx:Completion):
 	return PECommandUtils.plugin_name_completion(self, ctx, PECommandUtils.TargetAddons.VALID)
 
 func _execute(ctx:Context):
+	if _host() == Host.CLI:
+		ctx.append_error("gdpackage open gui needs the editor")
+		return ExitCode.FAIL
 	var plugin_name = positional_args[0]
 	PluginExporter.gui_open(plugin_name)
 	return ExitCode.OK
