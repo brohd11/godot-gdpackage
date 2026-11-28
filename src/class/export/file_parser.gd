@@ -22,6 +22,8 @@ var export_obj
 var current_file_path_parsing:String
 var current_adjusted_file_path:String
 
+static var _script_error_regex:RegEx
+
 func _init() -> void:
 	optimization = load("res://addons/gdpackage/src/class/export/optimization.gd").new()
 	var file_parser_path = self.get_script().resource_path
@@ -156,7 +158,26 @@ func pre_export():
 			parse_ins.pre_export()
 
 
+## A script error in a parser only ends that function, which returns null, and the file would
+## ship unedited while the export reports success. Any error raised from a .gd file fails it.
 func post_export_edit_file(file_path:String):
+	var sink = UtilsRemote.ErrorCapture.start()
+	_post_export_edit_file(file_path)
+	var errors = script_errors(UtilsRemote.ErrorCapture.stop(sink))
+	for e in errors:
+		export_obj.reporter.error("Script error while exporting %s: %s" % [current_file_path_parsing, e])
+	if not errors.is_empty():
+		export_obj.invalidate()
+
+
+## Captured errors whose source is a script; engine errors name a .cpp file instead.
+static func script_errors(captured:PackedStringArray) -> Array:
+	if _script_error_regex == null:
+		_script_error_regex = RegEx.create_from_string(r"^\S+\.gd:\d+: ")
+	return Array(captured).filter(func(l): return _script_error_regex.search(l) != null)
+
+
+func _post_export_edit_file(file_path:String):
 	if not check_file_valid(file_path):
 		return
 	if DependencyTags.file_skips_parse(file_path):

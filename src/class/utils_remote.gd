@@ -4,6 +4,7 @@ const UString = preload("uid://dce8d0wuh35gs") #! resolve UtilR.Strings.UString
 const UTree = preload("uid://1gwputufojp6") #! resolve UtilR.Nodes.Trees.UTree
 const URegex = preload("uid://d0rbf4as6kpns") #! resolve UtilR.Strings.URegex
 const UClassDetail = preload("uid://0a4i0eyxcij7") #! resolve UtilR.Objects.UClassDetail
+const ErrorCapture = preload("uid://bvohu6hrwgoai") #! resolve UtilR.Objects.ErrorCapture
 const Confirmation = preload("uid://dwhlbgevd62gg") #! resolve Dialogs.Handlers.Confirmation
 const FilePicker = preload("uid://bnhku17qy1buh") #! resolve Dialogs.Handlers.FilePicker
 
