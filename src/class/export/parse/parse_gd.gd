@@ -1,7 +1,7 @@
 extends "res://addons/gdpackage/src/class/export/parse/parse_base.gd"
 
-const PLUGIN_EXPORTED_STRING = "const PLUGIN_EXPORTED = false"
-const PLUGIN_EXPORTED_REPLACE = "const PLUGIN_EXPORTED = true"
+# Anchored to a declaration: a plain substring needle matched its own literal on self-export.
+const EXPORTED_FLAG_PATTERN = "^(\\s*const PLUGIN_EXPORTED\\s*(?::\\s*bool\\s*)?:?=\\s*)false\\b"
 
 const OUT_OF_PLUGIN_MSG = \
 "Out of plugin file path updated (if needed) but file not copied, if it should be, tag with \"#! gdp-dependency\" or ignore warning with \"#! gdp-ignore\".
@@ -10,6 +10,7 @@ const OUT_OF_PLUGIN_MSG = \
 var path_regex:RegEx
 var runtime_load_regex:RegEx
 var const_name_regex:RegEx
+var exported_flag_regex:RegEx
 
 func _init() -> void:
 	super()
@@ -21,6 +22,7 @@ func _init() -> void:
 	runtime_load_regex.compile("\\bload\\s*\\(\\s*([\"'])([^\"'\\n]*)\\1")
 	
 	const_name_regex = UtilsRemote.URegex.get_const_name()
+	exported_flag_regex = RegEx.create_from_string(EXPORTED_FLAG_PATTERN)
 
 func set_parse_settings(settings):
 	pass
@@ -607,9 +609,7 @@ func post_export_edit_line(line:String):
 	return line
 
 func _update_file_export_flags(line:String):
-	if line.find(PLUGIN_EXPORTED_STRING) > -1:
-		line = line.replace(PLUGIN_EXPORTED_STRING, PLUGIN_EXPORTED_REPLACE)
-	return line
+	return exported_flag_regex.sub(line, "$1true")
 
 
 func _is_extends_valid(line:String):
