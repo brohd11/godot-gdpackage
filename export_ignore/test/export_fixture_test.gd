@@ -209,8 +209,6 @@ static func _test_rewrites() -> void:
 
 	_check("strip-cast: self const via file tag", _has(dir, "src/core/tags.gd",
 		"-> PE_STRIP_CAST_SCRIPT"), false)
-	_check("strip-cast: from strip_cast.txt", _has(dir, "src/core/tags.gd",
-		"-> PETStripped"), false)
 	_check("strip-cast: from inline tag", _has(dir, "src/core/tags.gd",
 		"as PETLocalOnly"), false)
 	_check("strip-cast: dict value is no cast", _has(dir, "src/core/tags.gd", "return {0:PETLocalOnly.make()}"), true)
@@ -282,6 +280,13 @@ static func _test_reduction() -> void:
 	_check("reduced: tail chain rewritten", _has(dir, "src/core/access_tail.gd",
 		"return UString_StringMap.Mode.STRING"), true)
 	_check("reduced: tail target exported", _found(dir, "string/string_map.gd"), true)
+
+	# the reducer renames the chain before strip-cast runs, so the strip has to follow the rename
+	for variant in [BASELINE, REDUCED]:
+		var stripped = _text(_dirs.get(variant, ""), "src/core/access_strip_cast.gd")
+		_check("%s: strip-cast reduced return" % variant, stripped.contains("static func typed(value):"), true)
+		_check("%s: strip-cast reduced var" % variant, stripped.contains("var map = value"), true)
+		_check("%s: strip-cast reduced as" % variant, stripped.contains("return map\n"), true)
 
 	# the hub rule, driven by vendor/hub
 	_check("hub: remote file's own hub skipped", _found(dir, "hub/lib_hub.gd"), false)

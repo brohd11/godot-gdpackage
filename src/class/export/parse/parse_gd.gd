@@ -304,13 +304,6 @@ func _file_reductions() -> Dictionary:
 	return out
 
 
-## The file being written holds this source: a `#! gdp-replace` stub is copied from its base script, and
-## that is what the crawl planned against.
-func _content_path() -> String:
-	var path:String = export_obj.file_parser.current_file_path_parsing
-	return export_obj.files_to_copy.get(path, {}).get(KeysData.REPLACE_WITH, path)
-
-
 func _const_path(source_path:String, name:String) -> String:
 	var class_list = export_obj.export_data.class_list
 	return DepScanner.ResolveAccess.resolve(name, {}, class_list, _const_cache, source_path).path

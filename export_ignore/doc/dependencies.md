@@ -80,4 +80,4 @@ static func get_instance() -> PE_STRIP_CAST_SCRIPT:
 	return _get_instance(PE_STRIP_CAST_SCRIPT)
 ```
 
-- A `strip_cast.txt` beside `export.yml`, one name per line, strips those names in every file of the export.
+- A dotted type (`Head.Inner`) is stripped through its head's name, even after `reduce_access_paths` rewrites it to a binding.

@@ -63,6 +63,13 @@ func scan_direct_edges(file_path:String) -> Array:
 	return edges
 
 
+## The file being written holds this source: a `#! gdp-replace` stub is copied from its base script, and
+## that is what the crawl planned against.
+func _content_path() -> String:
+	var path:String = export_obj.file_parser.current_file_path_parsing
+	return export_obj.files_to_copy.get(path, {}).get(KeysData.REPLACE_WITH, path)
+
+
 ## The file's reduction plan, scanned once per export. Both the global-class pass and the
 ## dependency crawl ask for this, and the crawl runs second.
 func reductions_for(file_path:String) -> Dictionary:
